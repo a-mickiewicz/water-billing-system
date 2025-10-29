@@ -15,6 +15,7 @@ from db import get_db, init_db
 from models import Local, Reading, Invoice, Bill
 from invoice_reader import load_invoice_from_pdf
 from meter_manager import generate_bills_for_period
+from gsheets_integration import import_readings_from_sheets, import_locals_from_sheets, import_invoices_from_sheets
 import bill_generator
 
 app = FastAPI(
@@ -367,6 +368,107 @@ def delete_all_bills(db: Session = Depends(get_db)):
     }
 
 
+# ========== ENDPOINTY GOOGLE SHEETS ==========
+
+@app.post("/import/readings")
+def import_readings(
+    credentials_path: str,
+    spreadsheet_id: str,
+    sheet_name: str = "Odczyty",
+    db: Session = Depends(get_db)
+):
+    """
+    Importuje odczyty liczników z Google Sheets.
+    
+    Wymaga:
+    - credentials_path: Ścieżka do pliku JSON z poświadczeniami Google Service Account
+    - spreadsheet_id: ID arkusza (z URL: https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit)
+    - sheet_name: Nazwa arkusza (domyślnie "Odczyty")
+    """
+    try:
+        result = import_readings_from_sheets(
+            db=db,
+            credentials_path=credentials_path,
+            spreadsheet_id=spreadsheet_id,
+            sheet_name=sheet_name
+        )
+        return {
+            "message": "Import zakończony",
+            "imported": result["imported"],
+            "skipped": result["skipped"],
+            "errors": result["errors"],
+            "total": result["total"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Błąd importu: {str(e)}")
+
+
+@app.post("/import/locals")
+def import_locals(
+    credentials_path: str,
+    spreadsheet_id: str,
+    sheet_name: str = "Lokale",
+    db: Session = Depends(get_db)
+):
+    """
+    Importuje lokale z Google Sheets.
+    
+    Wymaga:
+    - credentials_path: Ścieżka do pliku JSON z poświadczeniami Google Service Account
+    - spreadsheet_id: ID arkusza
+    - sheet_name: Nazwa arkusza (domyślnie "Lokale")
+    """
+    try:
+        result = import_locals_from_sheets(
+            db=db,
+            credentials_path=credentials_path,
+            spreadsheet_id=spreadsheet_id,
+            sheet_name=sheet_name
+        )
+        return {
+            "message": "Import zakończony",
+            "imported": result["imported"],
+            "skipped": result["skipped"],
+            "errors": result["errors"],
+            "total": result["total"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Błąd importu: {str(e)}")
+
+
+@app.post("/import/invoices")
+def import_invoices(
+    credentials_path: str,
+    spreadsheet_id: str,
+    sheet_name: str = "Faktury",
+    db: Session = Depends(get_db)
+):
+    """
+    Importuje faktury z Google Sheets.
+    
+    Wymaga:
+    - credentials_path: Ścieżka do pliku JSON z poświadczeniami Google Service Account
+    - spreadsheet_id: ID arkusza
+    - sheet_name: Nazwa arkusza (domyślnie "Faktury")
+    """
+    try:
+        result = import_invoices_from_sheets(
+            db=db,
+            credentials_path=credentials_path,
+            spreadsheet_id=spreadsheet_id,
+            sheet_name=sheet_name
+        )
+        return {
+            "message": "Import zakończony",
+            "imported": result["imported"],
+            "skipped": result["skipped"],
+            "errors": result["errors"],
+            "total": result["total"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Błąd importu: {str(e)}")
+
+
 # ========== ENDPOINTY POMOCNICZE ==========
 
 @app.get("/")
@@ -387,7 +489,10 @@ def root():
             "download_bill": "/bills/download/{bill_id}",
             "delete_bill": "DELETE /bills/{bill_id}",
             "delete_period_bills": "DELETE /bills/period/{period}",
-            "delete_all_bills": "DELETE /bills/"
+            "delete_all_bills": "DELETE /bills/",
+            "import_readings": "POST /import/readings (z Google Sheets)",
+            "import_locals": "POST /import/locals (z Google Sheets)",
+            "import_invoices": "POST /import/invoices (z Google Sheets)"
         }
     }
 

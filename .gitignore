@@ -45,3 +45,8 @@ Thumbs.db
 invoices_raw/*.pdf
 bills/*.pdf
 
+# Google Sheets credentials
+credentials.json
+*credentials*.json
+config/
+
