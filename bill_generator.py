@@ -1,3 +1,4 @@
+
 """
 Moduł generowania rachunków PDF dla lokali.
 Tworzy pliki PDF z rachunkami w folderze bills/.
@@ -46,38 +47,47 @@ def generate_bill_pdf(db: Session, bill: Bill) -> str:
     filename = f"bill_{bill.data}_local_{bill.local}.pdf"
     filepath = bills_folder / filename
     
-    # Sprawdź czy font DejaVuSans jest dostępny (dla polskich znaków)
+    # Sprawdź czy font Arial jest dostępny (dla polskich znaków)
     try:
-        from reportlab.pdfbase.ttf import TTFont  # type: ignore
+        from reportlab.pdfbase.ttfonts import TTFont  # type: ignore
         import platform
         
         font_registered = False
         if platform.system() == 'Windows':
-            # W Windows, sprawdź standardowe lokalizacje
+            # W Windows, sprawdź standardowe lokalizacje Arial
             font_paths = [
-                ('C:/Windows/Fonts/dejavu/DejaVuSans.ttf', 'C:/Windows/Fonts/dejavu/DejaVuSans-Bold.ttf'),
-                ('C:/Windows/Fonts/DejaVuSans.ttf', 'C:/Windows/Fonts/DejaVuSans-Bold.ttf'),
+                'C:/Windows/Fonts/arial.ttf',
+                'C:/Windows/Fonts/Arial.ttf',
+                Path('C:/Windows/Fonts/arial.ttf'),  # Spróbuj też jako Path
             ]
         else:
+            # Na innych systemach spróbuj standardowe lokalizacje
             font_paths = [
-                ('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'),
+                '/usr/share/fonts/truetype/msttcorefonts/arial.ttf',
+                '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
             ]
         
-        for regular_path, bold_path in font_paths:
+        for font_path in font_paths:
             try:
-                if Path(regular_path).exists() and Path(bold_path).exists():
-                    pdfmetrics.registerFont(TTFont('DejaVuSans', regular_path))
-                    pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', bold_path))
-                    font_registered = True
-                    break
-            except:
+                font_path_str = str(font_path)
+                if Path(font_path_str).exists():
+                    pdfmetrics.registerFont(TTFont('Arial', font_path_str))
+                    # Sprawdź czy font został zarejestrowany
+                    if 'Arial' in pdfmetrics.getRegisteredFontNames():
+                        font_registered = True
+                        print(f"[OK] Zarejestrowano czcionkę Arial z: {font_path_str}")
+                        break
+            except Exception as e:
+                print(f"[DEBUG] Nie udało się zarejestrować czcionki z {font_path}: {e}")
                 continue
-        default_font = 'DejaVuSans' if font_registered else 'Helvetica'
-        default_font_bold = 'DejaVuSans-Bold' if font_registered else 'Helvetica-Bold'
-    except Exception:
+        
+        if not font_registered:
+            print("[WARNING] Nie znaleziono czcionki Arial, używam Helvetica (może brakować polskich znaków)")
+        default_font = 'Arial' if font_registered else 'Helvetica'
+    except Exception as e:
         # Jeśli font nie jest dostępny, użyj domyślnego Helvetica
+        print(f"[WARNING] Błąd rejestracji czcionki: {e}, używam Helvetica")
         default_font = 'Helvetica'
-        default_font_bold = 'Helvetica-Bold'
     
     # Funkcja do tworzenia CustomDocTemplate z nagłówkiem
     class CustomDocTemplate(SimpleDocTemplate):
@@ -118,28 +128,28 @@ def generate_bill_pdf(db: Session, bill: Bill) -> str:
     # Użyj fontu z polskimi znakami jeśli dostępny
     title_style = ParagraphStyle(
         'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=16,
-        textColor=colors.HexColor('#1a5490'),
-        spaceAfter=6*mm,
-        alignment=TA_CENTER,
-        fontName=default_font_bold
+        parent=styles['Heading5'],
+        fontSize=12,
+        textColor=colors.HexColor('#2c5aa0'),
+        spaceAfter=1*mm,
+        alignment=TA_LEFT,
+        fontName=default_font
     )
     heading_style = ParagraphStyle(
         'CustomHeading',
-        parent=styles['Heading2'],
+        parent=styles['Heading3'],
         fontSize=11,
         textColor=colors.HexColor('#2c5aa0'),
-        spaceBefore=5*mm,
-        spaceAfter=3*mm,
-        fontName=default_font_bold
+        spaceBefore=2*mm,
+        spaceAfter=1*mm,
+        fontName=default_font
     )
     
     story = []
     
     # Tytuł (bez polskich liter)
     story.append(Paragraph("RACHUNEK ZA WODE I SCIEKI", title_style))
-    
+    story.append(Paragraph("NA PODSTAWIE FAKTUR (W ZAŁĄCZNIKU)", heading_style))
     # Dane lokalu
     local_obj = db.query(Local).filter(Local.local == bill.local).first()
     
@@ -156,23 +166,22 @@ def generate_bill_pdf(db: Session, bill: Bill) -> str:
         ['Najemca:', local_obj.tenant if local_obj else '-'],
     ]
     
-    table = Table(data, colWidths=[50*mm, 120*mm])
+    table = Table(data, colWidths=[50*mm, 125*mm])
     table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (0, -1), default_font_bold),
-        ('FONTNAME', (1, 0), (-1, -1), default_font),
+        ('FONTNAME', (0, 0), (-1, -1), default_font),
         ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
     ]))
     
     story.append(table)
-    story.append(Spacer(1, 5*mm))
+    story.append(Spacer(1, 3*mm))
     
     # Koszty - przestrukturyzowana tabela
-    story.append(Paragraph("<b>ROZLICZENIE KOSZTOW</b>", heading_style))
+    story.append(Paragraph("ROZLICZENIE KOSZTOW", heading_style))
     
     if bill.invoice:
         invoice = bill.invoice
@@ -192,27 +201,26 @@ def generate_bill_pdf(db: Session, bill: Bill) -> str:
         ]
     else:
         costs_data = [
-            ['', 'Zuzycie', 'Cena jednostkowa', 'Laczny koszt'],
+            ['', 'Zużycie', 'Cena jednostkowa', 'Łączny koszt'],
             ['Woda:', format_usage(bill.usage_m3), '', format_money(bill.cost_water)],
             ['Scieki:', format_usage(bill.usage_m3), '', format_money(bill.cost_sewage)],
             ['Koszt zuzycia woda/scieki lacznie', '', '', format_money(bill.cost_usage_total)],
             ['Abonament', '', '', format_money(bill.abonament_total)],
         ]
     
-    costs_table = Table(costs_data, colWidths=[60*mm, 30*mm, 40*mm, 40*mm])
+    costs_table = Table(costs_data, colWidths=[60*mm, 30*mm, 40*mm, 30*mm])
     costs_table.setStyle(TableStyle([
         # Nagłówek
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('ALIGN', (2, 1), (3, -1), 'RIGHT'),  # Cena i koszt wyrównane do prawej
-        ('FONTNAME', (0, 0), (-1, 0), default_font_bold),
+        ('FONTNAME', (0, 0), (-1, -1), default_font),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ('TOPPADDING', (0, 0), (-1, -1), 6),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
         # Wiersze sum
-        ('FONTNAME', (0, 3), (-1, -1), default_font_bold),
         ('ROWBACKGROUNDS', (0, 3), (-1, 3), [colors.lightgrey]),
         ('ROWBACKGROUNDS', (0, 6), (-1, 6), [colors.lightgrey]),
     ]))
@@ -221,7 +229,7 @@ def generate_bill_pdf(db: Session, bill: Bill) -> str:
     story.append(Spacer(1, 5*mm))
     
     # Podsumowanie (zamiast SUMA KOŃCOWA)
-    story.append(Paragraph("<b>PODSUMOWANIE</b>", heading_style))
+    story.append(Paragraph("PODSUMOWANIE", heading_style))
     
     total_data = [
         ['Netto Lacznie:', format_money(bill.net_sum)],
@@ -229,11 +237,11 @@ def generate_bill_pdf(db: Session, bill: Bill) -> str:
         ['Calosc brutto:', format_money(bill.gross_sum)],
     ]
     
-    total_table = Table(total_data, colWidths=[50*mm, 80*mm])
+    total_table = Table(total_data, colWidths=[60*mm, 100*mm])
     total_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('ALIGN', (1, 0), (1, 2), 'RIGHT'),
-        ('FONTNAME', (0, 0), (-1, -1), default_font_bold),
+        ('FONTNAME', (0, 0), (-1, -1), default_font),
         ('FONTSIZE', (0, 2), (-1, 2), 11),
         ('FONTSIZE', (0, 0), (-1, 1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
@@ -291,19 +299,128 @@ def generate_all_bills_for_period(db: Session, period: str) -> list[str]:
     return generated_files
 
 
+def generate_all_possible_bills(db: Session) -> dict:
+    """
+    Generuje wszystkie możliwe rachunki dla wszystkich okresów,
+    które mają faktury i odczyty.
+    
+    Args:
+        db: Sesja bazy danych
+    
+    Returns:
+        Słownik ze statystykami generowania
+    """
+    from models import Invoice, Reading
+    from meter_manager import generate_bills_for_period
+    from sqlalchemy import distinct
+    
+    # Pobierz wszystkie okresy z faktur
+    periods_with_invoices = db.query(distinct(Invoice.data)).all()
+    periods_with_invoices = [p[0] for p in periods_with_invoices]
+    
+    # Pobierz okresy z odczytów
+    periods_with_readings = db.query(distinct(Reading.data)).all()
+    periods_with_readings = [p[0] for p in periods_with_readings]
+    
+    # Okresy które mają zarówno faktury jak i odczyty
+    valid_periods = [p for p in periods_with_invoices if p in periods_with_readings]
+    
+    if not valid_periods:
+        return {
+            "message": "Brak okresów z fakturami i odczytami",
+            "periods_processed": 0,
+            "bills_generated": 0,
+            "pdfs_generated": 0,
+            "errors": []
+        }
+    
+    bills_generated_count = 0
+    pdfs_generated_count = 0
+    errors = []
+    processed_periods = []
+    
+    # Dla każdego okresu, sprawdź czy są rachunki, jeśli nie - wygeneruj
+    for period in sorted(valid_periods):
+        try:
+            existing_bills = db.query(Bill).filter(Bill.data == period).first()
+            
+            if not existing_bills:
+                # Wygeneruj rachunki dla tego okresu
+                try:
+                    bills = generate_bills_for_period(db, period)
+                    bills_generated_count += len(bills)
+                    print(f"[OK] Wygenerowano {len(bills)} rachunków dla okresu {period}")
+                    processed_periods.append(period)
+                except Exception as e:
+                    error_msg = f"Błąd generowania rachunków dla {period}: {str(e)}"
+                    errors.append(error_msg)
+                    print(f"[ERROR] {error_msg}")
+                    continue
+        except Exception as e:
+            error_msg = f"Błąd sprawdzania rachunków dla {period}: {str(e)}"
+            errors.append(error_msg)
+            print(f"[ERROR] {error_msg}")
+            continue
+    
+    # Teraz wygeneruj PDF dla wszystkich rachunków bez PDF
+    all_bills = db.query(Bill).all()
+    for bill in all_bills:
+        if not bill.pdf_path:
+            try:
+                bills_folder = Path("bills")
+                filename = f"bill_{bill.data}_local_{bill.local}.pdf"
+                filepath = bills_folder / filename
+                
+                if not filepath.exists():
+                    pdf_path = generate_bill_pdf(db, bill)
+                    bill.pdf_path = pdf_path
+                    db.commit()
+                    pdfs_generated_count += 1
+                    print(f"[OK] Wygenerowano PDF: {filename}")
+            except Exception as e:
+                error_msg = f"Błąd generowania PDF dla rachunku {bill.id} ({bill.data}, {bill.local}): {str(e)}"
+                errors.append(error_msg)
+                print(f"[ERROR] {error_msg}")
+    
+    return {
+        "message": "Zakończono generowanie wszystkich możliwych rachunków",
+        "valid_periods": len(valid_periods),
+        "periods_processed": len(processed_periods),
+        "bills_generated": bills_generated_count,
+        "pdfs_generated": pdfs_generated_count,
+        "processed_periods": processed_periods,
+        "errors": errors
+    }
+
+
 if __name__ == "__main__":
     from db import SessionLocal
-    from models import Bill
     
     db = SessionLocal()
     try:
-        bills = db.query(Bill).all()
-        print(f"Znaleziono {len(bills)} rachunków")
+        print("=" * 50)
+        print("Generowanie wszystkich możliwych rachunków...")
+        print("=" * 50)
         
-        for bill in bills:
-            if not bill.pdf_path:
-                generate_bill_pdf(db, bill)
-                print(f"Wygenerowano rachunek dla {bill.local}")
+        result = generate_all_possible_bills(db)
+        
+        print("\n" + "=" * 50)
+        print("PODSUMOWANIE:")
+        print("=" * 50)
+        print(f"Znaleziono okresów: {result['valid_periods']}")
+        print(f"Przetworzono okresów: {result['periods_processed']}")
+        print(f"Wygenerowano rachunków: {result['bills_generated']}")
+        print(f"Wygenerowano plików PDF: {result['pdfs_generated']}")
+        
+        if result['processed_periods']:
+            print(f"\nPrzetworzone okresy: {', '.join(result['processed_periods'])}")
+        
+        if result['errors']:
+            print(f"\n⚠️  Błędy ({len(result['errors'])}):")
+            for error in result['errors']:
+                print(f"  - {error}")
+        else:
+            print("\n✓ Wszystko zakończone pomyślnie!")
     finally:
         db.close()
 

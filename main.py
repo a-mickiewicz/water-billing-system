@@ -277,6 +277,69 @@ def regenerate_bills(period: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.post("/bills/generate-all")
+def generate_all_bills(db: Session = Depends(get_db)):
+    """
+    Generuje wszystkie możliwe rachunki dla wszystkich okresów,
+    które mają faktury i odczyty.
+    Generuje TYLKO brakujące rachunki (nie usuwa istniejących).
+    """
+    try:
+        result = bill_generator.generate_all_possible_bills(db)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Błąd generowania rachunków: {str(e)}")
+
+
+@app.post("/bills/regenerate-all")
+def regenerate_all_bills(db: Session = Depends(get_db)):
+    """
+    Regeneruje WSZYSTKIE rachunki - usuwa istniejące i generuje na nowo.
+    Użyj tego endpointu po zmianach w logice obliczeń (np. poprawkach błędów).
+    
+    Wykonuje:
+    1. Usuwa wszystkie istniejące rachunki z bazy danych
+    2. Usuwa wszystkie pliki PDF rachunków
+    3. Generuje wszystkie możliwe rachunki dla okresów z fakturami i odczytami
+    4. Generuje pliki PDF dla wszystkich wygenerowanych rachunków
+    """
+    try:
+        # 1. Usuń wszystkie istniejące rachunki
+        all_bills = db.query(Bill).all()
+        deleted_count = 0
+        
+        for bill in all_bills:
+            # Usuń plik PDF jeśli istnieje
+            if bill.pdf_path and Path(bill.pdf_path).exists():
+                try:
+                    Path(bill.pdf_path).unlink()
+                except Exception as e:
+                    print(f"[WARNING] Nie udalo sie usunac pliku {bill.pdf_path}: {e}")
+            db.delete(bill)
+            deleted_count += 1
+        
+        db.commit()
+        
+        if deleted_count > 0:
+            print(f"[INFO] Usunieto {deleted_count} istniejących rachunków")
+        
+        # 2. Wygeneruj wszystkie rachunki na nowo
+        result = bill_generator.generate_all_possible_bills(db)
+        
+        return {
+            "message": "Wszystkie rachunki zregenerowane",
+            "deleted_bills": deleted_count,
+            "regenerated_periods": result.get("periods_processed", 0),
+            "bills_generated": result.get("bills_generated", 0),
+            "pdfs_generated": result.get("pdfs_generated", 0),
+            "errors": result.get("errors", []),
+            "processed_periods": result.get("processed_periods", [])
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Błąd regenerowania rachunków: {str(e)}")
+
+
 @app.get("/bills/download/{bill_id}")
 def download_bill(bill_id: int, db: Session = Depends(get_db)):
     """Pobiera plik PDF rachunku."""
@@ -486,6 +549,9 @@ def root():
             "upload_invoice": "POST /invoices/upload (z pliku PDF)",
             "bills": "/bills/",
             "generate_bills": "/bills/generate/{period}",
+            "regenerate_bills": "POST /bills/regenerate/{period} (ponownie generuje dla okresu)",
+            "generate_all_bills": "POST /bills/generate-all (generuje tylko brakujące)",
+            "regenerate_all_bills": "POST /bills/regenerate-all (usuwa wszystkie i generuje na nowo)",
             "download_bill": "/bills/download/{bill_id}",
             "delete_bill": "DELETE /bills/{bill_id}",
             "delete_period_bills": "DELETE /bills/period/{period}",

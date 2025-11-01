@@ -147,6 +147,33 @@ def generate_bills_for_period(db: Session, period: str) -> list[Bill]:
     if not invoices:
         raise ValueError(f"Brak faktur dla okresu {period}")
     
+    # Sprawdź czy faktury mają ten sam numer co faktury w następnym okresie
+    # (sytuacja gdy jedna faktura jest podzielona na dwa okresy rozliczeniowe)
+    if invoices:
+        invoice_numbers = set(inv.invoice_number for inv in invoices)
+        # Pobierz następny okres (YYYY-MM -> YYYY-MM+1)
+        try:
+            year, month = map(int, period.split('-'))
+            if month == 12:
+                next_period = f"{year + 1}-01"
+            else:
+                next_period = f"{year}-{month + 1:02d}"
+            
+            # Sprawdź faktury z następnego okresu z tym samym numerem
+            next_invoices = db.query(Invoice).filter(
+                Invoice.data == next_period,
+                Invoice.invoice_number.in_(invoice_numbers)
+            ).all()
+            
+            if next_invoices:
+                # Dodaj faktury z następnego okresu do rozliczenia
+                invoices.extend(next_invoices)
+                invoices.sort(key=lambda inv: inv.period_start)
+                print(f"[INFO] Znaleziono faktury z tym samym numerem w okresie {next_period},"
+                      f" dolaczono do rozliczenia {period}")
+        except (ValueError, IndexError):
+            pass  # Jeśli nie można sparsować okresu, kontynuuj bez sprawdzania następnego okresu
+    
     # Oblicz zużycie dla każdego lokalu jako różnicę między odczytami
     usage_gora = calculate_local_usage(current_reading, previous_reading, 'gora')
     usage_gabinet = calculate_local_usage(current_reading, previous_reading, 'gabinet')
@@ -161,9 +188,41 @@ def generate_bills_for_period(db: Session, period: str) -> list[Bill]:
     # Oblicz różnicę między fakturą a sumą odczytów
     usage_adjustment = total_invoice_usage - calculated_total_usage
     
-    # Jeśli są różnice, koryguj na gora
+    # Ostrzeżenie, jeśli różnica jest bardzo duża (może to oznaczać błąd w danych)
+    if abs(usage_adjustment) > 5.0:
+        print(f"[OSTRZEZENIE] Duza roznica miedzy odczytami a faktura dla {period}:")
+        print(f"  Suma roznic odczytow: {calculated_total_usage:.2f} m3")
+        print(f"  Zuzycie z faktury: {total_invoice_usage:.2f} m3")
+        print(f"  Roznica: {usage_adjustment:.2f} m3")
+        print(f"  Mozliwe przyczyny: bledne odczyty, bledna faktura, lub niepokrywajace sie okresy rozliczeniowe")
+    
+    # Jeśli są różnice, rozdziel korektę proporcjonalnie do zużycia każdego lokalu
+    # aby uniknąć ujemnych wartości (np. gdy cała korekta idzie tylko na jeden lokal)
     if abs(usage_adjustment) > 0.01:
-        usage_gora += usage_adjustment
+        # Jeśli obliczone zużycie jest bardzo małe lub zerowe, rozdziel równomiernie
+        if abs(calculated_total_usage) < 0.01:
+            # Równomierny podział na 3 lokale
+            usage_gora += usage_adjustment / 3
+            usage_gabinet += usage_adjustment / 3
+            usage_dol += usage_adjustment / 3
+        else:
+            # Rozdziel proporcjonalnie według udziału każdego lokalu w zużyciu
+            # Używamy wartości bezwzględnych, aby obsłużyć przypadki z ujemnym zużyciem
+            abs_usage_gora = abs(usage_gora)
+            abs_usage_gabinet = abs(usage_gabinet)
+            abs_usage_dol = abs(usage_dol)
+            abs_total = abs_usage_gora + abs_usage_gabinet + abs_usage_dol
+            
+            if abs_total > 0.01:
+                # Proporcjonalny podział
+                usage_gora += usage_adjustment * (abs_usage_gora / abs_total)
+                usage_gabinet += usage_adjustment * (abs_usage_gabinet / abs_total)
+                usage_dol += usage_adjustment * (abs_usage_dol / abs_total)
+            else:
+                # Fallback: równomierny podział
+                usage_gora += usage_adjustment / 3
+                usage_gabinet += usage_adjustment / 3
+                usage_dol += usage_adjustment / 3
     
     # Oblicz średnie koszty z wszystkich faktur (ważone zużyciem)
     # Lub użyj najwyższych kosztów - zdecydujemy się na średnią ważoną
