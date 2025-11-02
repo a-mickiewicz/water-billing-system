@@ -17,6 +17,7 @@ def calculate_local_usage(
 ) -> float:
     """
     Oblicza zużycie dla konkretnego lokalu jako różnicę między obecnym a poprzednim odczytem.
+    Obsługuje wymianę licznika głównego - gdy nowy odczyt < poprzedni, przyjmuje że nowy odczyt to zużycie.
     
     Args:
         current_reading: Obecny odczyt liczników
@@ -24,7 +25,7 @@ def calculate_local_usage(
         local_name: Nazwa lokalu ('gora', 'gabinet', 'dol')
     
     Returns:
-        Zużycie w m³ dla danego lokalu (różnica między odczytami)
+        Zużycie w m³ dla danego lokalu (różnica między odczytami lub bezpośrednio stan przy wymianie licznika)
     """
     if previous_reading is None:
         # Jeśli to pierwszy odczyt, zużycie = obecny stan
@@ -38,20 +39,37 @@ def calculate_local_usage(
         else:
             raise ValueError(f"Nieznany lokal: {local_name}")
     
-    # Oblicz różnicę dla gora
+    # Sprawdź czy nastąpiła wymiana licznika głównego
+    # Wymiana: gdy nowy odczyt głównego licznika < poprzedni odczyt
+    meter_main_replaced = current_reading.water_meter_main < previous_reading.water_meter_main
+    
+    if meter_main_replaced:
+        print(f"  [INFO] Wykryto wymianę licznika głównego:")
+        print(f"    Poprzedni stan: {previous_reading.water_meter_main} m³")
+        print(f"    Nowy stan: {current_reading.water_meter_main} m³")
+        print(f"    Przyjmuję nowy stan jako zużycie dla okresu")
+    
+    # Oblicz różnicę dla gora (podliczniki nie są wymieniane)
     usage_gora = current_reading.water_meter_5 - previous_reading.water_meter_5
     # Oblicz różnicę dla gabinet  
     usage_gabinet = current_reading.water_meter_5b - previous_reading.water_meter_5b
-    # Oblicz różnicę dla main
-    usage_main = current_reading.water_meter_main - previous_reading.water_meter_main
     
     if local_name == 'gora':
         return float(usage_gora)
     elif local_name == 'gabinet':
         return float(usage_gabinet)
     elif local_name == 'dol':
-        # dol = różnica main - (różnica gora + różnica gabinet)
-        return usage_main - (usage_gora + usage_gabinet)
+        if meter_main_replaced:
+            # Gdy wymieniony licznik główny:
+            # Nowy stan głównego (np. 33) to całkowite zużycie dla okresu
+            # Zużycie dla lokalu "dol" = obecny stan głównego - (gora + gabinet)
+            current_dol_state = current_reading.water_meter_main - (current_reading.water_meter_5 + current_reading.water_meter_5b)
+            return current_dol_state
+        else:
+            # Normalne obliczenie - różnica między odczytami
+            usage_main = current_reading.water_meter_main - previous_reading.water_meter_main
+            # dol = różnica main - (różnica gora + różnica gabinet)
+            return usage_main - (usage_gora + usage_gabinet)
     else:
         raise ValueError(f"Nieznany lokal: {local_name}")
 
@@ -174,10 +192,45 @@ def generate_bills_for_period(db: Session, period: str) -> list[Bill]:
         except (ValueError, IndexError):
             pass  # Jeśli nie można sparsować okresu, kontynuuj bez sprawdzania następnego okresu
     
+    # Sprawdź czy w poprzednim okresie była kompensacja do przeniesienia
+    compensation_from_previous = 0.0
+    if previous_reading:
+        try:
+            # Pobierz poprzedni okres
+            prev_period = previous_reading.data
+            # Sprawdź czy był rachunek dla "dol" w poprzednim okresie z ujemnym zużyciem
+            prev_bills = db.query(Bill).filter(
+                Bill.data == prev_period,
+                Bill.local == 'dol'
+            ).all()
+            
+            for prev_bill in prev_bills:
+                if prev_bill.usage_m3 < 0:
+                    # Przenieś kompensację do bieżącego okresu na "gora"
+                    compensation_from_previous = abs(prev_bill.usage_m3)
+                    print(f"[INFO] Przenoszenie kompensacji z poprzedniego okresu {prev_period}:")
+                    print(f"  Ujemne zuzycie dol: {prev_bill.usage_m3:.2f} m3")
+                    print(f"  Dodam {compensation_from_previous:.2f} m3 do lokalu 'gora' w okresie {period}")
+                    break
+        except Exception as e:
+            print(f"[UWAGA] Nie mozna sprawdzic kompensacji z poprzedniego okresu: {e}")
+    
     # Oblicz zużycie dla każdego lokalu jako różnicę między odczytami
+    # Odczyty mogą być różne (main może być < gora+gabinet) - to jest normalne
     usage_gora = calculate_local_usage(current_reading, previous_reading, 'gora')
     usage_gabinet = calculate_local_usage(current_reading, previous_reading, 'gabinet')
     usage_dol = calculate_local_usage(current_reading, previous_reading, 'dol')
+    
+    # Jeśli usage_dol jest ujemne, zostawiamy jako ujemne (zostanie zapisane w rachunku)
+    # Kompensacja zostanie dodana do 'gora' w następnym okresie
+    if usage_dol < 0:
+        print(f"[INFO] Lokal 'dol' ma ujemne zuzycie ({usage_dol:.2f} m3) dla okresu {period}")
+        print(f"  To jest normalne gdy suma podlicznikow jest wieksza niz licznik glowny")
+        print(f"  Zostawiam ujemne zuzycie - kompensacja zostanie dodana do 'gora' w nastepnym okresie")
+    
+    # Dodaj kompensację z poprzedniego okresu do "gora"
+    if compensation_from_previous > 0:
+        usage_gora += compensation_from_previous
     
     # Oblicz całkowite zużycie z różnic między odczytami
     calculated_total_usage = usage_gora + usage_gabinet + usage_dol
@@ -196,33 +249,12 @@ def generate_bills_for_period(db: Session, period: str) -> list[Bill]:
         print(f"  Roznica: {usage_adjustment:.2f} m3")
         print(f"  Mozliwe przyczyny: bledne odczyty, bledna faktura, lub niepokrywajace sie okresy rozliczeniowe")
     
-    # Jeśli są różnice, rozdziel korektę proporcjonalnie do zużycia każdego lokalu
-    # aby uniknąć ujemnych wartości (np. gdy cała korekta idzie tylko na jeden lokal)
+    # Jeśli są różnice między fakturą a obliczeniami, dodaj korektę tylko do lokalu "gora"
+    # (kompensacja różnicy w następnym okresie będzie na "gora")
     if abs(usage_adjustment) > 0.01:
-        # Jeśli obliczone zużycie jest bardzo małe lub zerowe, rozdziel równomiernie
-        if abs(calculated_total_usage) < 0.01:
-            # Równomierny podział na 3 lokale
-            usage_gora += usage_adjustment / 3
-            usage_gabinet += usage_adjustment / 3
-            usage_dol += usage_adjustment / 3
-        else:
-            # Rozdziel proporcjonalnie według udziału każdego lokalu w zużyciu
-            # Używamy wartości bezwzględnych, aby obsłużyć przypadki z ujemnym zużyciem
-            abs_usage_gora = abs(usage_gora)
-            abs_usage_gabinet = abs(usage_gabinet)
-            abs_usage_dol = abs(usage_dol)
-            abs_total = abs_usage_gora + abs_usage_gabinet + abs_usage_dol
-            
-            if abs_total > 0.01:
-                # Proporcjonalny podział
-                usage_gora += usage_adjustment * (abs_usage_gora / abs_total)
-                usage_gabinet += usage_adjustment * (abs_usage_gabinet / abs_total)
-                usage_dol += usage_adjustment * (abs_usage_dol / abs_total)
-            else:
-                # Fallback: równomierny podział
-                usage_gora += usage_adjustment / 3
-                usage_gabinet += usage_adjustment / 3
-                usage_dol += usage_adjustment / 3
+        print(f"[INFO] Roznica miedzy faktura a obliczeniami: {usage_adjustment:.2f} m3")
+        print(f"  Dodaje korekte tylko do lokalu 'gora'")
+        usage_gora += usage_adjustment
     
     # Oblicz średnie koszty z wszystkich faktur (ważone zużyciem)
     # Lub użyj najwyższych kosztów - zdecydujemy się na średnią ważoną

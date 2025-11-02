@@ -33,7 +33,8 @@ def parse_period_from_filename(filename: str) -> Optional[str]:
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     """
-    Wyciąga tekst z pliku PDF.
+    Wyciąga tekst z pliku PDF - wszystkie strony i wszystkie znaki.
+    Używa dodatkowych opcji, aby wyciągnąć także tekst z tabel i innych elementów.
     
     Args:
         pdf_path: Ścieżka do pliku PDF
@@ -44,8 +45,25 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     text = ""
     try:
         with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                text += page.extract_text() or ""
+            for i, page in enumerate(pdf.pages, 1):
+                # Wyciągnij tekst podstawowy
+                page_text = page.extract_text() or ""
+                
+                # Spróbuj też wyciągnąć tabele (mogą zawierać dane o odczytach liczników)
+                try:
+                    tables = page.extract_tables()
+                    if tables:
+                        # Dodaj dane z tabel do tekstu
+                        for table in tables:
+                            for row in table:
+                                if row:
+                                    row_text = " ".join([str(cell) if cell else "" for cell in row])
+                                    page_text += " " + row_text
+                except Exception:
+                    pass  # Jeśli nie da się wyciągnąć tabel, kontynuuj
+                
+                text += page_text + "\n"
+        
     except Exception as e:
         print(f"Błąd przy wczytywaniu PDF {pdf_path}: {e}")
     return text
@@ -177,6 +195,23 @@ def parse_invoice_data(text: str) -> Optional[Dict]:
         data['period_start'] = datetime(int(start_year), int(start_month), int(start_day))
         data['period_stop'] = datetime(int(end_year), int(end_month), int(end_day))
     
+    # Wyszukaj "Rozliczenie za okres od DD-MM-YYYY" i wyciągnij okres YYYY-MM
+    # Wzorzec: "Rozliczenie za okres od" + data w formacie DD-MM-YYYY lub DD.MM.YYYY lub DD/MM/YYYY
+    rozliczenie_match = re.search(r'Rozliczenie\s+za\s+okres\s+od\s+(\d{1,2})[./-](\d{1,2})[./-](\d{4})', text, re.IGNORECASE)
+    extracted_period = None  # Zapisujemy okres do użycia w load_invoice_from_pdf, ale nie dodajemy do data
+    if rozliczenie_match:
+        day, month, year = rozliczenie_match.group(1, 2, 3)
+        # Zapisz okres w formacie YYYY-MM (nie dodajemy do data, bo model używa 'data', nie 'period')
+        extracted_period = f"{year}-{int(month):02d}"
+        # Jeśli nie mamy period_start, ustaw go na podstawie tej daty
+        if 'period_start' not in data:
+            data['period_start'] = datetime(int(year), int(month), int(day))
+    
+    # Zapisz wyciągnięty okres do użycia w load_invoice_from_pdf (ale nie dodawaj do data)
+    if extracted_period:
+        # Używamy specjalnego klucza który zostanie usunięty przed utworzeniem Invoice
+        data['_extracted_period'] = extracted_period
+    
     # Wyszukaj abonament
     abonament_match = re.search(r'(\d+)\s*(?:miesięcy|months)', text, re.IGNORECASE)
     if abonament_match:
@@ -227,6 +262,71 @@ def parse_invoice_data(text: str) -> Optional[Dict]:
                 if gross_sum_match:
                     data['gross_sum'] = float(gross_sum_match.group(1).replace(',', '.'))
     
+    # Wyszukaj odczyty liczników z tabeli (pod "Adres świadczenia usługi")
+    # Format: Tabela z kolumnami: "Poprzed. odczyt", "Bieżący odczyt", "Ilość do rozl."
+    # Szukamy wzorców typu: "Poprzed. odczyt" lub "Poprzedni odczyt" + liczba
+    meter_readings = {}
+    
+    # Wzorzec dla tabeli z odczytami - szukamy sekcji po "Adres świadczenia usługi"
+    adres_match = re.search(r'Adres\s+świadczenia\s+usługi.*?(?=Wartość\s+Netto|Rozliczenie|Należność|$)', text, re.IGNORECASE | re.DOTALL)
+    if adres_match:
+        adres_section = adres_match.group(0)
+        
+        # Szukaj poprzedniego odczytu - różne formaty
+        prev_patterns = [
+            r'Poprzed\.?\s*odczyt[:\s]*(\d+[.,]?\d*)',
+            r'Poprzedni\s+odczyt[:\s]*(\d+[.,]?\d*)',
+            r'Poprzed\.\s+odczyt[:\s]*(\d+[.,]?\d*)',
+        ]
+        for pattern in prev_patterns:
+            prev_match = re.search(pattern, adres_section, re.IGNORECASE)
+            if prev_match:
+                meter_readings['previous_reading'] = float(prev_match.group(1).replace(',', '.'))
+                break
+        
+        # Szukaj bieżącego odczytu
+        current_patterns = [
+            r'Bieżący\s+odczyt[:\s]*(\d+[.,]?\d*)',
+            r'Biezący\s+odczyt[:\s]*(\d+[.,]?\d*)',
+        ]
+        for pattern in current_patterns:
+            current_match = re.search(pattern, adres_section, re.IGNORECASE)
+            if current_match:
+                meter_readings['current_reading'] = float(current_match.group(1).replace(',', '.'))
+                break
+        
+        # Szukaj ilości do rozliczenia
+        quantity_patterns = [
+            r'Ilość\s+do\s+rozliczenia[:\s]*(\d+[.,]?\d*)',
+            r'Ilość\s+do\s+rozl\.?[:\s]*(\d+[.,]?\d*)',
+        ]
+        for pattern in quantity_patterns:
+            quantity_match = re.search(pattern, adres_section, re.IGNORECASE)
+            if quantity_match:
+                meter_readings['quantity_to_settle'] = float(quantity_match.group(1).replace(',', '.'))
+                break
+    
+    # Alternatywny wzorzec - szukaj w całym tekście formatu tabeli
+    if not meter_readings:
+        # Szukaj wzorca: Woda/Poprzed. odczyt/[liczba]/Bieżący odczyt/[liczba]/Ilość do rozl./[liczba]
+        meter_table_pattern = r'Woda.*?(?:Poprzed\.?\s*odczyt|Poprzedni\s+odczyt)[:\s]*(\d+[.,]?\d*).*?(?:Bieżący\s+odczyt|Biezący\s+odczyt)[:\s]*(\d+[.,]?\d*).*?(?:Ilość\s+do\s+rozl\.?|Ilość\s+do\s+rozliczenia)[:\s]*(\d+[.,]?\d*)'
+        meter_table_match = re.search(meter_table_pattern, text, re.IGNORECASE | re.DOTALL)
+        if meter_table_match:
+            meter_readings['previous_reading'] = float(meter_table_match.group(1).replace(',', '.'))
+            meter_readings['current_reading'] = float(meter_table_match.group(2).replace(',', '.'))
+            meter_readings['quantity_to_settle'] = float(meter_table_match.group(3).replace(',', '.'))
+    
+    # Dodaj odczyty liczników do danych faktury (jeśli znalezione)
+    if meter_readings:
+        data['meter_readings'] = meter_readings
+        print(f"  [INFO] Znaleziono odczyty liczników z faktury:")
+        if 'previous_reading' in meter_readings:
+            print(f"    Poprzedni odczyt: {meter_readings['previous_reading']} m³")
+        if 'current_reading' in meter_readings:
+            print(f"    Bieżący odczyt: {meter_readings['current_reading']} m³")
+        if 'quantity_to_settle' in meter_readings:
+            print(f"    Ilość do rozliczenia: {meter_readings['quantity_to_settle']} m³")
+    
     # Sprawdź czy wszystkie wymagane dane są obecne
     required_fields = [
         'invoice_number', 'usage', 'water_cost_m3', 'sewage_cost_m3',
@@ -243,40 +343,63 @@ def parse_invoice_data(text: str) -> Optional[Dict]:
 def load_invoice_from_pdf(db: Session, pdf_path: str, period: Optional[str] = None) -> Optional[Invoice]:
     """
     Wczytuje fakturę z pliku PDF i zapisuje do bazy danych.
+    Obsługuje różne nazwy plików - okres jest wyciągany z nazwy pliku lub z dat faktury.
     
     Args:
         db: Sesja bazy danych
         pdf_path: Ścieżka do pliku PDF
-        period: Okres rozliczeniowy (jeśli None, wyciąga z nazwy pliku)
+        period: Okres rozliczeniowy (jeśli None, wyciąga z nazwy pliku lub z dat faktury)
     
     Returns:
         Zapisana faktura lub None w przypadku błędu
     """
-    # Wyciągnij okres z nazwy pliku jeśli nie podano
-    if not period:
-        period = parse_period_from_filename(os.path.basename(pdf_path))
+    print(f"\n📄 Przetwarzanie pliku: {os.path.basename(pdf_path)}")
     
-    if not period:
-        print(f"Nie można wyciągnąć okresu z nazwy pliku: {pdf_path}")
-        return None
-    
-    # Wczytaj tekst z PDF (może być wiele faktur dla tego samego okresu)
+    # Wczytaj tekst z PDF
     text = extract_text_from_pdf(pdf_path)
     if not text:
-        print(f"Nie udało się wczytać tekstu z pliku: {pdf_path}")
+        print(f"❌ Nie udało się wczytać tekstu z pliku: {pdf_path}")
         return None
     
-    # Parsuj dane
+    # Parsuj dane z faktury
     invoice_data = parse_invoice_data(text)
     
     if not invoice_data:
-        print(f"Nie udało się sparsować danych z faktury: {pdf_path}")
-        print("Tekst z faktury (pierwsze 500 znaków):")
-        print(text[:500])
+        print(f"❌ Nie udało się sparsować danych z faktury: {pdf_path}")
+        print("   Tekst z faktury (pierwsze 500 znaków):")
+        print(f"   {text[:500]}")
+        return None
+    
+    # Określ okres rozliczeniowy
+    if not period:
+        # Priorytet 1: Wyciągnij z tekstu faktury "Rozliczenie za okres od DD-MM-YYYY"
+        if '_extracted_period' in invoice_data:
+            period = invoice_data['_extracted_period']
+            print(f"📅 Okres wyciągnięty z tekstu faktury 'Rozliczenie za okres od...': {period}")
+        else:
+            # Priorytet 2: Próbuj wyciągnąć z nazwy pliku
+            period = parse_period_from_filename(os.path.basename(pdf_path))
+            if period:
+                print(f"📅 Okres wyciągnięty z nazwy pliku: {period}")
+            else:
+                # Priorytet 3: Wyciągnij z daty początku okresu faktury
+                if 'period_start' in invoice_data:
+                    period_start = invoice_data['period_start']
+                    period = f"{period_start.year}-{period_start.month:02d}"
+                    print(f"📅 Okres wyciągnięty z daty początku okresu faktury: {period}")
+    
+    if not period:
+        print(f"❌ Nie można określić okresu rozliczeniowego dla: {pdf_path}")
+        print("   Okres musi być w tekście faktury ('Rozliczenie za okres od DD-MM-YYYY'),")
+        print("   w nazwie pliku (format YYYY-MM) lub w dacie faktury")
         return None
     
     # Dodaj okres do danych
     invoice_data['data'] = period
+    
+    # Usuń pomocnicze pola które nie są w modelu Invoice
+    invoice_data.pop('_extracted_period', None)  # Usuń pomocniczy klucz okresu
+    invoice_data.pop('meter_readings', None)  # Usuń odczyty liczników (nie są częścią modelu Invoice)
     
     # Sprawdź czy faktura już istnieje w bazie danych
     # Porównaj kluczowe pola: numer faktury, okres, suma brutto
@@ -343,6 +466,7 @@ def load_invoice_from_pdf(db: Session, pdf_path: str, period: Optional[str] = No
 def load_invoices_from_folder(db: Session, folder_path: str = "invoices_raw") -> list[Invoice]:
     """
     Wczytuje wszystkie faktury PDF z folderu.
+    Obsługuje różne nazwy plików - okres jest wyciągany z nazwy pliku lub z dat faktury.
     
     Args:
         db: Sesja bazy danych
@@ -355,18 +479,45 @@ def load_invoices_from_folder(db: Session, folder_path: str = "invoices_raw") ->
     folder = Path(folder_path)
     
     if not folder.exists():
-        print(f"Folder {folder_path} nie istnieje")
+        print(f"❌ Folder {folder_path} nie istnieje")
         return invoices
     
     # Znajdź wszystkie pliki PDF
-    pdf_files = list(folder.glob("*.pdf"))
+    pdf_files = sorted(list(folder.glob("*.pdf")))
     
-    print(f"Znaleziono {len(pdf_files)} plików PDF")
+    print("=" * 80)
+    print(f"📁 Wczytywanie faktur z folderu: {folder_path}")
+    print(f"📄 Znaleziono {len(pdf_files)} plików PDF")
+    print("=" * 80)
+    
+    if not pdf_files:
+        print("⚠️ Brak plików PDF do przetworzenia")
+        return invoices
+    
+    loaded_count = 0
+    skipped_count = 0
+    error_count = 0
     
     for pdf_file in pdf_files:
-        invoice = load_invoice_from_pdf(db, str(pdf_file))
-        if invoice:
-            invoices.append(invoice)
+        try:
+            invoice = load_invoice_from_pdf(db, str(pdf_file))
+            if invoice:
+                invoices.append(invoice)
+                loaded_count += 1
+            else:
+                # Może to być faktura która już istnieje (duplikat) lub błąd parsowania
+                skipped_count += 1
+        except Exception as e:
+            error_count += 1
+            print(f"❌ Błąd podczas przetwarzania {pdf_file.name}: {e}")
+    
+    print("\n" + "=" * 80)
+    print("📊 PODSUMOWANIE:")
+    print(f"   ✅ Wczytane nowe faktury: {loaded_count}")
+    print(f"   ⏭️  Pominięte faktury: {skipped_count}")
+    print(f"   ❌ Błędy: {error_count}")
+    print(f"   📋 Razem: {len(pdf_files)} plików")
+    print("=" * 80)
     
     return invoices
 
