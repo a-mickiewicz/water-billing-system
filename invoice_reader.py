@@ -401,6 +401,13 @@ def load_invoice_from_pdf(db: Session, pdf_path: str, period: Optional[str] = No
     invoice_data.pop('_extracted_period', None)  # Usuń pomocniczy klucz okresu
     invoice_data.pop('meter_readings', None)  # Usuń odczyty liczników (nie są częścią modelu Invoice)
     
+    # Zaokrąglij wszystkie wartości Float do 2 miejsc po przecinku przed zapisem do bazy
+    float_fields = ['usage', 'water_cost_m3', 'sewage_cost_m3', 'water_subscr_cost', 
+                    'sewage_subscr_cost', 'vat', 'gross_sum']
+    for field in float_fields:
+        if field in invoice_data and invoice_data[field] is not None:
+            invoice_data[field] = round(float(invoice_data[field]), 2)
+    
     # Sprawdź czy faktura już istnieje w bazie danych
     # Porównaj kluczowe pola: numer faktury, okres, suma brutto
     existing_invoice = db.query(Invoice).filter(

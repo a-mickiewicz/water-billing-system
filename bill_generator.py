@@ -160,8 +160,13 @@ def generate_bill_pdf(db: Session, bill: Bill) -> str:
         period_stop = bill.invoice.period_stop.strftime('%d.%m.%Y')
         period_text = f"{period_start} - {period_stop}"
     
+    # Oblicz całkowite zużycie dla domu (suma wszystkich lokali w tym okresie)
+    all_bills_for_period = db.query(Bill).filter(Bill.data == bill.data).all()
+    total_house_usage = sum(b.usage_m3 for b in all_bills_for_period)
+    
     data = [
         ['Okres rozliczeniowy:', period_text],
+        ['Zuzycie dom:', f"{total_house_usage:.2f} m3"],
         ['Lokal:', bill.local],
         ['Najemca:', local_obj.tenant if local_obj else '-'],
     ]

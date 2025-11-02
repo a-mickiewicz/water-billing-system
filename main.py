@@ -82,9 +82,10 @@ def create_reading(
     if existing:
         raise HTTPException(status_code=400, detail=f"Odczyt dla okresu {data} już istnieje")
     
+    # Zaokrąglij water_meter_main do 2 miejsc po przecinku
     new_reading = Reading(
         data=data,
-        water_meter_main=water_meter_main,
+        water_meter_main=round(float(water_meter_main), 2),
         water_meter_5=water_meter_5,
         water_meter_5b=water_meter_5b
     )
@@ -137,20 +138,21 @@ def create_invoice(
     except ValueError:
         raise HTTPException(status_code=400, detail="Nieprawidłowy format daty. Użyj YYYY-MM-DD")
     
+    # Zaokrąglij wszystkie wartości Float do 2 miejsc po przecinku
     # Stwórz nową fakturę
     new_invoice = Invoice(
         data=data,
-        usage=usage,
-        water_cost_m3=water_cost_m3,
-        sewage_cost_m3=sewage_cost_m3,
+        usage=round(float(usage), 2),
+        water_cost_m3=round(float(water_cost_m3), 2),
+        sewage_cost_m3=round(float(sewage_cost_m3), 2),
         nr_of_subscription=nr_of_subscription,
-        water_subscr_cost=water_subscr_cost,
-        sewage_subscr_cost=sewage_subscr_cost,
-        vat=vat,
+        water_subscr_cost=round(float(water_subscr_cost), 2),
+        sewage_subscr_cost=round(float(sewage_subscr_cost), 2),
+        vat=round(float(vat), 2),
         period_start=period_start_date,
         period_stop=period_stop_date,
         invoice_number=invoice_number,
-        gross_sum=gross_sum
+        gross_sum=round(float(gross_sum), 2)
     )
     
     db.add(new_invoice)

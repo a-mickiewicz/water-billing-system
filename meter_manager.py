@@ -60,11 +60,10 @@ def calculate_local_usage(
         return float(usage_gabinet)
     elif local_name == 'dol':
         if meter_main_replaced:
-            # Gdy wymieniony licznik główny:
-            # Nowy stan głównego (np. 33) to całkowite zużycie dla okresu
-            # Zużycie dla lokalu "dol" = obecny stan głównego - (gora + gabinet)
-            current_dol_state = current_reading.water_meter_main - (current_reading.water_meter_5 + current_reading.water_meter_5b)
-            return current_dol_state
+            # Gdy wymieniony licznik główny, nie obliczamy tutaj usage_dol
+            # Zostanie to obliczone w generate_bills_for_period po obliczeniu usage_gora i usage_gabinet
+            # Zwracamy 0 jako placeholder - prawdziwa wartość będzie obliczona później
+            return 0.0
         else:
             # Normalne obliczenie - różnica między odczytami
             usage_main = current_reading.water_meter_main - previous_reading.water_meter_main
@@ -215,15 +214,38 @@ def generate_bills_for_period(db: Session, period: str) -> list[Bill]:
         except Exception as e:
             print(f"[UWAGA] Nie mozna sprawdzic kompensacji z poprzedniego okresu: {e}")
     
+    # Sprawdź czy nastąpiła wymiana licznika głównego
+    meter_main_replaced = False
+    if previous_reading:
+        meter_main_replaced = current_reading.water_meter_main < previous_reading.water_meter_main
+    
     # Oblicz zużycie dla każdego lokalu jako różnicę między odczytami
     # Odczyty mogą być różne (main może być < gora+gabinet) - to jest normalne
     usage_gora = calculate_local_usage(current_reading, previous_reading, 'gora')
     usage_gabinet = calculate_local_usage(current_reading, previous_reading, 'gabinet')
-    usage_dol = calculate_local_usage(current_reading, previous_reading, 'dol')
+    
+    # Jeśli nastąpiła wymiana licznika głównego, oblicz usage_dol specjalnie
+    if meter_main_replaced:
+        # Gdy wymieniony licznik główny:
+        # water_meter_main to całkowite zużycie dla okresu (np. 33 m³)
+        # usage_dol = całkowite zużycie - (zużycie gora + zużycie gabinet)
+        print(f"[INFO] Przy wymianie licznika glównego uzywam bezposrednio water_meter_main jako calkowitego zuzycia")
+        calculated_total_usage = current_reading.water_meter_main
+        usage_dol = calculated_total_usage - (usage_gora + usage_gabinet)
+        print(f"  Calkowite zuzycie dla okresu: {calculated_total_usage:.2f} m3")
+        print(f"  Rozklad:")
+        print(f"    Gora: {usage_gora:.2f} m3")
+        print(f"    Gabinet: {usage_gabinet:.2f} m3")
+        print(f"    Dol: {usage_dol:.2f} m3 (obliczone jako {calculated_total_usage:.2f} - ({usage_gora:.2f} + {usage_gabinet:.2f}))")
+    else:
+        # Normalne obliczenie - dol jako różnica
+        usage_dol = calculate_local_usage(current_reading, previous_reading, 'dol')
+        # Oblicz całkowite zużycie z różnic między odczytami
+        calculated_total_usage = usage_gora + usage_gabinet + usage_dol
     
     # Jeśli usage_dol jest ujemne, zostawiamy jako ujemne (zostanie zapisane w rachunku)
     # Kompensacja zostanie dodana do 'gora' w następnym okresie
-    if usage_dol < 0:
+    if usage_dol < 0 and not meter_main_replaced:
         print(f"[INFO] Lokal 'dol' ma ujemne zuzycie ({usage_dol:.2f} m3) dla okresu {period}")
         print(f"  To jest normalne gdy suma podlicznikow jest wieksza niz licznik glowny")
         print(f"  Zostawiam ujemne zuzycie - kompensacja zostanie dodana do 'gora' w nastepnym okresie")
@@ -231,9 +253,9 @@ def generate_bills_for_period(db: Session, period: str) -> list[Bill]:
     # Dodaj kompensację z poprzedniego okresu do "gora"
     if compensation_from_previous > 0:
         usage_gora += compensation_from_previous
-    
-    # Oblicz całkowite zużycie z różnic między odczytami
-    calculated_total_usage = usage_gora + usage_gabinet + usage_dol
+        # Zaktualizuj całkowite zużycie jeśli nie było wymiany licznika
+        if not meter_main_replaced:
+            calculated_total_usage = usage_gora + usage_gabinet + usage_dol
     
     # Oblicz sumę zużycia z wszystkich faktur
     total_invoice_usage = sum(inv.usage for inv in invoices)
@@ -323,6 +345,11 @@ def generate_bills_for_period(db: Session, period: str) -> list[Bill]:
         # Pobierz wartość odczytu dla wyświetlenia (obecny stan)
         reading_value = current_reading_value
         
+        # Zaokrąglij wszystkie wartości Float do 2 miejsc po przecinku przed zapisem do bazy
+        def round_to_2(value):
+            """Zaokrągla wartość do 2 miejsc po przecinku."""
+            return round(float(value), 2) if value is not None else None
+        
         # Stwórz rachunek (używamy ID pierwszej faktury)
         bill = Bill(
             data=period,
@@ -330,16 +357,16 @@ def generate_bills_for_period(db: Session, period: str) -> list[Bill]:
             reading_id=period,
             invoice_id=invoices[0].id,  # Pierwsza faktura z okresu
             local_id=local_obj.id,
-            reading_value=reading_value,
-            usage_m3=usage_m3,
-            cost_water=cost_water,
-            cost_sewage=cost_sewage,
-            cost_usage_total=cost_usage_total,
-            abonament_water_share=abonament_water_share,
-            abonament_sewage_share=abonament_sewage_share,
-            abonament_total=abonament_total,
-            net_sum=net_sum,
-            gross_sum=gross_sum
+            reading_value=round_to_2(reading_value),
+            usage_m3=round_to_2(usage_m3),
+            cost_water=round_to_2(cost_water),
+            cost_sewage=round_to_2(cost_sewage),
+            cost_usage_total=round_to_2(cost_usage_total),
+            abonament_water_share=round_to_2(abonament_water_share),
+            abonament_sewage_share=round_to_2(abonament_sewage_share),
+            abonament_total=round_to_2(abonament_total),
+            net_sum=round_to_2(net_sum),
+            gross_sum=round_to_2(gross_sum)
         )
         
         db.add(bill)
