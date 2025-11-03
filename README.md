@@ -56,7 +56,8 @@ uvicorn main:app --reload
 
 Aplikacja będzie dostępna pod adresem: http://localhost:8000
 
-Dokumentacja API (Swagger): http://localhost:8000/docs
+**Dashboard webowy:** http://localhost:8000/dashboard  
+**Dokumentacja API (Swagger):** http://localhost:8000/docs
 
 ## 📁 Struktura projektu
 

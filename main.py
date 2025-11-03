@@ -3,10 +3,13 @@ Główny moduł aplikacji FastAPI dla systemu rozliczania rachunków za wodę.
 Zawiera endpointy do zarządzania danymi i generowania rachunków.
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from typing import List, Optional
 from pathlib import Path
 from datetime import datetime
@@ -18,17 +21,36 @@ from meter_manager import generate_bills_for_period
 from gsheets_integration import import_readings_from_sheets, import_locals_from_sheets, import_invoices_from_sheets
 import bill_generator
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Zarządzanie cyklem życia aplikacji - inicjalizacja i zamknięcie."""
+    # Startup - inicjalizacja bazy danych
+    init_db()
+    yield
+    # Shutdown - tutaj można dodać czyszczenie zasobów jeśli potrzeba
+
+
 app = FastAPI(
     title="Water Billing System",
     description="System rozliczania rachunków za wodę i ścieki",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
+# CORS dla frontendu
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # W produkcji ograniczyć do konkretnych domen
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.on_event("startup")
-def startup_event():
-    """Inicjalizuje bazę danych przy starcie aplikacji."""
-    init_db()
+# Serwowanie plików statycznych
+static_dir = Path("static")
+static_dir.mkdir(exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 # ========== ENDPOINTY LOKALI ==========
@@ -536,33 +558,71 @@ def import_invoices(
 
 # ========== ENDPOINTY POMOCNICZE ==========
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def root():
-    """Strona główna z dokumentacją API."""
-    return {
-        "message": "Water Billing System API",
-        "version": "1.0.0",
-        "docs": "/docs",
-        "endpoints": {
-            "locals": "/locals/",
-            "readings": "/readings/",
-            "invoices": "/invoices/",
-            "create_invoice": "POST /invoices/ (ręczne dodawanie)",
-            "upload_invoice": "POST /invoices/upload (z pliku PDF)",
-            "bills": "/bills/",
-            "generate_bills": "/bills/generate/{period}",
-            "regenerate_bills": "POST /bills/regenerate/{period} (ponownie generuje dla okresu)",
-            "generate_all_bills": "POST /bills/generate-all (generuje tylko brakujące)",
-            "regenerate_all_bills": "POST /bills/regenerate-all (usuwa wszystkie i generuje na nowo)",
-            "download_bill": "/bills/download/{bill_id}",
-            "delete_bill": "DELETE /bills/{bill_id}",
-            "delete_period_bills": "DELETE /bills/period/{period}",
-            "delete_all_bills": "DELETE /bills/",
-            "import_readings": "POST /import/readings (z Google Sheets)",
-            "import_locals": "POST /import/locals (z Google Sheets)",
-            "import_invoices": "POST /import/invoices (z Google Sheets)"
-        }
+    """Strona główna - dashboard."""
+    dashboard_path = static_dir / "dashboard.html"
+    if dashboard_path.exists():
+        return dashboard_path.read_text(encoding="utf-8")
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Water Billing System</title>
+        <meta charset="utf-8">
+    </head>
+    <body>
+        <h1>Water Billing System API</h1>
+        <p>Dokumentacja API: <a href="/docs">/docs</a></p>
+        <p>Dashboard: <a href="/dashboard">/dashboard</a></p>
+    </body>
+    </html>
+    """
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard():
+    """Dashboard aplikacji."""
+    dashboard_path = static_dir / "dashboard.html"
+    if dashboard_path.exists():
+        return dashboard_path.read_text(encoding="utf-8")
+    return "<h1>Dashboard nie znaleziony. Sprawdź folder static/</h1>"
+
+
+@app.get("/api/stats")
+def get_stats(db: Session = Depends(get_db)):
+    """Zwraca statystyki dla dashboardu."""
+    stats = {
+        "locals_count": db.query(Local).count(),
+        "readings_count": db.query(Reading).count(),
+        "invoices_count": db.query(Invoice).count(),
+        "bills_count": db.query(Bill).count(),
+        "latest_period": None,
+        "total_gross_sum": 0,
+        "periods_with_bills": [],
+        "available_periods": []
     }
+    
+    # Najnowszy okres
+    latest_reading = db.query(Reading).order_by(desc(Reading.data)).first()
+    if latest_reading:
+        stats["latest_period"] = latest_reading.data
+    
+    # Suma brutto wszystkich rachunków
+    total_sum = db.query(func.sum(Bill.gross_sum)).scalar()
+    if total_sum:
+        stats["total_gross_sum"] = float(total_sum)
+    
+    # Okresy z rachunkami
+    periods = db.query(Bill.data).distinct().order_by(desc(Bill.data)).all()
+    stats["periods_with_bills"] = [p[0] for p in periods[:10]]  # Ostatnie 10
+    
+    # Dostępne okresy (mające zarówno faktury jak i odczyty)
+    reading_periods = set(r.data for r in db.query(Reading.data).distinct().all())
+    invoice_periods = set(i.data for i in db.query(Invoice.data).distinct().all())
+    stats["available_periods"] = sorted(reading_periods & invoice_periods, reverse=True)
+    
+    return stats
 
 
 @app.post("/load_sample_data")
