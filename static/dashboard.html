@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💧 Water Billing System - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .stat-card p {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            background: #e0e0e0;
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            margin-bottom: 5px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 10px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85em;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .actions {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .alert.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .period-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .period-selector input {
+            padding: 10px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💧 Water Billing System</h1>
+            <p>System rozliczania rachunków za wodę i ścieki</p>
+            <div style="margin-top: 15px;">
+                <a href="/docs" target="_blank" style="color: #667eea; text-decoration: none; font-weight: 500;">📚 Dokumentacja API (Swagger UI)</a>
+            </div>
+        </header>
+
+        <div id="alert" class="alert"></div>
+
+        <!-- Statystyki -->
+        <div class="stats-grid" id="stats">
+            <div class="stat-card">
+                <h3 id="stat-locals">-</h3>
+                <p>Lokale</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-readings">-</h3>
+                <p>Odczyty</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-invoices">-</h3>
+                <p>Faktury</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-bills">-</h3>
+                <p>Rachunki</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="stat-total">-</h3>
+                <p>Suma brutto</p>
+            </div>
+        </div>
+
+        <!-- Główne sekcje -->
+        <div class="section">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('locals')">🏠 Lokale</button>
+                <button class="tab" onclick="showTab('readings')">📊 Odczyty</button>
+                <button class="tab" onclick="showTab('invoices')">📄 Faktury</button>
+                <button class="tab" onclick="showTab('bills')">💰 Rachunki</button>
+            </div>
+
+            <!-- Sekcja Lokale -->
+            <div id="tab-locals" class="tab-content active">
+                <h2>Lokale</h2>
+                <form id="form-local" class="form-grid">
+                    <div class="form-group">
+                        <label>Nazwa licznika</label>
+                        <select name="water_meter_name" required>
+                            <option value="water_meter_5">water_meter_5</option>
+                            <option value="water_meter_5b">water_meter_5b</option>
+                            <option value="water_meter_5a">water_meter_5a</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Najemca</label>
+                        <input type="text" name="tenant" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Lokal</label>
+                        <input type="text" name="local" required>
+                    </div>
+                </form>
+                <button class="btn btn-primary" onclick="addLocal()">Dodaj lokal</button>
+                
+                <div id="locals-list" class="loading">Ładowanie...</div>
+            </div>
+
+            <!-- Sekcja Odczyty -->
+            <div id="tab-readings" class="tab-content">
+                <h2>Odczyty liczników</h2>
+                <form id="form-reading" class="form-grid">
+                    <div class="form-group">
+                        <label>Okres (YYYY-MM)</label>
+                        <input type="text" name="data" placeholder="2025-02" pattern="\d{4}-\d{2}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Licznik główny</label>
+                        <input type="number" step="0.01" name="water_meter_main" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Licznik 5</label>
+                        <input type="number" step="0.01" name="water_meter_5" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Licznik 5b</label>
+                        <input type="number" step="0.01" name="water_meter_5b" required>
+                    </div>
+                </form>
+                <button class="btn btn-primary" onclick="addReading()">Dodaj odczyt</button>
+                
+                <div id="readings-list" class="loading">Ładowanie...</div>
+            </div>
+
+            <!-- Sekcja Faktury -->
+            <div id="tab-invoices" class="tab-content">
+                <h2>Faktury</h2>
+                
+                <div style="background: #f0f9ff; border-left: 4px solid #667eea; padding: 15px; margin-bottom: 20px; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #667eea;">💡 Ważne: Wiele faktur dla jednego okresu</h3>
+                    <p style="margin-bottom: 10px; color: #333;">
+                        <strong>Gdy okres rozliczeniowy (2 miesiące) ma zmianę stawki w połowie:</strong>
+                    </p>
+                    <ul style="margin-left: 20px; color: #555;">
+                        <li><strong>Okres (YYYY-MM)</strong> - używaj tego samego dla obu faktur (np. "2025-02")</li>
+                        <li><strong>Data początku/końca</strong> - wpisz faktyczne daty każdej faktury</li>
+                        <li>System automatycznie obliczy <strong>średnią ważoną kosztów</strong> z obu faktur</li>
+                        <li>Abonamenty zostaną <strong>zsumowane</strong> z wszystkich faktur</li>
+                    </ul>
+                    <p style="margin-top: 10px; margin-bottom: 0; color: #666; font-size: 0.9em;">
+                        <strong>Przykład:</strong> Okres "2025-02" ma dwie faktury:<br>
+                        Faktura 1: 01.01-31.01, koszt 10 zł/m³, zużycie 20 m³<br>
+                        Faktura 2: 01.02-28.02, koszt 12 zł/m³, zużycie 25 m³<br>
+                        → System użyje średniej ważonej: (10×20 + 12×25) / 45 = 11.11 zł/m³
+                    </p>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <h3>Wczytaj fakturę PDF</h3>
+                    <input type="file" id="invoice-file" accept=".pdf" style="margin-bottom: 10px;">
+                    <button class="btn btn-primary" onclick="uploadInvoice()">Wczytaj PDF</button>
+                </div>
+                
+                <h3>Lub dodaj ręcznie</h3>
+                <form id="form-invoice" class="form-grid">
+                    <div class="form-group">
+                        <label>Okres (YYYY-MM)</label>
+                        <input type="text" name="data" placeholder="2025-02" pattern="\d{4}-\d{2}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Zużycie (m³)</label>
+                        <input type="number" step="0.01" name="usage" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Koszt wody za m³</label>
+                        <input type="number" step="0.01" name="water_cost_m3" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Koszt ścieków za m³</label>
+                        <input type="number" step="0.01" name="sewage_cost_m3" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Liczba miesięcy abonamentu</label>
+                        <input type="number" name="nr_of_subscription" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Abonament woda (za miesiąc)</label>
+                        <input type="number" step="0.01" name="water_subscr_cost" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Abonament ścieki (za miesiąc)</label>
+                        <input type="number" step="0.01" name="sewage_subscr_cost" required>
+                    </div>
+                    <div class="form-group">
+                        <label>VAT (np. 0.08 dla 8%)</label>
+                        <input type="number" step="0.01" name="vat" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Data początku okresu</label>
+                        <input type="date" name="period_start" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Data końca okresu</label>
+                        <input type="date" name="period_stop" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Numer faktury</label>
+                        <input type="text" name="invoice_number" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Suma brutto</label>
+                        <input type="number" step="0.01" name="gross_sum" required>
+                    </div>
+                </form>
+                <button class="btn btn-primary" onclick="addInvoice()">Dodaj fakturę</button>
+                
+                <div id="invoices-list" class="loading">Ładowanie...</div>
+            </div>
+
+            <!-- Sekcja Rachunki -->
+            <div id="tab-bills" class="tab-content">
+                <h2>Rachunki</h2>
+                <div class="period-selector">
+                    <label>Okres (YYYY-MM):</label>
+                    <input type="text" id="bill-period" placeholder="2025-02" pattern="\d{4}-\d{2}" list="available-periods">
+                    <datalist id="available-periods"></datalist>
+                    <button class="btn btn-success" onclick="generateBills()">Generuj rachunki</button>
+                    <button class="btn btn-secondary" onclick="regenerateBills()">Regeneruj rachunki</button>
+                </div>
+                <p style="color: #666; margin-bottom: 20px; font-size: 0.9em;">
+                    💡 Podaj okres w formacie YYYY-MM. System automatycznie wygeneruje rachunki dla wszystkich lokali na podstawie faktur i odczytów.
+                </p>
+                
+                <div id="bills-list" class="loading">Ładowanie...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        // Tab switching
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            
+            // Odśwież dane dla aktywnej zakładki
+            if (tabName === 'locals') loadLocals();
+            if (tabName === 'readings') loadReadings();
+            if (tabName === 'invoices') loadInvoices();
+            if (tabName === 'bills') loadBills();
+        }
+
+        // Alerty
+        function showAlert(message, type = 'success') {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert ${type} show`;
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 5000);
+        }
+
+        // Statystyki
+        async function loadStats() {
+            try {
+                const res = await fetch(`${API_BASE}/api/stats`);
+                const stats = await res.json();
+                document.getElementById('stat-locals').textContent = stats.locals_count;
+                document.getElementById('stat-readings').textContent = stats.readings_count;
+                document.getElementById('stat-invoices').textContent = stats.invoices_count;
+                document.getElementById('stat-bills').textContent = stats.bills_count;
+                document.getElementById('stat-total').textContent = stats.total_gross_sum.toFixed(2) + ' zł';
+                
+                // Aktualizuj listę dostępnych okresów
+                const datalist = document.getElementById('available-periods');
+                datalist.innerHTML = '';
+                if (stats.available_periods && stats.available_periods.length > 0) {
+                    stats.available_periods.forEach(period => {
+                        const option = document.createElement('option');
+                        option.value = period;
+                        datalist.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Błąd ładowania statystyk:', error);
+            }
+        }
+
+        // Lokale
+        async function loadLocals() {
+            try {
+                const res = await fetch(`${API_BASE}/locals/`);
+                const locals = await res.json();
+                const listEl = document.getElementById('locals-list');
+                
+                if (locals.length === 0) {
+                    listEl.innerHTML = '<p>Brak lokali</p>';
+                    return;
+                }
+
+                let html = '<table class="data-table"><thead><tr><th>Licznik</th><th>Najemca</th><th>Lokal</th></tr></thead><tbody>';
+                locals.forEach(l => {
+                    html += `<tr><td>${l.water_meter_name}</td><td>${l.tenant}</td><td>${l.local}</td></tr>`;
+                });
+                html += '</tbody></table>';
+                listEl.innerHTML = html;
+            } catch (error) {
+                document.getElementById('locals-list').innerHTML = '<p class="error">Błąd ładowania lokali</p>';
+            }
+        }
+
+        async function addLocal() {
+            const form = document.getElementById('form-local');
+            const formData = new FormData(form);
+            const params = new URLSearchParams();
+            for (const [key, value] of formData.entries()) {
+                params.append(key, value);
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/locals/?${params}`, { method: 'POST' });
+                if (res.ok) {
+                    showAlert('Lokal dodany pomyślnie!');
+                    form.reset();
+                    loadLocals();
+                    loadStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd dodawania lokalu', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        // Odczyty
+        async function loadReadings() {
+            try {
+                const res = await fetch(`${API_BASE}/readings/`);
+                const readings = await res.json();
+                const listEl = document.getElementById('readings-list');
+                
+                if (readings.length === 0) {
+                    listEl.innerHTML = '<p>Brak odczytów</p>';
+                    return;
+                }
+
+                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Licznik główny</th><th>Licznik 5</th><th>Licznik 5b</th></tr></thead><tbody>';
+                readings.forEach(r => {
+                    html += `<tr><td>${r.data}</td><td>${r.water_meter_main}</td><td>${r.water_meter_5}</td><td>${r.water_meter_5b}</td></tr>`;
+                });
+                html += '</tbody></table>';
+                listEl.innerHTML = html;
+            } catch (error) {
+                document.getElementById('readings-list').innerHTML = '<p class="error">Błąd ładowania odczytów</p>';
+            }
+        }
+
+        async function addReading() {
+            const form = document.getElementById('form-reading');
+            const formData = new FormData(form);
+            const params = new URLSearchParams();
+            for (const [key, value] of formData.entries()) {
+                params.append(key, value);
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/readings/?${params}`, { method: 'POST' });
+                if (res.ok) {
+                    showAlert('Odczyt dodany pomyślnie!');
+                    form.reset();
+                    loadReadings();
+                    loadStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd dodawania odczytu', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        // Faktury
+        async function loadInvoices() {
+            try {
+                const res = await fetch(`${API_BASE}/invoices/`);
+                const invoices = await res.json();
+                const listEl = document.getElementById('invoices-list');
+                
+                if (invoices.length === 0) {
+                    listEl.innerHTML = '<p>Brak faktur</p>';
+                    return;
+                }
+
+                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Numer faktury</th><th>Zużycie (m³)</th><th>Koszt wody/m³</th><th>Koszt ścieków/m³</th><th>Suma brutto</th></tr></thead><tbody>';
+                invoices.forEach(i => {
+                    html += `<tr>
+                        <td>${i.data}</td>
+                        <td>${i.invoice_number}</td>
+                        <td>${i.usage}</td>
+                        <td>${i.water_cost_m3}</td>
+                        <td>${i.sewage_cost_m3}</td>
+                        <td>${i.gross_sum.toFixed(2)} zł</td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                listEl.innerHTML = html;
+            } catch (error) {
+                document.getElementById('invoices-list').innerHTML = '<p class="error">Błąd ładowania faktur</p>';
+            }
+        }
+
+        async function uploadInvoice() {
+            const fileInput = document.getElementById('invoice-file');
+            if (!fileInput.files[0]) {
+                showAlert('Wybierz plik PDF', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const res = await fetch(`${API_BASE}/invoices/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (res.ok) {
+                    const result = await res.json();
+                    showAlert(`Faktura wczytana: ${result.invoice_number}`);
+                    fileInput.value = '';
+                    loadInvoices();
+                    loadStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd wczytywania faktury', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        async function addInvoice() {
+            const form = document.getElementById('form-invoice');
+            const formData = new FormData(form);
+            const params = new URLSearchParams();
+            for (const [key, value] of formData.entries()) {
+                params.append(key, value);
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/invoices/?${params}`, { method: 'POST' });
+                if (res.ok) {
+                    showAlert('Faktura dodana pomyślnie!');
+                    form.reset();
+                    loadInvoices();
+                    loadStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd dodawania faktury', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        // Rachunki
+        async function loadBills() {
+            try {
+                const res = await fetch(`${API_BASE}/bills/`);
+                const bills = await res.json();
+                const listEl = document.getElementById('bills-list');
+                
+                if (bills.length === 0) {
+                    listEl.innerHTML = '<p>Brak rachunków. Wygeneruj rachunki dla okresu z fakturą i odczytami.</p>';
+                    return;
+                }
+
+                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Lokal</th><th>Zużycie (m³)</th><th>Suma brutto</th><th>Akcje</th></tr></thead><tbody>';
+                bills.forEach(b => {
+                    html += `<tr>
+                        <td>${b.data}</td>
+                        <td>${b.local}</td>
+                        <td>${b.usage_m3}</td>
+                        <td>${b.gross_sum.toFixed(2)} zł</td>
+                        <td class="actions">
+                            <a href="${API_BASE}/bills/download/${b.id}" target="_blank" class="btn btn-success btn-small">Pobierz PDF</a>
+                            <button class="btn btn-danger btn-small" onclick="deleteBill(${b.id})">Usuń</button>
+                        </td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                listEl.innerHTML = html;
+            } catch (error) {
+                document.getElementById('bills-list').innerHTML = '<p class="error">Błąd ładowania rachunków</p>';
+            }
+        }
+
+        async function generateBills() {
+            const period = document.getElementById('bill-period').value.trim();
+            if (!period || !period.match(/^\d{4}-\d{2}$/)) {
+                showAlert('Podaj prawidłowy okres (YYYY-MM)', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/bills/generate/${period}`, { method: 'POST' });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert(`Wygenerowano ${result.bills_count} rachunków dla okresu ${period}`);
+                    loadBills();
+                    loadStats();
+                } else {
+                    showAlert(result.detail || 'Błąd generowania rachunków', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        async function regenerateBills() {
+            const period = document.getElementById('bill-period').value.trim();
+            if (!period || !period.match(/^\d{4}-\d{2}$/)) {
+                showAlert('Podaj prawidłowy okres (YYYY-MM)', 'error');
+                return;
+            }
+
+            if (!confirm(`Czy na pewno chcesz zregenerować rachunki dla okresu ${period}?`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/bills/regenerate/${period}`, { method: 'POST' });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert(`Zregenerowano ${result.bills_count} rachunków dla okresu ${period}`);
+                    loadBills();
+                    loadStats();
+                } else {
+                    showAlert(result.detail || 'Błąd regenerowania rachunków', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        async function deleteBill(billId) {
+            if (!confirm('Czy na pewno chcesz usunąć ten rachunek?')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/bills/${billId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showAlert('Rachunek usunięty');
+                    loadBills();
+                    loadStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd usuwania rachunku', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        // Inicjalizacja
+        loadStats();
+        loadLocals();
+        setInterval(loadStats, 30000); // Odśwież statystyki co 30 sekund
+    </script>
+</body>
+</html>

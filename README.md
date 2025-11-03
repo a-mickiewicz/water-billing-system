@@ -1,226 +1,302 @@
 # 💧 Water Billing System
 
-System rozliczania rachunków za wodę i ścieki dla budynku z trzema lokalami.
+> **Profesjonalny system rozliczania rachunków za wodę i ścieki z nowoczesnym interfejsem webowym i REST API**
 
-## 📋 Opis projektu
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green.svg)](https://fastapi.tiangolo.com/)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-orange.svg)](https://www.sqlalchemy.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Aplikacja automatycznie rozlicza rachunki za wodę i ścieki na podstawie:
-- Faktur od dostawcy mediów (PDF)
-- Odczyty stanów liczników
-- Algorytm rozliczania dla trzech lokali
+## 🎯 O Projekcie
 
-## 🚀 Technologie
+Water Billing System to kompleksowe rozwiązanie do automatycznego rozliczania rachunków za wodę i ścieki dla budynku z wieloma lokalami. System automatycznie przetwarza faktury PDF, obsługuje odczyty liczników, oblicza koszty dla każdego lokalu i generuje profesjonalne rachunki PDF.
 
-- **Python 3.11+**
-- **FastAPI** - API RESTful
-- **SQLAlchemy** - ORM
-- **SQLite** - baza danych
-- **pdfplumber** - parsowanie faktur PDF
-- **reportlab** - generowanie rachunków PDF
+### ✨ Kluczowe Funkcje
 
-## 📦 Instalacja
+- 🎨 **Nowoczesny Dashboard Webowy** - Intuicyjny interfejs do zarządzania danymi
+- 📄 **Automatyczne Parsowanie Faktur PDF** - Wczytywanie faktur od dostawcy mediów
+- 💰 **Inteligentne Rozliczanie** - Obsługa wielu faktur dla jednego okresu (zmiana stawek)
+- 📊 **REST API** - Pełna dokumentacja w Swagger UI
+- 📑 **Generowanie PDF** - Automatyczne tworzenie rachunków dla lokali
+- 🔗 **Integracja Google Sheets** - Import danych z arkuszy kalkulacyjnych
+- 🧮 **Średnie Ważone Kosztów** - Automatyczne przeliczanie przy zmianie stawek
 
-### 1. Aktywuj środowisko wirtualne
+## 🚀 Quick Start
+
+### Wymagania
+
+- Python 3.11+
+- pip (Python package manager)
+
+### Instalacja w 3 krokach
 
 ```bash
+# 1. Sklonuj repozytorium
+git clone https://github.com/your-username/water-billing.git
+cd water-billing
+
+# 2. Utwórz i aktywuj środowisko wirtualne
+python -m venv venv
+
 # Windows
 .\venv\Scripts\activate
 
 # Linux/Mac
 source venv/bin/activate
-```
 
-### 2. Zainstaluj zależności
-
-```bash
+# 3. Zainstaluj zależności i uruchom
 pip install -r requirements.txt
-```
-
-### 3. Inicjalizuj bazę danych
-
-```bash
-python db.py
-```
-
-## 🏃 Uruchomienie
-
-```bash
 python main.py
 ```
 
-Lub z uvicorn:
+### 🎮 Pierwszy test (3 minuty)
 
-```bash
-uvicorn main:app --reload
-```
+Po uruchomieniu aplikacji (`python main.py`):
 
-Aplikacja będzie dostępna pod adresem: http://localhost:8000
+1. **Otwórz dashboard:** http://localhost:8000/dashboard
+2. **Dodaj przykładowe dane:** Kliknij w zakładce "Faktury" → "Wczytaj PDF" lub użyj endpoint:
+   ```bash
+   curl -X POST "http://localhost:8000/load_sample_data"
+   ```
+3. **Przetestuj API:** http://localhost:8000/docs (interaktywna dokumentacja Swagger)
 
-**Dashboard webowy:** http://localhost:8000/dashboard  
-**Dokumentacja API (Swagger):** http://localhost:8000/docs
+**Więcej szczegółów:** Zobacz [QUICKSTART.md](QUICKSTART.md)
 
-## 📁 Struktura projektu
+## 📸 Screenshoty Dashboardu
+
+> 💡 **Wskazówka dla rekruterów:** Dashboard zawiera nowoczesny interfejs z zakładkami, statystykami i formularzami. Możesz go zobaczyć po uruchomieniu aplikacji.
+
+### Główne Sekcje Dashboardu:
+- 📊 **Statystyki** - Karty z podsumowaniem danych
+- 🏠 **Lokale** - Zarządzanie lokalizacjami i najemcami
+- 📈 **Odczyty** - Wprowadzanie odczytów liczników
+- 📄 **Faktury** - Wczytywanie faktur PDF lub ręczne dodawanie
+- 💰 **Rachunki** - Generowanie i pobieranie rachunków PDF
+
+## 🛠 Technologie i Umiejętności
+
+Projekt demonstruje znajomość:
+
+### Backend
+- **FastAPI** - Nowoczesny framework REST API z automatyczną dokumentacją
+- **SQLAlchemy ORM** - Zaawansowane zarządzanie bazą danych
+- **SQLite** - Baza danych
+- **Pydantic** - Walidacja danych (integracja z FastAPI)
+
+### Frontend
+- **HTML5/CSS3/JavaScript (Vanilla)** - Responsywny dashboard bez frameworków
+- **REST API Integration** - Komunikacja z backendem przez Fetch API
+- **CORS Middleware** - Konfiguracja cross-origin requests
+
+### Przetwarzanie Danych
+- **pdfplumber** - Parsowanie faktur PDF
+- **reportlab** - Generowanie dokumentów PDF
+- **Algorytmy biznesowe** - Średnie ważone, kompensacja różnic pomiarowych
+
+### Integracje
+- **Google Sheets API** - Import danych z arkuszy kalkulacyjnych
+- **OAuth2 Service Account** - Bezpieczne połączenie z Google API
+
+### Architektura
+- **RESTful API Design** - RESTful endpoints z właściwą strukturą
+- **Dependency Injection** - FastAPI dependencies pattern
+- **Separation of Concerns** - Oddzielenie logiki biznesowej od API
+- **Database Migrations** - Zarządzanie schematem bazy danych
+
+## 📁 Struktura Projektu
 
 ```
 water_billing/
-├── main.py                 # FastAPI aplikacja
-├── db.py                   # Konfiguracja bazy danych
-├── models.py               # Modele SQLAlchemy
+├── main.py                 # FastAPI aplikacja - endpointy API
+├── db.py                   # Konfiguracja bazy danych SQLAlchemy
+├── models.py               # Modele ORM (Local, Reading, Invoice, Bill)
 ├── invoice_reader.py       # Parsowanie faktur PDF
-├── meter_manager.py        # Logika rozliczeń
+├── meter_manager.py        # Logika obliczania rozliczeń
 ├── bill_generator.py       # Generowanie rachunków PDF
+├── gsheets_integration.py  # Integracja z Google Sheets
+├── static/
+│   └── dashboard.html      # Interfejs webowy (HTML/JS/CSS)
 ├── requirements.txt        # Zależności Python
-├── invoices_raw/           # Folder z faktrami PDF (wejście)
-├── bills/                  # Folder z wygenerowanymi rachunkami (wyjście)
-└── water_billing.db       # Baza danych SQLite
+├── CALCULATION_LOGIC.md    # Dokumentacja algorytmu rozliczania
+├── API_EXAMPLES.md         # Przykłady użycia API
+├── GOOGLE_SHEETS_SETUP.md  # Instrukcja integracji Google Sheets
+└── QUICKSTART.md           # Szybki przewodnik testowania
 ```
 
-## 🧑‍💻 Podstawowe użycie
+## 📖 Dokumentacja
 
-### 1. Dodaj dane o lokalach
+### Dla Rekruterów / Developerów
+
+- **[QUICKSTART.md](QUICKSTART.md)** - Szybki start i testowanie (5 minut)
+- **[CALCULATION_LOGIC.md](CALCULATION_LOGIC.md)** - Szczegółowa logika obliczania
+- **[API_EXAMPLES.md](API_EXAMPLES.md)** - Przykłady użycia API
+- **Swagger UI** - http://localhost:8000/docs (po uruchomieniu)
+
+### Dla Użytkowników
+
+- **[GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md)** - Konfiguracja integracji Google Sheets
+
+## 🎯 Przykładowe Scenariusze Użycia
+
+### 1. Pełny Workflow - Od Faktury do Rachunku
 
 ```bash
-curl -X POST "http://localhost:8000/locals/?water_meter_name=water_meter_5&tenant=Jan+Kowalski&local=gora"
-```
-
-Lub użyj endpoint `/load_sample_data`:
-
-```bash
+# 1. Dodaj lokale
 curl -X POST "http://localhost:8000/load_sample_data"
-```
 
-### 2. Dodaj odczyt liczników
-
-```bash
+# 2. Dodaj odczyt liczników
 curl -X POST "http://localhost:8000/readings/" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "data": "2025-02",
-    "water_meter_main": 150.5,
-    "water_meter_5": 45.0,
-    "water_meter_5b": 38.0
-  }'
-```
-
-### 3. Dodaj fakturę
-
-**Opcja A: Wczytaj fakturę PDF**
-
-```bash
-# Wklej fakturę PDF do folderu invoices_raw/
-# Albo użyj endpointa:
-curl -X POST "http://localhost:8000/invoices/upload" \
-  -F "file=@invoices_raw/invoice__2025_02.pdf"
-```
-
-**Opcja B: Dodaj fakturę ręcznie**
-
-```bash
-curl -X POST "http://localhost:8000/invoices/" \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "data=2025-02" \
-  -d "usage=45.5" \
-  -d "water_cost_m3=15.20" \
-  -d "sewage_cost_m3=12.50" \
-  -d "nr_of_subscription=2" \
-  -d "water_subscr_cost=18.50" \
-  -d "sewage_subscr_cost=16.00" \
-  -d "vat=0.08" \
-  -d "period_start=2025-01-01" \
-  -d "period_stop=2025-02-28" \
-  -d "invoice_number=FV-2025-002" \
-  -d "gross_sum=1560.50"
-```
+  -d "data=2025-02&water_meter_main=150.5&water_meter_5=45.0&water_meter_5b=38.0"
 
-### 4. Wygeneruj rachunki
+# 3. Wczytaj fakturę (przez dashboard lub API)
+curl -X POST "http://localhost:8000/invoices/upload" \
+  -F "file=@invoices_raw/invoice.pdf"
 
-```bash
+# 4. Wygeneruj rachunki
 curl -X POST "http://localhost:8000/bills/generate/2025-02"
-```
 
-### 5. Pobierz rachunek PDF
-
-```bash
+# 5. Pobierz rachunek PDF
 curl -X GET "http://localhost:8000/bills/download/1" -o bill.pdf
 ```
+
+### 2. Obsługa Zmiany Stawki w Połowie Okresu
+
+System obsługuje sytuację, gdy okres rozliczeniowy ma kilka faktur z różnymi stawkami:
+
+```bash
+# Faktura 1: Stara stawka (10 zł/m³)
+curl -X POST "http://localhost:8000/invoices/" \
+  -d "data=2025-02&usage=20&water_cost_m3=10.00&..." \
+  -d "period_start=2025-01-01&period_stop=2025-01-31"
+
+# Faktura 2: Nowa stawka (12 zł/m³) - TEN SAM OKRES "2025-02"
+curl -X POST "http://localhost:8000/invoices/" \
+  -d "data=2025-02&usage=25&water_cost_m3=12.00&..." \
+  -d "period_start=2025-02-01&period_stop=2025-02-28"
+
+# System automatycznie obliczy średnią ważoną: (10×20 + 12×25)/45 = 11.11 zł/m³
+```
+
+## 🧪 Testowanie
+
+### Interaktywne API (Swagger UI)
+```
+http://localhost:8000/docs
+```
+- Przetestuj wszystkie endpointy bezpośrednio w przeglądarce
+- Pełna dokumentacja z przykładami
+
+### Dashboard Webowy
+```
+http://localhost:8000/dashboard
+```
+- Dodawanie danych przez formularze
+- Wczytywanie faktur PDF
+- Generowanie rachunków
+- Pobieranie PDF
 
 ## 📊 API Endpoints
 
 ### Lokale
-- `GET /locals/` - Lista lokali
-- `POST /locals/` - Dodaj lokal
+- `GET /locals/` - Lista wszystkich lokali
+- `POST /locals/` - Dodaj nowy lokal
 
 ### Odczyty
-- `GET /readings/` - Lista odczytów
-- `POST /readings/` - Dodaj odczyt
+- `GET /readings/` - Lista wszystkich odczytów
+- `POST /readings/` - Dodaj odczyt liczników
 
 ### Faktury
-- `GET /invoices/` - Lista faktur
+- `GET /invoices/` - Lista wszystkich faktur
 - `POST /invoices/` - Dodaj fakturę ręcznie
-- `POST /invoices/upload` - Wczytaj fakturę PDF
+- `POST /invoices/upload` - Wczytaj fakturę z pliku PDF
 
 ### Rachunki
-- `GET /bills/` - Lista rachunków
-- `GET /bills/period/{period}` - Rachunki dla okresu
-- `POST /bills/generate/{period}` - Generuj rachunki
-- `POST /bills/regenerate/{period}` - Ponownie generuj rachunki
-- `GET /bills/download/{bill_id}` - Pobierz PDF
-- `DELETE /bills/{bill_id}` - Usuń pojedynczy rachunek
-- `DELETE /bills/period/{period}` - Usuń rachunki dla okresu
-- `DELETE /bills/` - Usuń wszystkie rachunki
+- `GET /bills/` - Lista wszystkich rachunków
+- `GET /bills/period/{period}` - Rachunki dla konkretnego okresu
+- `POST /bills/generate/{period}` - Generuj rachunki dla okresu
+- `POST /bills/regenerate/{period}` - Regeneruj rachunki
+- `GET /bills/download/{bill_id}` - Pobierz rachunek PDF
+- `DELETE /bills/{bill_id}` - Usuń rachunek
 
-## 📝 Liczniki
+### Integracje
+- `POST /import/readings` - Import odczytów z Google Sheets
+- `POST /import/locals` - Import lokali z Google Sheets
+- `POST /import/invoices` - Import faktur z Google Sheets
 
-Projekt obsługuje 3 lokale z licznikami:
+### Statystyki
+- `GET /api/stats` - Statystyki dla dashboardu
 
-1. **gora** - `water_meter_5`
-2. **gabinet** - `water_meter_5b`
-3. **dol** - `water_meter_5a` (obliczany: main - (5 + 5b))
+## 🔒 Bezpieczeństwo
 
-## 💰 Algorytm rozliczania
+- ✅ Wszystkie wrażliwe dane (credentials, baza danych) są w `.gitignore`
+- ✅ Brak hardcoded secrets w kodzie
+- ✅ CORS skonfigurowany (można dostosować dla produkcji)
+- ✅ Walidacja danych przez FastAPI/Pydantic
 
-### Obliczanie zużycia
+**Raport bezpieczeństwa:** [security_check_report.md](security_check_report.md)
 
-**Zużycie wody jest obliczane jako różnica między obecnym a poprzednim odczytem licznika.**
+## 🎓 Co Można Zobaczyć w Projekcie
 
-Dla każdego lokalu:
+Dla rekruterów - demonstracja umiejętności:
 
-```
-Zużycie = obecny_odczyt - poprzedni_odczyt
-```
+### Backend Development
+- ✅ RESTful API design
+- ✅ Dependency Injection pattern
+- ✅ Database ORM (SQLAlchemy)
+- ✅ File processing (PDF parsing)
+- ✅ Document generation (PDF reports)
+- ✅ Error handling i walidacja
 
-**Przykład:**
-- Poprzedni odczyt: 45 m³
-- Obecny odczyt: 60 m³  
-- **Zużycie: 15 m³**
+### Frontend Development
+- ✅ Responsywny design (mobile-friendly)
+- ✅ Vanilla JavaScript (bez frameworków)
+- ✅ REST API integration
+- ✅ Form validation
+- ✅ User experience design
 
-### Koszty
+### Business Logic
+- ✅ Złożone algorytmy obliczeniowe
+- ✅ Obsługa edge cases (wymiana liczników, kompensacje)
+- ✅ Średnie ważone przy wielu fakturach
+- ✅ Korekty różnic pomiarowych
 
-```
-Koszt wody = Zużycie * cena wody za m³
-Koszt ścieków = Zużycie * cena ścieków za m³
-Abonament = (abonament_woda + abonament_ścieki) / 3
-Suma końcowa = Koszt wody + Koszt ścieków + Abonament
-```
+### Code Quality
+- ✅ Modularna struktura kodu
+- ✅ Separation of concerns
+- ✅ Dokumentacja kodu
+- ✅ Type hints (Python)
+- ✅ Clean code principles
 
-**Więcej szczegółów:** Zobacz [CALCULATION_LOGIC.md](CALCULATION_LOGIC.md)
+## 🤝 Kontrybucja
 
-## ⚠️ Funkcje
+Projekt jest otwarty na sugestie i poprawki! Jeśli masz pomysł na ulepszenie:
 
-- Automatyczne wczytywanie faktur PDF
-- **Obsługa wielu faktur dla jednego okresu** (podwyżka kosztów)
-- Kompensacja różnic pomiarowych
-- Generowanie rachunków PDF
-- Historia wszystkich rozliczeń w bazie danych
-- Możliwość ponownego wygenerowania rachunków
-- Średnie ważone koszty przy wielu fakturach
+1. Fork repozytorium
+2. Utwórz branch dla swojej funkcji (`git checkout -b feature/amazing-feature`)
+3. Commit zmiany (`git commit -m 'Add amazing feature'`)
+4. Push do brancha (`git push origin feature/amazing-feature`)
+5. Otwórz Pull Request
 
-## 🧪 Testowanie
+## 📝 Roadmap
 
-Aby przetestować aplikację, użyj narzędzia Swagger UI:
-http://localhost:8000/docs
+- [ ] Testy jednostkowe (pytest)
+- [ ] Docker containerization
+- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] Export danych do Excel
+- [ ] Email notifications
+- [ ] Multi-tenant support
 
 ## 📄 Licencja
 
-MIT
+Ten projekt jest dostępny na licencji MIT. Zobacz plik [LICENSE](LICENSE) dla szczegółów.
 
+## 👤 Autor
+
+Projekt stworzony w celach demonstracyjnych umiejętności programowania.
+
+---
+
+⭐ **Jeśli projekt Ci się podoba, zostaw gwiazdkę!** ⭐
+
+**Pytania?** Otwórz [Issue](https://github.com/a-mickiewicz/water-billing/issues) na GitHub.

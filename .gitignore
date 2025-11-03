@@ -50,3 +50,7 @@ credentials.json
 *credentials*.json
 config/
 
+# Keep folder structure but ignore PDFs
+!invoices_raw/.gitkeep
+!bills/.gitkeep
+
