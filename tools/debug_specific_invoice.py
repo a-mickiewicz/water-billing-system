@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from invoice_reader import extract_text_from_pdf, parse_invoice_data
+from app.services.water.invoice_reader import extract_text_from_pdf, parse_invoice_data
 import re
 
 def debug_invoice(pdf_path: str):

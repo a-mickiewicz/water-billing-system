@@ -1,8 +1,8 @@
 """Sprawdza szczegółowo przyczynę ujemnego zużycia dla lokalu gora w okresie 2022-06."""
 
-from db import SessionLocal, init_db
-from models import Reading, Bill, Invoice
-from meter_manager import calculate_local_usage
+from app.core.database import SessionLocal, init_db
+from app.models.water import Reading, Bill, Invoice
+from app.services.water.meter_manager import calculate_local_usage
 
 def analyze_gora_issue():
     """Analizuje problem z lokalem gora w okresie 2022-06."""

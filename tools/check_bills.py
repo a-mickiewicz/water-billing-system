@@ -1,7 +1,7 @@
 """Skrypt do sprawdzania rachunków dla konkretnego okresu."""
 
-from db import SessionLocal, init_db
-from models import Bill
+from app.core.database import SessionLocal, init_db
+from app.models.water import Bill
 
 def check_bills(period: str):
     """Sprawdza wszystkie rachunki dla okresu."""

@@ -14,13 +14,13 @@ from sqlalchemy import desc, func
 from pathlib import Path
 from datetime import datetime
 
-from db import get_db, init_db
-from models import Local, Reading, Invoice, Bill
-from invoice_reader import load_invoice_from_pdf
-from meter_manager import generate_bills_for_period
-from gsheets_integration import import_readings_from_sheets, import_locals_from_sheets, import_invoices_from_sheets
-import bill_generator
-from api.gas_routes import router as gas_router
+from app.core.database import get_db, init_db
+from app.models.water import Local, Reading, Invoice, Bill
+from app.services.water.invoice_reader import load_invoice_from_pdf
+from app.services.water.meter_manager import generate_bills_for_period
+from app.integrations.google_sheets import import_readings_from_sheets, import_locals_from_sheets, import_invoices_from_sheets
+from app.services.water import bill_generator
+from app.api.routes.gas import router as gas_router
 
 
 @asynccontextmanager
@@ -49,9 +49,9 @@ app.add_middleware(
 )
 
 # Serwowanie plików statycznych
-static_dir = Path("static")
+static_dir = Path("app/static")
 static_dir.mkdir(exist_ok=True)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Rejestracja routerów dla mediów
 app.include_router(gas_router)  # /api/gas/*
@@ -98,7 +98,7 @@ def delete_local(local_id: int, db: Session = Depends(get_db)):
         db.delete(bill)
     
     # Usuń również rachunki gazu
-    from utilities.gas.models import GasBill
+    from app.models.gas import GasBill
     gas_bills = db.query(GasBill).filter(GasBill.local_id == local_id).all()
     for gas_bill in gas_bills:
         if gas_bill.pdf_path and Path(gas_bill.pdf_path).exists():
@@ -128,6 +128,49 @@ def get_readings(db: Session = Depends(get_db)):
         "water_meter_5": r.water_meter_5,
         "water_meter_5b": r.water_meter_5b
     } for r in readings]
+
+
+@app.get("/readings/{period}")
+def get_reading(period: str, db: Session = Depends(get_db)):
+    """Pobiera pojedynczy odczyt po okresie."""
+    reading = db.query(Reading).filter(Reading.data == period).first()
+    
+    if not reading:
+        raise HTTPException(status_code=404, detail="Odczyt nie znaleziony")
+    
+    return {
+        "data": reading.data,
+        "water_meter_main": reading.water_meter_main,
+        "water_meter_5": reading.water_meter_5,
+        "water_meter_5b": reading.water_meter_5b
+    }
+
+
+@app.put("/readings/{period}")
+def update_reading(
+    period: str,
+    water_meter_main: float,
+    water_meter_5: int,
+    water_meter_5b: int,
+    db: Session = Depends(get_db)
+):
+    """Aktualizuje odczyt po okresie."""
+    reading = db.query(Reading).filter(Reading.data == period).first()
+    
+    if not reading:
+        raise HTTPException(status_code=404, detail="Odczyt nie znaleziony")
+    
+    reading.water_meter_main = round(float(water_meter_main), 2)
+    reading.water_meter_5 = int(water_meter_5)
+    reading.water_meter_5b = int(water_meter_5b)
+    
+    db.commit()
+    db.refresh(reading)
+    
+    return {
+        "message": "Odczyt zaktualizowany",
+        "data": reading.data
+    }
 
 
 @app.post("/readings/")
@@ -394,6 +437,74 @@ def create_invoice(
     }
 
 
+@app.get("/invoices/{invoice_id}")
+def get_invoice(invoice_id: int, db: Session = Depends(get_db)):
+    """Pobiera pojedynczą fakturę po ID."""
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Faktura nie znaleziona")
+    
+    return {
+        "id": invoice.id,
+        "data": invoice.data,
+        "usage": invoice.usage,
+        "water_cost_m3": invoice.water_cost_m3,
+        "sewage_cost_m3": invoice.sewage_cost_m3,
+        "nr_of_subscription": invoice.nr_of_subscription,
+        "water_subscr_cost": invoice.water_subscr_cost,
+        "sewage_subscr_cost": invoice.sewage_subscr_cost,
+        "vat": invoice.vat,
+        "period_start": invoice.period_start.isoformat() if invoice.period_start else None,
+        "period_stop": invoice.period_stop.isoformat() if invoice.period_stop else None,
+        "invoice_number": invoice.invoice_number,
+        "gross_sum": invoice.gross_sum
+    }
+
+
+@app.put("/invoices/{invoice_id}")
+def update_invoice(
+    invoice_id: int,
+    invoice_data: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    """Aktualizuje fakturę po ID."""
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Faktura nie znaleziona")
+    
+    # Konwertuj daty jeśli są podane
+    if 'period_start' in invoice_data:
+        try:
+            invoice_data['period_start'] = datetime.strptime(invoice_data['period_start'], "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Nieprawidłowy format daty period_start")
+    
+    if 'period_stop' in invoice_data:
+        try:
+            invoice_data['period_stop'] = datetime.strptime(invoice_data['period_stop'], "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Nieprawidłowy format daty period_stop")
+    
+    # Aktualizuj pola
+    for key, value in invoice_data.items():
+        if hasattr(invoice, key):
+            if isinstance(value, float):
+                value = round(value, 2)
+            setattr(invoice, key, value)
+    
+    db.commit()
+    db.refresh(invoice)
+    
+    return {
+        "message": "Faktura zaktualizowana",
+        "id": invoice.id,
+        "invoice_number": invoice.invoice_number,
+        "data": invoice.data
+    }
+
+
 @app.delete("/invoices/{invoice_id}")
 def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
     """Usuwa fakturę po ID. Usuwa również wszystkie rachunki dla okresu tej faktury."""
@@ -444,9 +555,13 @@ def get_bills(db: Session = Depends(get_db)):
         "id": b.id,
         "data": b.data,
         "local": b.local,
+        "reading_value": b.reading_value,
         "usage_m3": b.usage_m3,
         "cost_water": b.cost_water,
         "cost_sewage": b.cost_sewage,
+        "cost_usage_total": b.cost_usage_total,
+        "abonament_water_share": b.abonament_water_share,
+        "abonament_sewage_share": b.abonament_sewage_share,
         "abonament_total": b.abonament_total,
         "net_sum": b.net_sum,
         "gross_sum": b.gross_sum,
@@ -585,6 +700,62 @@ def regenerate_all_bills(db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Błąd regenerowania rachunków: {str(e)}")
+
+
+@app.get("/bills/{bill_id}")
+def get_bill(bill_id: int, db: Session = Depends(get_db)):
+    """Pobiera pojedynczy rachunek po ID."""
+    bill = db.query(Bill).filter(Bill.id == bill_id).first()
+    
+    if not bill:
+        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+    
+    return {
+        "id": bill.id,
+        "data": bill.data,
+        "local": bill.local,
+        "reading_value": bill.reading_value,
+        "usage_m3": bill.usage_m3,
+        "cost_water": bill.cost_water,
+        "cost_sewage": bill.cost_sewage,
+        "cost_usage_total": bill.cost_usage_total,
+        "abonament_water_share": bill.abonament_water_share,
+        "abonament_sewage_share": bill.abonament_sewage_share,
+        "abonament_total": bill.abonament_total,
+        "net_sum": bill.net_sum,
+        "gross_sum": bill.gross_sum,
+        "pdf_path": bill.pdf_path
+    }
+
+
+@app.put("/bills/{bill_id}")
+def update_bill(
+    bill_id: int,
+    bill_data: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    """Aktualizuje rachunek po ID."""
+    bill = db.query(Bill).filter(Bill.id == bill_id).first()
+    
+    if not bill:
+        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+    
+    # Aktualizuj pola
+    for key, value in bill_data.items():
+        if hasattr(bill, key):
+            if isinstance(value, float):
+                value = round(value, 2)
+            setattr(bill, key, value)
+    
+    db.commit()
+    db.refresh(bill)
+    
+    return {
+        "message": "Rachunek zaktualizowany",
+        "id": bill.id,
+        "data": bill.data,
+        "local": bill.local
+    }
 
 
 @app.get("/bills/download/{bill_id}")

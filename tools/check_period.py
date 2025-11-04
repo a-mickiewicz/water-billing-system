@@ -2,9 +2,9 @@
 Skrypt diagnostyczny do sprawdzania problemów z obliczeniami dla konkretnego okresu.
 """
 
-from db import SessionLocal, init_db
-from models import Reading, Invoice, Bill
-from meter_manager import calculate_local_usage
+from app.core.database import SessionLocal, init_db
+from app.models.water import Reading, Invoice, Bill
+from app.services.water.meter_manager import calculate_local_usage
 from sqlalchemy import desc
 
 def check_period(period: str):
