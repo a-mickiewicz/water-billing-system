@@ -42,8 +42,8 @@ ENV/
 Thumbs.db
 
 # Project specific
-invoices_raw/*.pdf
-bills/*.pdf
+invoices_raw/**/*.pdf
+bills/**/*.pdf
 
 # Google Sheets credentials
 credentials.json
