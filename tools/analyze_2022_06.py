@@ -27,13 +27,13 @@ def analyze():
             print(f"   Poprzedni okres ({previous_reading.data}):")
             print(f"     water_meter_main: {previous_reading.water_meter_main} m3")
             print(f"     water_meter_5 (gora): {previous_reading.water_meter_5} m3")
-            print(f"     water_meter_5b (gabinet): {previous_reading.water_meter_5b} m3")
+            print(f"     water_meter_5b (dol): {previous_reading.water_meter_5b} m3")
         
         if current_reading:
             print(f"   Obecny okres ({current_reading.data}):")
             print(f"     water_meter_main: {current_reading.water_meter_main} m3")
             print(f"     water_meter_5 (gora): {current_reading.water_meter_5} m3")
-            print(f"     water_meter_5b (gabinet): {current_reading.water_meter_5b} m3")
+            print(f"     water_meter_5b (dol): {current_reading.water_meter_5b} m3")
         
         # Obliczenia
         print(f"\n2. OBLICZENIA ZUZYCLA Z ODCZYTOW:")

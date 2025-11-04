@@ -12,12 +12,12 @@ Zużycie jest obliczane jako **różnica między obecnym a poprzednim odczytem l
 **Poprzedni odczyt (2024-12):**
 - `water_meter_main`: 100.5 m³
 - `water_meter_5` (gora): 45 m³
-- `water_meter_5b` (gabinet): 35 m³
+- `water_meter_5b` (dol): 35 m³
 
 **Obecny odczyt (2025-02):**
 - `water_meter_main`: 145.5 m³
 - `water_meter_5` (gora): 60 m³
-- `water_meter_5b` (gabinet): 50 m³
+- `water_meter_5b` (dol): 50 m³
 
 #### Obliczenie zużycia:
 
@@ -51,18 +51,18 @@ Zużycie dol = 45 - (15 + 15) = 15 m³
 usage_gora = current_reading.water_meter_5 - previous_reading.water_meter_5
 ```
 
-### 2. Gabinet (water_meter_5b)
+### 2. Dol (water_meter_5b)
 ```python
-usage_gabinet = current_reading.water_meter_5b - previous_reading.water_meter_5b
+usage_dol = current_reading.water_meter_5b - previous_reading.water_meter_5b
 ```
 
-### 3. Dol (water_meter_5a)
+### 3. Gabinet (water_meter_5a - obliczany)
 ```python
 # Obliczamy jako: (main_obecny - main_poprzedni) - (suma różnic pozostałych)
 usage_main = current_reading.water_meter_main - previous_reading.water_meter_main
 usage_gora = current_reading.water_meter_5 - previous_reading.water_meter_5
-usage_gabinet = current_reading.water_meter_5b - previous_reading.water_meter_5b
-usage_dol = usage_main - (usage_gora + usage_gabinet)
+usage_dol = current_reading.water_meter_5b - previous_reading.water_meter_5b
+usage_gabinet = usage_main - (usage_gora + usage_dol)
 ```
 
 ## Obsługa pierwszego odczytu

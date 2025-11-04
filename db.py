@@ -40,6 +40,7 @@ def init_db():
     Inicjalizuje bazę danych - tworzy wszystkie tabele.
     """
     from models import Local, Reading, Invoice, Bill
+    from utilities.gas.models import GasInvoice, GasBill
     
     Base.metadata.create_all(bind=engine)
     print("[OK] Baza danych zainicjalizowana")

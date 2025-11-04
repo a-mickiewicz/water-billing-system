@@ -116,8 +116,8 @@ Utwórz arkusz o nazwie **"Lokale"** z następującymi kolumnami:
 | water_meter_name | tenant         | local   |
 |------------------|----------------|---------|
 | water_meter_5    | Jan Kowalski   | gora    |
-| water_meter_5b   | Anna Nowak     | gabinet |
-| water_meter_5a   | Piotr Wiśniewski| dol    |
+| water_meter_5b   | Mikołaj        | dol    |
+| water_meter_5a   | Bartek         | gabinet |
 
 ### Arkusz "Faktury"
 

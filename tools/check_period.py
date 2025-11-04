@@ -32,15 +32,15 @@ def check_period(period: str):
         print(f"   Obecny okres ({period}):")
         print(f"     water_meter_main: {current_reading.water_meter_main} m3")
         print(f"     water_meter_5 (gora): {current_reading.water_meter_5} m3")
-        print(f"     water_meter_5b (gabinet): {current_reading.water_meter_5b} m3")
-        print(f"     water_meter_5a (dol - obliczone): {current_reading.water_meter_main - (current_reading.water_meter_5 + current_reading.water_meter_5b):.2f} m3")
+        print(f"     water_meter_5b (dol): {current_reading.water_meter_5b} m3")
+        print(f"     water_meter_5a (gabinet - obliczone): {current_reading.water_meter_main - (current_reading.water_meter_5 + current_reading.water_meter_5b):.2f} m3")
         
         if previous_reading:
             print(f"\n   Poprzedni okres ({previous_reading.data}):")
             print(f"     water_meter_main: {previous_reading.water_meter_main} m3")
             print(f"     water_meter_5 (gora): {previous_reading.water_meter_5} m3")
-            print(f"     water_meter_5b (gabinet): {previous_reading.water_meter_5b} m3")
-            print(f"     water_meter_5a (dol - obliczone): {previous_reading.water_meter_main - (previous_reading.water_meter_5 + previous_reading.water_meter_5b):.2f} m3")
+            print(f"     water_meter_5b (dol): {previous_reading.water_meter_5b} m3")
+            print(f"     water_meter_5a (gabinet - obliczone): {previous_reading.water_meter_main - (previous_reading.water_meter_5 + previous_reading.water_meter_5b):.2f} m3")
         else:
             print(f"\n   [UWAGA] Brak poprzedniego odczytu (pierwszy odczyt w systemie)")
         

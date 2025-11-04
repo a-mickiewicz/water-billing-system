@@ -13,11 +13,13 @@ class Local(Base):
     __tablename__ = "locals"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    water_meter_name = Column(String(50), unique=True, nullable=False)  # np. 'water_meter_5'
+    water_meter_name = Column(String(50), unique=True, nullable=True)  # np. 'water_meter_5'
+    gas_meter_name = Column(String(50), unique=True, nullable=True)    # Gaz (NOWE)
     tenant = Column(String(100))  # Najemca
     local = Column(String(50))    # Nazwa lokalu ('gora', 'gabinet', 'dol')
     
     bills = relationship("Bill", back_populates="local_obj")
+    gas_bills = relationship("GasBill", back_populates="local_obj", cascade="all, delete-orphan")
 
 
 class Reading(Base):
@@ -27,8 +29,8 @@ class Reading(Base):
     data = Column(String(7), primary_key=True)  # Format: 'YYYY-MM' (np. '2025-02')
     water_meter_main = Column(Float, nullable=False)  # Licznik główny
     water_meter_5 = Column(Integer, nullable=False)   # Lokal "gora"
-    water_meter_5b = Column(Integer, nullable=False)  # Lokal "gabinet"
-    # water_meter_5a obliczany jako: water_meter_main - (water_meter_5 + water_meter_5b)
+    water_meter_5b = Column(Integer, nullable=False)  # Lokal "dol" (Mikołaj)
+    # water_meter_5a obliczany jako: water_meter_main - (water_meter_5 + water_meter_5b) → Lokal "gabinet" (Bartek)
     
     bills = relationship("Bill", back_populates="reading")
 

@@ -4,13 +4,13 @@ Zawiera endpointy do zarządzania danymi i generowania rachunków.
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Body
+from typing import Dict, Any, List, Optional
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
-from typing import List, Optional
 from pathlib import Path
 from datetime import datetime
 
@@ -20,6 +20,7 @@ from invoice_reader import load_invoice_from_pdf
 from meter_manager import generate_bills_for_period
 from gsheets_integration import import_readings_from_sheets, import_locals_from_sheets, import_invoices_from_sheets
 import bill_generator
+from api.gas_routes import router as gas_router
 
 
 @asynccontextmanager
@@ -52,6 +53,9 @@ static_dir = Path("static")
 static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Rejestracja routerów dla mediów
+app.include_router(gas_router)  # /api/gas/*
+
 
 # ========== ENDPOINTY LOKALI ==========
 
@@ -75,6 +79,41 @@ def create_local(water_meter_name: str, tenant: str, local: str, db: Session = D
     db.commit()
     db.refresh(new_local)
     return {"id": new_local.id, "message": "Lokal utworzony"}
+
+
+@app.delete("/locals/{local_id}")
+def delete_local(local_id: int, db: Session = Depends(get_db)):
+    """Usuwa lokal po ID. Usuwa również wszystkie powiązane rachunki."""
+    local = db.query(Local).filter(Local.id == local_id).first()
+    
+    if not local:
+        raise HTTPException(status_code=404, detail="Lokal nie znaleziony")
+    
+    # Usuń wszystkie rachunki powiązane z tym lokalem
+    bills = db.query(Bill).filter(Bill.local_id == local_id).all()
+    for bill in bills:
+        # Usuń plik PDF jeśli istnieje
+        if bill.pdf_path and Path(bill.pdf_path).exists():
+            Path(bill.pdf_path).unlink()
+        db.delete(bill)
+    
+    # Usuń również rachunki gazu
+    from utilities.gas.models import GasBill
+    gas_bills = db.query(GasBill).filter(GasBill.local_id == local_id).all()
+    for gas_bill in gas_bills:
+        if gas_bill.pdf_path and Path(gas_bill.pdf_path).exists():
+            Path(gas_bill.pdf_path).unlink()
+        db.delete(gas_bill)
+    
+    db.delete(local)
+    db.commit()
+    
+    return {
+        "message": "Lokal usunięty",
+        "id": local_id,
+        "water_meter_name": local.water_meter_name,
+        "deleted_bills_count": len(bills) + len(gas_bills)
+    }
 
 
 # ========== ENDPOINTY ODCZYTÓW ==========
@@ -117,6 +156,34 @@ def create_reading(
     return {"message": "Odczyt utworzony", "data": data}
 
 
+@app.delete("/readings/{period}")
+def delete_reading(period: str, db: Session = Depends(get_db)):
+    """Usuwa odczyt dla danego okresu. Usuwa również wszystkie rachunki dla tego okresu."""
+    reading = db.query(Reading).filter(Reading.data == period).first()
+    
+    if not reading:
+        raise HTTPException(status_code=404, detail=f"Odczyt dla okresu {period} nie znaleziony")
+    
+    # Usuń wszystkie rachunki dla tego okresu
+    bills = db.query(Bill).filter(Bill.reading_id == period).all()
+    deleted_bills_count = 0
+    for bill in bills:
+        # Usuń plik PDF jeśli istnieje
+        if bill.pdf_path and Path(bill.pdf_path).exists():
+            Path(bill.pdf_path).unlink()
+        db.delete(bill)
+        deleted_bills_count += 1
+    
+    db.delete(reading)
+    db.commit()
+    
+    return {
+        "message": f"Odczyt dla okresu {period} usunięty",
+        "period": period,
+        "deleted_bills_count": deleted_bills_count
+    }
+
+
 # ========== ENDPOINTY FAKTUR ==========
 
 @app.get("/invoices/", response_model=List[dict])
@@ -132,6 +199,144 @@ def get_invoices(db: Session = Depends(get_db)):
         "sewage_cost_m3": i.sewage_cost_m3,
         "gross_sum": i.gross_sum
     } for i in invoices]
+
+
+@app.post("/invoices/parse")
+async def parse_invoice(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """
+    Parsuje fakturę PDF i zwraca dane do weryfikacji.
+    NIE zapisuje do bazy danych!
+    """
+    from invoice_reader import extract_text_from_pdf, parse_invoice_data
+    from datetime import datetime
+    import os
+    
+    # Zapisuj plik tymczasowo
+    upload_folder = Path("invoices_raw")
+    upload_folder.mkdir(exist_ok=True)
+    
+    file_path = upload_folder / file.filename
+    
+    with open(file_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+    
+    # Wczytaj tekst z PDF
+    text = extract_text_from_pdf(str(file_path))
+    if not text:
+        raise HTTPException(status_code=400, detail="Nie udało się wczytać tekstu z pliku PDF")
+    
+    # Parsuj dane z faktury
+    invoice_data = parse_invoice_data(text)
+    
+    if not invoice_data:
+        raise HTTPException(status_code=400, detail="Nie udało się sparsować danych z faktury")
+    
+    # Określ okres rozliczeniowy
+    period = None
+    if '_extracted_period' in invoice_data:
+        period = invoice_data['_extracted_period']
+    else:
+        # Próbuj wyciągnąć z nazwy pliku
+        from invoice_reader import parse_period_from_filename
+        period = parse_period_from_filename(os.path.basename(file_path))
+        if not period and 'period_start' in invoice_data:
+            period_start = invoice_data['period_start']
+            if isinstance(period_start, datetime):
+                period = f"{period_start.year}-{period_start.month:02d}"
+    
+    # Dodaj okres do danych
+    if period:
+        invoice_data['data'] = period
+    
+    # Konwertuj daty na stringi (dla JSON)
+    if 'period_start' in invoice_data and isinstance(invoice_data['period_start'], datetime):
+        invoice_data['period_start'] = invoice_data['period_start'].strftime('%Y-%m-%d')
+    if 'period_stop' in invoice_data and isinstance(invoice_data['period_stop'], datetime):
+        invoice_data['period_stop'] = invoice_data['period_stop'].strftime('%Y-%m-%d')
+    
+    # Usuń pomocnicze pola które nie są potrzebne w formularzu
+    invoice_data.pop('_extracted_period', None)
+    invoice_data.pop('meter_readings', None)
+    
+    return invoice_data
+
+
+@app.post("/invoices/upload")
+async def upload_invoice(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Wczytuje fakturę PDF z pliku (DEPRECATED - użyj /invoices/parse + /invoices/verify)."""
+    # Zapisuj plik tymczasowo
+    upload_folder = Path("invoices_raw")
+    upload_folder.mkdir(exist_ok=True)
+    
+    file_path = upload_folder / file.filename
+    
+    with open(file_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+    
+    # Wczytaj fakturę
+    invoice = load_invoice_from_pdf(db, str(file_path))
+    
+    if not invoice:
+        raise HTTPException(status_code=400, detail="Nie udało się wczytać faktury")
+    
+    return {"message": "Faktura wczytana", "invoice_number": invoice.invoice_number}
+
+
+@app.post("/invoices/verify")
+def verify_and_save_invoice(
+    invoice_data: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Zapisuje fakturę po weryfikacji przez użytkownika.
+    Wywoływane z dashboardu po zatwierdzeniu.
+    """
+    from datetime import datetime
+    
+    # Walidacja wymaganych pól
+    required_fields = ['data', 'usage', 'water_cost_m3', 'sewage_cost_m3', 
+                      'nr_of_subscription', 'water_subscr_cost', 'sewage_subscr_cost',
+                      'vat', 'period_start', 'period_stop', 'invoice_number', 'gross_sum']
+    
+    missing_fields = [field for field in required_fields if field not in invoice_data]
+    if missing_fields:
+        raise HTTPException(status_code=400, detail=f"Brakuje wymaganych pól: {', '.join(missing_fields)}")
+    
+    # Konwertuj daty
+    try:
+        period_start_date = datetime.strptime(invoice_data['period_start'], "%Y-%m-%d").date()
+        period_stop_date = datetime.strptime(invoice_data['period_stop'], "%Y-%m-%d").date()
+    except (ValueError, TypeError) as e:
+        raise HTTPException(status_code=400, detail=f"Nieprawidłowy format daty: {e}")
+    
+    # Zaokrąglij wszystkie wartości Float do 2 miejsc po przecinku
+    new_invoice = Invoice(
+        data=invoice_data['data'],
+        usage=round(float(invoice_data['usage']), 2),
+        water_cost_m3=round(float(invoice_data['water_cost_m3']), 2),
+        sewage_cost_m3=round(float(invoice_data['sewage_cost_m3']), 2),
+        nr_of_subscription=int(invoice_data['nr_of_subscription']),
+        water_subscr_cost=round(float(invoice_data['water_subscr_cost']), 2),
+        sewage_subscr_cost=round(float(invoice_data['sewage_subscr_cost']), 2),
+        vat=round(float(invoice_data['vat']), 2),
+        period_start=period_start_date,
+        period_stop=period_stop_date,
+        invoice_number=invoice_data['invoice_number'],
+        gross_sum=round(float(invoice_data['gross_sum']), 2)
+    )
+    
+    db.add(new_invoice)
+    db.commit()
+    db.refresh(new_invoice)
+    
+    return {
+        "message": "Faktura zapisana",
+        "id": new_invoice.id,
+        "invoice_number": new_invoice.invoice_number,
+        "data": new_invoice.data
+    }
 
 
 @app.post("/invoices/")
@@ -189,26 +394,44 @@ def create_invoice(
     }
 
 
-@app.post("/invoices/upload")
-async def upload_invoice(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Wczytuje fakturę PDF z pliku."""
-    # Zapisuj plik tymczasowo
-    upload_folder = Path("invoices_raw")
-    upload_folder.mkdir(exist_ok=True)
-    
-    file_path = upload_folder / file.filename
-    
-    with open(file_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
-    
-    # Wczytaj fakturę
-    invoice = load_invoice_from_pdf(db, str(file_path))
+@app.delete("/invoices/{invoice_id}")
+def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
+    """Usuwa fakturę po ID. Usuwa również wszystkie rachunki dla okresu tej faktury."""
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     
     if not invoice:
-        raise HTTPException(status_code=400, detail="Nie udało się wczytać faktury")
+        raise HTTPException(status_code=404, detail="Faktura nie znaleziona")
     
-    return {"message": "Faktura wczytana", "invoice_number": invoice.invoice_number}
+    period = invoice.data
+    
+    # Usuń wszystkie rachunki dla tego okresu (może być wiele faktur dla tego samego okresu)
+    # Sprawdź czy są jeszcze inne faktury dla tego okresu
+    other_invoices = db.query(Invoice).filter(
+        Invoice.data == period,
+        Invoice.id != invoice_id
+    ).count()
+    
+    deleted_bills_count = 0
+    if other_invoices == 0:
+        # Jeśli to ostatnia faktura dla tego okresu, usuń wszystkie rachunki
+        bills = db.query(Bill).filter(Bill.data == period).all()
+        for bill in bills:
+            # Usuń plik PDF jeśli istnieje
+            if bill.pdf_path and Path(bill.pdf_path).exists():
+                Path(bill.pdf_path).unlink()
+            db.delete(bill)
+            deleted_bills_count += 1
+    
+    db.delete(invoice)
+    db.commit()
+    
+    return {
+        "message": "Faktura usunięta",
+        "id": invoice_id,
+        "invoice_number": invoice.invoice_number,
+        "period": period,
+        "deleted_bills_count": deleted_bills_count
+    }
 
 
 # ========== ENDPOINTY RACHUNKÓW ==========
@@ -635,8 +858,8 @@ def load_sample_data(db: Session = Depends(get_db)):
     # Dodaj lokale
     locals_data = [
         Local(water_meter_name="water_meter_5", tenant="Jan Kowalski", local="gora"),
-        Local(water_meter_name="water_meter_5b", tenant="Anna Nowak", local="gabinet"),
-        Local(water_meter_name="water_meter_5a", tenant="Piotr Wiśniewski", local="dol"),
+        Local(water_meter_name="water_meter_5b", tenant="Mikołaj", local="dol"),
+        Local(water_meter_name="water_meter_5a", tenant="Bartek", local="gabinet"),
     ]
     
     for local in locals_data:

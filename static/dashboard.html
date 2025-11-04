@@ -131,6 +131,18 @@
             gap: 15px;
             margin-bottom: 20px;
         }
+        
+        /* Specjalny layout dla formularza weryfikacji faktury gazu - 4 kolumny */
+        #form-gas-invoice-verify {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+        
+        /* Puste miejsca w formularzu */
+        .form-group.empty {
+            visibility: hidden;
+        }
 
         .form-group {
             display: flex;
@@ -306,38 +318,50 @@
 
         <div id="alert" class="alert"></div>
 
-        <!-- Statystyki -->
-        <div class="stats-grid" id="stats">
-            <div class="stat-card">
-                <h3 id="stat-locals">-</h3>
-                <p>Lokale</p>
-            </div>
-            <div class="stat-card">
-                <h3 id="stat-readings">-</h3>
-                <p>Odczyty</p>
-            </div>
-            <div class="stat-card">
-                <h3 id="stat-invoices">-</h3>
-                <p>Faktury</p>
-            </div>
-            <div class="stat-card">
-                <h3 id="stat-bills">-</h3>
-                <p>Rachunki</p>
-            </div>
-            <div class="stat-card">
-                <h3 id="stat-total">-</h3>
-                <p>Suma brutto</p>
-            </div>
-        </div>
-
         <!-- Główne sekcje -->
         <div class="section">
-            <div class="tabs">
-                <button class="tab active" onclick="showTab('locals')">🏠 Lokale</button>
-                <button class="tab" onclick="showTab('readings')">📊 Odczyty</button>
-                <button class="tab" onclick="showTab('invoices')">📄 Faktury</button>
-                <button class="tab" onclick="showTab('bills')">💰 Rachunki</button>
+            <!-- Zakładki wyboru medium -->
+            <div class="tabs" style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                <button class="tab active" onclick="showMedium('water')">💧 Woda</button>
+                <button class="tab" onclick="showMedium('gas')">🔥 Gaz</button>
             </div>
+
+            <!-- Sekcje dla Wody -->
+            <div id="medium-water" class="medium-content">
+                <!-- Statystyki wody -->
+                <div class="stats-grid" id="water-stats" style="margin-bottom: 25px;">
+                    <div class="stat-card">
+                        <h3 id="water-stat-locals">-</h3>
+                        <p>Lokale</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="water-stat-readings">-</h3>
+                        <p>Odczyty</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="water-stat-invoices">-</h3>
+                        <p>Faktury</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="water-stat-bills">-</h3>
+                        <p>Rachunki</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="water-stat-total">-</h3>
+                        <p>Suma brutto</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="water-stat-latest-period">-</h3>
+                        <p>Najnowszy okres</p>
+                    </div>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab active" onclick="showTab('locals')">🏠 Lokale</button>
+                    <button class="tab" onclick="showTab('readings')">📊 Odczyty</button>
+                    <button class="tab" onclick="showTab('invoices')">📄 Faktury</button>
+                    <button class="tab" onclick="showTab('bills')">💰 Rachunki</button>
+                </div>
 
             <!-- Sekcja Lokale -->
             <div id="tab-locals" class="tab-content active">
@@ -414,10 +438,74 @@
                     </p>
                 </div>
                 
+                <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #856404;">⚠️ Weryfikacja faktur</h3>
+                    <p style="margin-bottom: 10px; color: #333;">
+                        Po wczytaniu faktury PDF, dane zostaną wyświetlone poniżej do weryfikacji i ewentualnej zmiany przed zapisem do bazy danych.
+                    </p>
+                </div>
+
                 <div style="margin-bottom: 20px;">
                     <h3>Wczytaj fakturę PDF</h3>
                     <input type="file" id="invoice-file" accept=".pdf" style="margin-bottom: 10px;">
                     <button class="btn btn-primary" onclick="uploadInvoice()">Wczytaj PDF</button>
+                </div>
+
+                <!-- Formularz weryfikacji faktury (ukryty do momentu parsowania) -->
+                <div id="invoice-verification" style="display: none; background: #f0f9ff; border: 2px solid #667eea; padding: 20px; margin-bottom: 20px; border-radius: 8px;">
+                    <h3>Weryfikuj dane faktury przed zapisem</h3>
+                    <form id="form-invoice-verify" class="form-grid">
+                        <div class="form-group">
+                            <label>Okres (YYYY-MM)</label>
+                            <input type="text" name="data" placeholder="2025-02" pattern="\d{4}-\d{2}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Zużycie (m³)</label>
+                            <input type="number" step="0.01" name="usage" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Koszt wody za m³</label>
+                            <input type="number" step="0.01" name="water_cost_m3" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Koszt ścieków za m³</label>
+                            <input type="number" step="0.01" name="sewage_cost_m3" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Liczba miesięcy abonamentu</label>
+                            <input type="number" name="nr_of_subscription" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Abonament woda (za miesiąc)</label>
+                            <input type="number" step="0.01" name="water_subscr_cost" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Abonament ścieki (za miesiąc)</label>
+                            <input type="number" step="0.01" name="sewage_subscr_cost" required>
+                        </div>
+                        <div class="form-group">
+                            <label>VAT (np. 0.08 dla 8%)</label>
+                            <input type="number" step="0.01" name="vat" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Data początku okresu</label>
+                            <input type="date" name="period_start" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Data końca okresu</label>
+                            <input type="date" name="period_stop" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Numer faktury</label>
+                            <input type="text" name="invoice_number" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Suma brutto</label>
+                            <input type="number" step="0.01" name="gross_sum" required>
+                        </div>
+                    </form>
+                    <button class="btn btn-success" onclick="verifyAndSaveInvoice()">Zatwierdź i zapisz</button>
+                    <button class="btn btn-secondary" onclick="cancelInvoiceVerification()">Anuluj</button>
                 </div>
                 
                 <h3>Lub dodaj ręcznie</h3>
@@ -492,6 +580,307 @@
                 
                 <div id="bills-list" class="loading">Ładowanie...</div>
             </div>
+            </div>  <!-- koniec medium-water -->
+
+            <!-- Sekcje dla Gazu -->
+            <div id="medium-gas" class="medium-content" style="display: none;">
+                <!-- Statystyki gazu -->
+                <div class="stats-grid" id="gas-stats" style="margin-bottom: 25px;">
+                    <div class="stat-card">
+                        <h3 id="gas-stat-invoices">-</h3>
+                        <p>Faktury gazu</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="gas-stat-bills">-</h3>
+                        <p>Rachunki gazu</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="gas-stat-total">-</h3>
+                        <p>Suma brutto</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="gas-stat-latest-period">-</h3>
+                        <p>Najnowszy okres</p>
+                    </div>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab active" onclick="showGasTab('gas-tab-invoices')">📄 Faktury gazu</button>
+                    <button class="tab" onclick="showGasTab('gas-tab-bills')">💰 Rachunki gazu</button>
+                </div>
+
+                <!-- Sekcja Faktury gazu -->
+                <div id="gas-tab-invoices" class="tab-content active">
+                    <h2>Faktury gazu (PGNiG)</h2>
+                    
+                    <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 8px;">
+                        <h3 style="margin-top: 0; color: #856404;">⚠️ Weryfikacja faktur</h3>
+                        <p style="margin-bottom: 10px; color: #333;">
+                            Po wczytaniu faktury PDF, dane zostaną wyświetlone poniżej do weryfikacji i ewentualnej zmiany przed zapisem do bazy danych.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h3>Wczytaj fakturę PDF</h3>
+                        <input type="file" id="gas-invoice-file" accept=".pdf" style="margin-bottom: 10px;">
+                        <button class="btn btn-primary" onclick="uploadGasInvoice()">Wczytaj PDF</button>
+                    </div>
+
+                    <!-- Formularz weryfikacji faktury (ukryty do momentu parsowania) -->
+                    <div id="gas-invoice-verification" style="display: none !important; background: #f0f9ff; border: 2px solid #667eea; padding: 20px; margin-bottom: 20px; border-radius: 8px;">
+                        <h3>Weryfikuj dane faktury przed zapisem</h3>
+                        <form id="form-gas-invoice-verify" class="form-grid">
+                            <!-- Rząd 1: Okres, Numer Faktury, Data początku okresu, Data końca okresu -->
+                            <div class="form-group">
+                                <label>Okres (YYYY-MM)</label>
+                                <input type="text" name="data" placeholder="2025-02" pattern="\d{4}-\d{2}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Numer faktury</label>
+                                <input type="text" name="invoice_number" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Data początku okresu</label>
+                                <input type="date" name="period_start" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Data końca okresu</label>
+                                <input type="date" name="period_stop" required>
+                            </div>
+                            
+                            <!-- Rząd 2: puste, Paliwo zużycie (m³), Odczyt poprzedni, Odczyt obecny -->
+                            <div class="form-group empty"></div>
+                            <div class="form-group">
+                                <label>Paliwo zużycie (m³)</label>
+                                <input type="number" step="0.01" name="fuel_usage_m3" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Odczyt poprzedni (m³)</label>
+                                <input type="number" step="0.01" name="previous_reading" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Odczyt obecny (m³)</label>
+                                <input type="number" step="0.01" name="current_reading" required>
+                            </div>
+                            
+                            <!-- Rząd 3: Paliwo - Współczynnik konwersji, Paliwo - Zużycie (kWh), Paliwo - Cena netto za kWh, Paliwo - Wartość netto -->
+                            <div class="form-group">
+                                <label>Paliwo - Współczynnik konwersji (kWh/m³)</label>
+                                <input type="number" step="0.0001" name="fuel_conversion_factor" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Paliwo - Zużycie (kWh)</label>
+                                <input type="number" step="0.01" name="fuel_usage_kwh" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Paliwo - Cena netto za kWh</label>
+                                <input type="number" step="0.00001" name="fuel_price_net" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Paliwo - Wartość netto</label>
+                                <input type="number" step="0.01" name="fuel_value_net" required>
+                            </div>
+                            
+                            <!-- Rząd 4: puste, Abonament - Ilość miesięcy, Abonament - Cena netto za miesiąc, Abonament - Wartość netto -->
+                            <div class="form-group empty"></div>
+                            <div class="form-group">
+                                <label>Abonament - Ilość miesięcy</label>
+                                <input type="number" name="subscription_quantity" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Abonament - Cena netto za miesiąc</label>
+                                <input type="number" step="0.01" name="subscription_price_net" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Abonament - Wartość netto</label>
+                                <input type="number" step="0.01" name="subscription_value_net" required>
+                            </div>
+                            
+                            <!-- Rząd 5: puste, Dystrybucja stała - Ilość miesięcy, Dystrybucja stała - Cena netto za miesiąc, Dystrybucja stała - Wartość netto -->
+                            <div class="form-group empty"></div>
+                            <div class="form-group">
+                                <label>Dystrybucja stała - Ilość miesięcy</label>
+                                <input type="number" name="distribution_fixed_quantity" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Dystrybucja stała - Cena netto za miesiąc</label>
+                                <input type="number" step="0.01" name="distribution_fixed_price_net" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Dystrybucja stała - Wartość netto</label>
+                                <input type="number" step="0.01" name="distribution_fixed_value_net" required>
+                            </div>
+                            
+                            <!-- Rząd 6: puste, Dystrybucja zmienna - Zużycie (m³), Dystrybucja zmienna - Wsp. konw., Dystrybucja zmienna - Zużycie (kWh) -->
+                            <div class="form-group empty"></div>
+                            <div class="form-group">
+                                <label>Dystrybucja zmienna - Zużycie (m³)</label>
+                                <input type="number" step="0.01" name="distribution_variable_usage_m3" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Dystrybucja zmienna - Wsp. konw.</label>
+                                <input type="number" step="0.0001" name="distribution_variable_conversion_factor" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Dystrybucja zmienna - Zużycie (kWh)</label>
+                                <input type="number" step="0.01" name="distribution_variable_usage_kwh" required>
+                            </div>
+                            
+                            <!-- Rząd 7: puste, puste, Dystrybucja zmienna - Cena netto za kWh, Dystrybucja zmienna - Wartość netto -->
+                            <div class="form-group empty"></div>
+                            <div class="form-group empty"></div>
+                            <div class="form-group">
+                                <label>Dystrybucja zmienna - Cena netto za kWh</label>
+                                <input type="number" step="0.00001" name="distribution_variable_price_net" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Dystrybucja zmienna - Wartość netto</label>
+                                <input type="number" step="0.01" name="distribution_variable_value_net" required>
+                            </div>
+                            
+                            <!-- Rząd 8: puste, Dystrybucja zmienna 2 - Zużycie (m³), Dystrybucja zmienna 2 - Wsp. konw., Dystrybucja zmienna 2 - Zużycie (kWh) -->
+                            <div class="form-group empty" id="dist-var-2-empty-1"></div>
+                            <div class="form-group" id="distribution-variable-2-group" style="display: none;">
+                                <label>Dystrybucja zmienna 2 - Zużycie (m³)</label>
+                                <input type="number" step="0.01" name="distribution_variable_2_usage_m3">
+                            </div>
+                            <div class="form-group" id="distribution-variable-2-conv-group" style="display: none;">
+                                <label>Dystrybucja zmienna 2 - Wsp. konw.</label>
+                                <input type="number" step="0.0001" name="distribution_variable_2_conversion_factor">
+                            </div>
+                            <div class="form-group" id="distribution-variable-2-kwh-group" style="display: none;">
+                                <label>Dystrybucja zmienna 2 - Zużycie (kWh)</label>
+                                <input type="number" step="0.01" name="distribution_variable_2_usage_kwh">
+                            </div>
+                            
+                            <!-- Rząd 9: puste, puste, Dystr. zm. 2 - cena netto za kWh, Dystrybucja zmienna 2 - Wartość netto -->
+                            <div class="form-group empty"></div>
+                            <div class="form-group empty"></div>
+                            <div class="form-group" id="distribution-variable-2-price-group" style="display: none;">
+                                <label>Dystr. zm. 2 - cena netto za kWh</label>
+                                <input type="number" step="0.00001" name="distribution_variable_2_price_net">
+                            </div>
+                            <div class="form-group" id="distribution-variable-2-value-group" style="display: none;">
+                                <label>Dystrybucja zmienna 2 - Wartość netto</label>
+                                <input type="number" step="0.01" name="distribution_variable_2_value_net">
+                            </div>
+                            
+                            <!-- Rząd 11: Wartość netto ogółem, VAT, Kwota VAT, Wartość brutto całość -->
+                            <div class="form-group">
+                                <label>Wartość netto ogółem</label>
+                                <input type="number" step="0.01" name="total_net_sum" required>
+                            </div>
+                            <div class="form-group">
+                                <label>VAT (np. 0.23 dla 23%)</label>
+                                <input type="number" step="0.01" name="vat_rate" value="0.23" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Kwota VAT ogółem</label>
+                                <input type="number" step="0.01" name="vat_amount" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Wartość brutto całość</label>
+                                <input type="number" step="0.01" name="total_gross_sum" required>
+                            </div>
+                            
+                            <!-- Rząd 12: Odsetki za nieterminowe wpłaty, Termin płatności, puste, Do zapłaty -->
+                            <div class="form-group">
+                                <label>Odsetki za nieterminowe wpłaty</label>
+                                <input type="number" step="0.01" name="late_payment_interest" value="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Termin płatności</label>
+                                <input type="date" name="payment_due_date" required>
+                            </div>
+                            <div class="form-group empty"></div>
+                            <div class="form-group">
+                                <label>Do zapłaty</label>
+                                <input type="number" step="0.01" name="amount_to_pay" required>
+                            </div>
+                        </form>
+                        <button class="btn btn-success" onclick="verifyAndSaveGasInvoice()">Zatwierdź i zapisz</button>
+                        <button class="btn btn-secondary" onclick="cancelGasInvoiceVerification()">Anuluj</button>
+                    </div>
+
+                    <!-- Przycisk do pokazania formularza ręcznego -->
+                    <div style="margin-bottom: 20px;">
+                        <button class="btn btn-secondary" onclick="toggleManualGasInvoiceForm()" id="btn-show-manual-gas-invoice">
+                            Lub dodaj ręcznie
+                        </button>
+                    </div>
+
+                    <!-- Formularz ręcznego dodawania faktury (ukryty domyślnie) -->
+                    <div id="gas-invoice-manual-form" style="display: none;">
+                        <h3>Dodaj fakturę ręcznie</h3>
+                        <form id="form-gas-invoice" class="form-grid">
+                        <div class="form-group">
+                            <label>Okres (YYYY-MM)</label>
+                            <input type="text" name="data" placeholder="2025-02" pattern="\d{4}-\d{2}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Data początku okresu</label>
+                            <input type="date" name="period_start" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Data końca okresu</label>
+                            <input type="date" name="period_stop" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Odczyt poprzedni (m³)</label>
+                            <input type="number" step="0.01" name="previous_reading" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Odczyt obecny (m³)</label>
+                            <input type="number" step="0.01" name="current_reading" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Numer faktury</label>
+                            <input type="text" name="invoice_number" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Paliwo - Wartość brutto</label>
+                            <input type="number" step="0.01" name="fuel_value_gross" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Abonament - Wartość brutto</label>
+                            <input type="number" step="0.01" name="subscription_value_gross" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Dystrybucja stała - Wartość brutto</label>
+                            <input type="number" step="0.01" name="distribution_fixed_value_gross" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Dystrybucja zmienna - Wartość brutto</label>
+                            <input type="number" step="0.01" name="distribution_variable_value_gross" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Suma brutto całej faktury</label>
+                            <input type="number" step="0.01" name="total_gross_sum" required>
+                        </div>
+                        </form>
+                        <button class="btn btn-primary" onclick="addGasInvoice()">Dodaj fakturę</button>
+                        <button class="btn btn-secondary" onclick="toggleManualGasInvoiceForm()" style="margin-left: 10px;">Ukryj formularz</button>
+                    </div>
+                    
+                    <div id="gas-invoices-list" class="loading">Ładowanie...</div>
+                </div>
+
+                <!-- Sekcja Rachunki gazu -->
+                <div id="gas-tab-bills" class="tab-content">
+                    <h2>Rachunki gazu</h2>
+                    <div class="period-selector">
+                        <label>Okres (YYYY-MM):</label>
+                        <input type="text" id="gas-bill-period" placeholder="2025-02" pattern="\d{4}-\d{2}" list="available-gas-periods">
+                        <datalist id="available-gas-periods"></datalist>
+                        <button class="btn btn-success" onclick="generateGasBills()">Generuj rachunki</button>
+                    </div>
+                    <p style="color: #666; margin-bottom: 20px; font-size: 0.9em;">
+                        💡 Podaj okres w formacie YYYY-MM. System automatycznie wygeneruje rachunki dla wszystkich lokali na podstawie faktur gazu (58% gora, 25% dol, 17% gabinet).
+                    </p>
+                    
+                    <div id="gas-bills-list" class="loading">Ładowanie...</div>
+                </div>
+            </div>  <!-- koniec medium-gas -->
         </div>
     </div>
 
@@ -522,16 +911,17 @@
             }, 5000);
         }
 
-        // Statystyki
-        async function loadStats() {
+        // Statystyki wody
+        async function loadWaterStats() {
             try {
                 const res = await fetch(`${API_BASE}/api/stats`);
                 const stats = await res.json();
-                document.getElementById('stat-locals').textContent = stats.locals_count;
-                document.getElementById('stat-readings').textContent = stats.readings_count;
-                document.getElementById('stat-invoices').textContent = stats.invoices_count;
-                document.getElementById('stat-bills').textContent = stats.bills_count;
-                document.getElementById('stat-total').textContent = stats.total_gross_sum.toFixed(2) + ' zł';
+                document.getElementById('water-stat-locals').textContent = stats.locals_count || 0;
+                document.getElementById('water-stat-readings').textContent = stats.readings_count || 0;
+                document.getElementById('water-stat-invoices').textContent = stats.invoices_count || 0;
+                document.getElementById('water-stat-bills').textContent = stats.bills_count || 0;
+                document.getElementById('water-stat-total').textContent = (stats.total_gross_sum || 0).toFixed(2) + ' zł';
+                document.getElementById('water-stat-latest-period').textContent = stats.latest_period || '-';
                 
                 // Aktualizuj listę dostępnych okresów
                 const datalist = document.getElementById('available-periods');
@@ -544,7 +934,7 @@
                     });
                 }
             } catch (error) {
-                console.error('Błąd ładowania statystyk:', error);
+                console.error('Błąd ładowania statystyk wody:', error);
             }
         }
 
@@ -560,9 +950,16 @@
                     return;
                 }
 
-                let html = '<table class="data-table"><thead><tr><th>Licznik</th><th>Najemca</th><th>Lokal</th></tr></thead><tbody>';
+                let html = '<table class="data-table"><thead><tr><th>Licznik</th><th>Najemca</th><th>Lokal</th><th>Akcje</th></tr></thead><tbody>';
                 locals.forEach(l => {
-                    html += `<tr><td>${l.water_meter_name}</td><td>${l.tenant}</td><td>${l.local}</td></tr>`;
+                    html += `<tr>
+                        <td>${l.water_meter_name}</td>
+                        <td>${l.tenant}</td>
+                        <td>${l.local}</td>
+                        <td class="actions">
+                            <button class="btn btn-danger btn-small" onclick="deleteLocal(${l.id})" title="Usuń lokal">🗑️</button>
+                        </td>
+                    </tr>`;
                 });
                 html += '</tbody></table>';
                 listEl.innerHTML = html;
@@ -585,7 +982,7 @@
                     showAlert('Lokal dodany pomyślnie!');
                     form.reset();
                     loadLocals();
-                    loadStats();
+                    loadWaterStats();
                 } else {
                     const error = await res.json();
                     showAlert(error.detail || 'Błąd dodawania lokalu', 'error');
@@ -607,9 +1004,17 @@
                     return;
                 }
 
-                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Licznik główny</th><th>Licznik 5</th><th>Licznik 5b</th></tr></thead><tbody>';
+                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Licznik główny</th><th>Licznik 5 (gora)</th><th>Licznik 5b (dol)</th><th>Akcje</th></tr></thead><tbody>';
                 readings.forEach(r => {
-                    html += `<tr><td>${r.data}</td><td>${r.water_meter_main}</td><td>${r.water_meter_5}</td><td>${r.water_meter_5b}</td></tr>`;
+                    html += `<tr>
+                        <td>${r.data}</td>
+                        <td>${r.water_meter_main}</td>
+                        <td>${r.water_meter_5}</td>
+                        <td>${r.water_meter_5b}</td>
+                        <td class="actions">
+                            <button class="btn btn-danger btn-small" onclick="deleteReading('${r.data}')" title="Usuń odczyt i rachunki dla tego okresu">🗑️</button>
+                        </td>
+                    </tr>`;
                 });
                 html += '</tbody></table>';
                 listEl.innerHTML = html;
@@ -632,7 +1037,7 @@
                     showAlert('Odczyt dodany pomyślnie!');
                     form.reset();
                     loadReadings();
-                    loadStats();
+                    loadWaterStats();
                 } else {
                     const error = await res.json();
                     showAlert(error.detail || 'Błąd dodawania odczytu', 'error');
@@ -654,7 +1059,7 @@
                     return;
                 }
 
-                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Numer faktury</th><th>Zużycie (m³)</th><th>Koszt wody/m³</th><th>Koszt ścieków/m³</th><th>Suma brutto</th></tr></thead><tbody>';
+                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Numer faktury</th><th>Zużycie (m³)</th><th>Koszt wody/m³</th><th>Koszt ścieków/m³</th><th>Suma brutto</th><th>Akcje</th></tr></thead><tbody>';
                 invoices.forEach(i => {
                     html += `<tr>
                         <td>${i.data}</td>
@@ -663,6 +1068,9 @@
                         <td>${i.water_cost_m3}</td>
                         <td>${i.sewage_cost_m3}</td>
                         <td>${i.gross_sum.toFixed(2)} zł</td>
+                        <td class="actions">
+                            <button class="btn btn-danger btn-small" onclick="deleteInvoice(${i.id})" title="Usuń fakturę i rachunki dla tego okresu (jeśli to ostatnia faktura)">🗑️</button>
+                        </td>
                     </tr>`;
                 });
                 html += '</tbody></table>';
@@ -683,23 +1091,79 @@
             formData.append('file', fileInput.files[0]);
 
             try {
-                const res = await fetch(`${API_BASE}/invoices/upload`, {
+                const res = await fetch(`${API_BASE}/invoices/parse`, {
                     method: 'POST',
                     body: formData
                 });
                 if (res.ok) {
                     const result = await res.json();
-                    showAlert(`Faktura wczytana: ${result.invoice_number}`);
-                    fileInput.value = '';
-                    loadInvoices();
-                    loadStats();
+                    // Wypełnij formularz weryfikacji danymi
+                    const verifyForm = document.getElementById('form-invoice-verify');
+                    Object.keys(result).forEach(key => {
+                        const input = verifyForm.querySelector(`[name="${key}"]`);
+                        if (input && result[key] !== null && result[key] !== undefined) {
+                            // Dla pól typu date, upewnij się że format jest poprawny
+                            if (input.type === 'date' && typeof result[key] === 'string') {
+                                input.value = result[key];
+                            } else if (input.type !== 'date') {
+                                input.value = result[key];
+                            }
+                        }
+                    });
+                    // Pokaż formularz weryfikacji
+                    document.getElementById('invoice-verification').style.display = 'block';
+                    showAlert('Faktura sparsowana - zweryfikuj dane przed zapisem');
                 } else {
                     const error = await res.json();
-                    showAlert(error.detail || 'Błąd wczytywania faktury', 'error');
+                    showAlert(error.detail || 'Błąd parsowania faktury', 'error');
                 }
             } catch (error) {
                 showAlert('Błąd połączenia', 'error');
             }
+        }
+
+        async function verifyAndSaveInvoice() {
+            const form = document.getElementById('form-invoice-verify');
+            const formData = new FormData(form);
+            const data = {};
+            for (const [key, value] of formData.entries()) {
+                // Konwertuj wartości numeryczne
+                if (['usage', 'water_cost_m3', 'sewage_cost_m3', 'water_subscr_cost', 
+                     'sewage_subscr_cost', 'vat', 'gross_sum'].includes(key)) {
+                    data[key] = parseFloat(value) || 0;
+                } else if (key === 'nr_of_subscription') {
+                    data[key] = parseInt(value) || 0;
+                } else {
+                    data[key] = value;
+                }
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/invoices/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    showAlert('Faktura zapisana pomyślnie!');
+                    form.reset();
+                    document.getElementById('invoice-verification').style.display = 'none';
+                    document.getElementById('invoice-file').value = '';
+                    loadInvoices();
+                    loadWaterStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd zapisywania faktury', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        function cancelInvoiceVerification() {
+            document.getElementById('invoice-verification').style.display = 'none';
+            document.getElementById('form-invoice-verify').reset();
+            document.getElementById('invoice-file').value = '';
         }
 
         async function addInvoice() {
@@ -716,7 +1180,7 @@
                     showAlert('Faktura dodana pomyślnie!');
                     form.reset();
                     loadInvoices();
-                    loadStats();
+                    loadWaterStats();
                 } else {
                     const error = await res.json();
                     showAlert(error.detail || 'Błąd dodawania faktury', 'error');
@@ -746,8 +1210,8 @@
                         <td>${b.usage_m3}</td>
                         <td>${b.gross_sum.toFixed(2)} zł</td>
                         <td class="actions">
-                            <a href="${API_BASE}/bills/download/${b.id}" target="_blank" class="btn btn-success btn-small">Pobierz PDF</a>
-                            <button class="btn btn-danger btn-small" onclick="deleteBill(${b.id})">Usuń</button>
+                            <a href="${API_BASE}/bills/download/${b.id}" target="_blank" class="btn btn-success btn-small">📥 PDF</a>
+                            <button class="btn btn-danger btn-small" onclick="deleteBill(${b.id})" title="Usuń rachunek">🗑️</button>
                         </td>
                     </tr>`;
                 });
@@ -771,7 +1235,7 @@
                 if (res.ok) {
                     showAlert(`Wygenerowano ${result.bills_count} rachunków dla okresu ${period}`);
                     loadBills();
-                    loadStats();
+                    loadWaterStats();
                 } else {
                     showAlert(result.detail || 'Błąd generowania rachunków', 'error');
                 }
@@ -797,7 +1261,7 @@
                 if (res.ok) {
                     showAlert(`Zregenerowano ${result.bills_count} rachunków dla okresu ${period}`);
                     loadBills();
-                    loadStats();
+                    loadWaterStats();
                 } else {
                     showAlert(result.detail || 'Błąd regenerowania rachunków', 'error');
                 }
@@ -816,7 +1280,7 @@
                 if (res.ok) {
                     showAlert('Rachunek usunięty');
                     loadBills();
-                    loadStats();
+                    loadWaterStats();
                 } else {
                     const error = await res.json();
                     showAlert(error.detail || 'Błąd usuwania rachunku', 'error');
@@ -826,10 +1290,476 @@
             }
         }
 
+        async function deleteLocal(localId) {
+            if (!confirm('Czy na pewno chcesz usunąć ten lokal? Zostaną również usunięte wszystkie powiązane rachunki.')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/locals/${localId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    const result = await res.json();
+                    showAlert(`Lokal usunięty. Usunięto również ${result.deleted_bills_count} powiązanych rachunków.`);
+                    loadLocals();
+                    loadBills();
+                    loadWaterStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd usuwania lokalu', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        async function deleteReading(period) {
+            if (!confirm(`Czy na pewno chcesz usunąć odczyt dla okresu ${period}? Zostaną również usunięte wszystkie rachunki dla tego okresu.`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/readings/${period}`, { method: 'DELETE' });
+                if (res.ok) {
+                    const result = await res.json();
+                    showAlert(`Odczyt dla okresu ${period} usunięty. Usunięto również ${result.deleted_bills_count} rachunków.`);
+                    loadReadings();
+                    loadBills();
+                    loadWaterStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd usuwania odczytu', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        async function deleteInvoice(invoiceId) {
+            if (!confirm('Czy na pewno chcesz usunąć tę fakturę? Jeśli to ostatnia faktura dla tego okresu, zostaną również usunięte wszystkie rachunki dla tego okresu.')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/invoices/${invoiceId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    const result = await res.json();
+                    if (result.deleted_bills_count > 0) {
+                        showAlert(`Faktura usunięta. Usunięto również ${result.deleted_bills_count} rachunków dla okresu ${result.period}.`);
+                    } else {
+                        showAlert('Faktura usunięta. Rachunki pozostają (istnieją inne faktury dla tego okresu).');
+                    }
+                    loadInvoices();
+                    loadBills();
+                    loadWaterStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd usuwania faktury', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        // ========== FUNKCJE DLA GAZU ==========
+        
+        // Statystyki gazu
+        async function loadGasStats() {
+            try {
+                const res = await fetch(`${API_BASE}/api/gas/stats`);
+                const stats = await res.json();
+                document.getElementById('gas-stat-invoices').textContent = stats.invoices_count || 0;
+                document.getElementById('gas-stat-bills').textContent = stats.bills_count || 0;
+                document.getElementById('gas-stat-total').textContent = (stats.total_gross_sum || 0).toFixed(2) + ' zł';
+                document.getElementById('gas-stat-latest-period').textContent = stats.latest_period || '-';
+                
+                // Aktualizuj listę dostępnych okresów dla rachunków gazu
+                const datalist = document.getElementById('available-gas-periods');
+                datalist.innerHTML = '';
+                if (stats.available_periods && stats.available_periods.length > 0) {
+                    stats.available_periods.forEach(period => {
+                        const option = document.createElement('option');
+                        option.value = period;
+                        datalist.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Błąd ładowania statystyk gazu:', error);
+            }
+        }
+        
+        // Przełączanie między medium (Woda/Gaz)
+        function showMedium(medium) {
+            document.querySelectorAll('.tab').forEach(t => {
+                if (t.textContent.includes('Woda') || t.textContent.includes('Gaz')) {
+                    t.classList.remove('active');
+                }
+            });
+            event.target.classList.add('active');
+            
+            document.getElementById('medium-water').style.display = medium === 'water' ? 'block' : 'none';
+            document.getElementById('medium-gas').style.display = medium === 'gas' ? 'block' : 'none';
+            
+            if (medium === 'water') {
+                loadWaterStats();
+                loadLocals();
+            } else if (medium === 'gas') {
+                loadGasStats();
+                loadGasInvoices();
+                loadGasBills();
+            }
+        }
+
+        // Przełączanie zakładek dla gazu
+        function showGasTab(tabName) {
+            document.querySelectorAll('#medium-gas .tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#medium-gas .tab-content').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+            
+            if (tabName === 'gas-tab-invoices') loadGasInvoices();
+            if (tabName === 'gas-tab-bills') loadGasBills();
+        }
+
+        // Faktury gazu
+        async function loadGasInvoices() {
+            try {
+                const res = await fetch(`${API_BASE}/api/gas/invoices/`);
+                const invoices = await res.json();
+                const listEl = document.getElementById('gas-invoices-list');
+                
+                if (invoices.length === 0) {
+                    listEl.innerHTML = '<p>Brak faktur gazu</p>';
+                    return;
+                }
+
+                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Numer faktury</th><th>Suma brutto</th><th>Akcje</th></tr></thead><tbody>';
+                invoices.forEach(i => {
+                    html += `<tr>
+                        <td>${i.data}</td>
+                        <td>${i.invoice_number}</td>
+                        <td>${i.total_gross_sum.toFixed(2)} zł</td>
+                        <td class="actions">
+                            <button class="btn btn-danger btn-small" onclick="deleteGasInvoice(${i.id})" title="Usuń fakturę i rachunki dla tego okresu (jeśli to ostatnia faktura)">🗑️</button>
+                        </td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                listEl.innerHTML = html;
+            } catch (error) {
+                document.getElementById('gas-invoices-list').innerHTML = '<p class="error">Błąd ładowania faktur</p>';
+            }
+        }
+
+        async function uploadGasInvoice() {
+            const fileInput = document.getElementById('gas-invoice-file');
+            if (!fileInput.files[0]) {
+                showAlert('Wybierz plik PDF', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const res = await fetch(`${API_BASE}/api/gas/invoices/parse`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (res.ok) {
+                    const result = await res.json();
+                    // Wypełnij formularz weryfikacji danymi
+                    const verifyForm = document.getElementById('form-gas-invoice-verify');
+                    Object.keys(result).forEach(key => {
+                        const input = verifyForm.querySelector(`[name="${key}"]`);
+                        if (input) {
+                            if (result[key] !== null && result[key] !== undefined && result[key] !== '') {
+                                // Dla dat (type="date") upewnij się że format jest YYYY-MM-DD
+                                if (input.type === 'date') {
+                                    if (typeof result[key] === 'string') {
+                                        // Jeśli data jest już w formacie YYYY-MM-DD
+                                        input.value = result[key].substring(0, 10);
+                                    } else if (result[key] && result[key].isoformat) {
+                                        input.value = result[key].isoformat().substring(0, 10);
+                                    }
+                                } else {
+                                    // Dla innych pól po prostu przypisz wartość
+                                    // Upewnij się, że pole jest widoczne (nie ukryte przez display: none)
+                                    const formGroup = input.closest('.form-group');
+                                    if (formGroup && formGroup.style.display === 'none') {
+                                        formGroup.style.display = 'flex';
+                                    }
+                                    // Wypełnij pole - upewnij się że wartość jest liczbą lub stringiem
+                                    const value = result[key];
+                                    if (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')) {
+                                        input.value = value;
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Pokaż pola dla dystrybucji zmiennej 2 jeśli istnieją
+                    if (result.distribution_variable_2_usage_m3) {
+                        document.getElementById('distribution-variable-2-group').style.display = 'flex';
+                        document.getElementById('distribution-variable-2-conv-group').style.display = 'flex';
+                        document.getElementById('distribution-variable-2-kwh-group').style.display = 'flex';
+                        document.getElementById('distribution-variable-2-price-group').style.display = 'flex';
+                        document.getElementById('distribution-variable-2-value-group').style.display = 'flex';
+                    } else {
+                        // Ukryj wszystkie pola dystrybucji zmiennej 2
+                        document.getElementById('distribution-variable-2-group').style.display = 'none';
+                        document.getElementById('distribution-variable-2-conv-group').style.display = 'none';
+                        document.getElementById('distribution-variable-2-kwh-group').style.display = 'none';
+                        document.getElementById('distribution-variable-2-price-group').style.display = 'none';
+                        document.getElementById('distribution-variable-2-value-group').style.display = 'none';
+                    }
+                    // Pokaż formularz weryfikacji
+                    const verificationDiv = document.getElementById('gas-invoice-verification');
+                    verificationDiv.style.display = 'block';
+                    showAlert('Faktura sparsowana - zweryfikuj dane przed zapisem');
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd parsowania faktury', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        async function verifyAndSaveGasInvoice() {
+            const form = document.getElementById('form-gas-invoice-verify');
+            const formData = new FormData(form);
+            const data = {};
+            // Lista pól numerycznych
+            const numericFields = [
+                'previous_reading', 'current_reading',
+                'fuel_usage_m3', 'fuel_conversion_factor', 'fuel_usage_kwh', 'fuel_price_net', 
+                'fuel_value_net', 'fuel_value_gross',
+                'subscription_quantity', 'subscription_price_net', 'subscription_value_net', 
+                'subscription_value_gross',
+                'distribution_fixed_quantity', 'distribution_fixed_price_net', 
+                'distribution_fixed_value_net', 'distribution_fixed_value_gross',
+                'distribution_variable_usage_m3', 'distribution_variable_conversion_factor',
+                'distribution_variable_usage_kwh', 'distribution_variable_price_net', 'distribution_variable_value_net',
+                'distribution_variable_value_gross',
+                'distribution_variable_2_usage_m3', 'distribution_variable_2_conversion_factor',
+                'distribution_variable_2_usage_kwh', 'distribution_variable_2_price_net', 'distribution_variable_2_value_net',
+                'total_net_sum', 'vat_rate', 'vat_amount', 'total_gross_sum',
+                'late_payment_interest', 'amount_to_pay'
+            ];
+            
+            for (const [key, value] of formData.entries()) {
+                if (key.startsWith('distribution_variable_2_')) {
+                    // Pola dystrybucji zmiennej 2 są opcjonalne - jeśli są puste, ustaw null
+                    if (value && value.trim() !== '') {
+                        // Zamień przecinki na kropki dla liczb
+                        const numValue = value.toString().replace(',', '.');
+                        data[key] = parseFloat(numValue);
+                    } else {
+                        data[key] = null;
+                    }
+                } else if (numericFields.includes(key)) {
+                    if (value) {
+                        // Zamień przecinki na kropki dla liczb
+                        const numValue = value.toString().replace(',', '.');
+                        data[key] = parseFloat(numValue) || 0;
+                    } else {
+                        data[key] = 0;
+                    }
+                } else if (key === 'subscription_quantity' || key === 'distribution_fixed_quantity') {
+                    data[key] = value ? parseInt(value) : 0;
+                } else {
+                    data[key] = value;
+                }
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/gas/invoices/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    showAlert('Faktura gazu zapisana pomyślnie!');
+                    form.reset();
+                    const verificationDiv = document.getElementById('gas-invoice-verification');
+                    verificationDiv.style.display = 'none';
+                    document.getElementById('gas-invoice-file').value = '';
+                    loadGasInvoices();
+                    loadGasStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd zapisywania faktury', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        function cancelGasInvoiceVerification() {
+            const verificationDiv = document.getElementById('gas-invoice-verification');
+            verificationDiv.style.display = 'none';
+            document.getElementById('form-gas-invoice-verify').reset();
+            document.getElementById('gas-invoice-file').value = '';
+        }
+
+        function toggleManualGasInvoiceForm() {
+            const formDiv = document.getElementById('gas-invoice-manual-form');
+            const btn = document.getElementById('btn-show-manual-gas-invoice');
+            
+            if (formDiv.style.display === 'none' || formDiv.style.display === '') {
+                formDiv.style.display = 'block';
+                btn.textContent = 'Ukryj formularz ręczny';
+            } else {
+                formDiv.style.display = 'none';
+                btn.textContent = 'Lub dodaj ręcznie';
+            }
+        }
+
+        async function addGasInvoice() {
+            const form = document.getElementById('form-gas-invoice');
+            const formData = new FormData(form);
+            const data = {};
+            for (const [key, value] of formData.entries()) {
+                // Konwertuj wartości numeryczne
+                if (['previous_reading', 'current_reading', 'fuel_value_gross', 
+                     'subscription_value_gross', 'distribution_fixed_value_gross', 
+                     'distribution_variable_value_gross', 'total_gross_sum'].includes(key)) {
+                    data[key] = parseFloat(value) || 0;
+                } else {
+                    data[key] = value;
+                }
+            }
+            
+            // Ustaw domyślny VAT jeśli nie podano
+            if (!data.vat_rate) data.vat_rate = 0.23;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/gas/invoices/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (res.ok) {
+                    showAlert('Faktura gazu dodana pomyślnie!');
+                    form.reset();
+                    // Ukryj formularz ręczny po dodaniu faktury
+                    const formDiv = document.getElementById('gas-invoice-manual-form');
+                    const btn = document.getElementById('btn-show-manual-gas-invoice');
+                    formDiv.style.display = 'none';
+                    btn.textContent = 'Lub dodaj ręcznie';
+                    loadGasInvoices();
+                    loadGasStats();
+                } else {
+                    const error = await res.json();
+                    console.error('Błąd API:', error);
+                    // Wyświetl szczegóły błędu jeśli są dostępne
+                    if (error.detail) {
+                        if (Array.isArray(error.detail)) {
+                            showAlert(error.detail.map(e => e.msg || e).join(', '), 'error');
+                        } else {
+                            showAlert(error.detail, 'error');
+                        }
+                    } else {
+                        showAlert('Błąd dodawania faktury', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Błąd połączenia:', error);
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        // Rachunki gazu
+        async function loadGasBills() {
+            try {
+                const res = await fetch(`${API_BASE}/api/gas/bills/`);
+                const bills = await res.json();
+                const listEl = document.getElementById('gas-bills-list');
+                
+                if (bills.length === 0) {
+                    listEl.innerHTML = '<p>Brak rachunków gazu. Wygeneruj rachunki dla okresu z fakturą.</p>';
+                    return;
+                }
+
+                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Lokal</th><th>Udział</th><th>Suma brutto</th></tr></thead><tbody>';
+                bills.forEach(b => {
+                    html += `<tr>
+                        <td>${b.data}</td>
+                        <td>${b.local}</td>
+                        <td>${(b.cost_share * 100).toFixed(0)}%</td>
+                        <td>${b.total_gross_sum.toFixed(2)} zł</td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                listEl.innerHTML = html;
+            } catch (error) {
+                document.getElementById('gas-bills-list').innerHTML = '<p class="error">Błąd ładowania rachunków</p>';
+            }
+        }
+
+        async function deleteGasInvoice(invoiceId) {
+            if (!confirm('Czy na pewno chcesz usunąć tę fakturę gazu? Jeśli to ostatnia faktura dla tego okresu, zostaną również usunięte wszystkie rachunki dla tego okresu.')) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/gas/invoices/${invoiceId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    const result = await res.json();
+                    if (result.deleted_bills_count > 0) {
+                        showAlert(`Faktura gazu usunięta. Usunięto również ${result.deleted_bills_count} rachunków dla okresu ${result.period}.`);
+                    } else {
+                        showAlert('Faktura gazu usunięta. Rachunki pozostają (istnieją inne faktury dla tego okresu).');
+                    }
+                    loadGasInvoices();
+                    loadGasBills();
+                    loadGasStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd usuwania faktury', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        async function generateGasBills() {
+            const period = document.getElementById('gas-bill-period').value.trim();
+            if (!period || !period.match(/^\d{4}-\d{2}$/)) {
+                showAlert('Podaj prawidłowy okres (YYYY-MM)', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/gas/bills/generate/${period}`, { method: 'POST' });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert(`Wygenerowano ${result.bills_count} rachunków gazu dla okresu ${period}`);
+                    loadGasBills();
+                    loadGasStats();
+                } else {
+                    showAlert(result.detail || 'Błąd generowania rachunków', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
         // Inicjalizacja
-        loadStats();
+        loadWaterStats();
         loadLocals();
-        setInterval(loadStats, 30000); // Odśwież statystyki co 30 sekund
+        
+        // Odświeżanie statystyk gdy zakładka jest aktywna
+        setInterval(() => {
+            if (document.getElementById('medium-water').style.display !== 'none') {
+                loadWaterStats();
+            }
+            if (document.getElementById('medium-gas').style.display !== 'none') {
+                loadGasStats();
+            }
+        }, 30000); // Odśwież statystyki co 30 sekund
     </script>
 </body>
 </html>

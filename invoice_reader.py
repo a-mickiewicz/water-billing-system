@@ -97,31 +97,59 @@ def parse_invoice_data(text: str) -> Optional[Dict]:
             if invoice_match:
                 data['invoice_number'] = invoice_match.group(1)
     
-    # Wyszukaj wszystkie pozycje wody (format: "Woda m3 8,10 4,70 38,07 8%")
-    # Format: "Woda m3 [zużycie] [cena_za_m3] [wartość_netto] [vat]"
+    # Wyszukaj pozycje wody - szukaj w tabeli z pozycjami faktury
+    # Format w tabeli: "Woda m3 [zużycie] [cena_za_m3] [wartość_netto] [vat%]"
+    # Problem: może być wiele dopasowań, więc szukamy w kontekście tabeli
+    
+    # Najpierw znajdź sekcję z pozycjami faktury (przed tabelą VAT)
+    items_section = re.search(r'(?:Pozycje|Pozycja|Woda|Ścieki).*?(?:Wartość\s+Netto|Razem|Suma|VAT)', text, re.IGNORECASE | re.DOTALL)
+    search_text = items_section.group(0) if items_section else text
+    
+    # Wyszukaj wszystkie pozycje wody - bardziej precyzyjny wzorzec
+    # Format: "Woda m3 29,00 4,70 136,30 8%" (bez spacji przed liczbami w niektórych fakturach)
     water_pattern = r'Woda\s+m3\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)\s+\d+%?'
-    water_matches = re.findall(water_pattern, text, re.IGNORECASE)
+    water_matches = re.findall(water_pattern, search_text, re.IGNORECASE)
     
     if water_matches:
-        # Sumuj zużycie i oblicz średnią ważoną cenę
-        total_usage = 0.0
-        total_value = 0.0  # wartość netto (zużycie * cena)
+        # Jeśli jest wiele dopasowań, użyj tylko pierwszego (lub największego zużycia jako głównego)
+        # Często pierwsze dopasowanie to właściwa pozycja
+        if len(water_matches) > 1:
+            # Wybierz dopasowanie z największym zużyciem (zazwyczaj to główna pozycja)
+            water_matches = sorted(water_matches, key=lambda x: float(x[0].replace(',', '.')), reverse=True)
         
-        for match in water_matches:
-            usage = float(match[0].replace(',', '.'))
-            price = float(match[1].replace(',', '.'))
-            value = float(match[2].replace(',', '.'))
-            total_usage += usage
-            total_value += value
+        # Użyj pierwszego (największego) dopasowania
+        match = water_matches[0]
+        usage = float(match[0].replace(',', '.'))
+        price = float(match[1].replace(',', '.'))
+        value = float(match[2].replace(',', '.'))
         
-        # Średnia ważona cena (całkowita wartość / całkowite zużycie)
-        avg_price = total_value / total_usage if total_usage > 0 else 0.0
+        # Jeśli są inne dopasowania, sumuj tylko jeśli są sensowne (nie za duże)
+        # Często duplikaty to błędy parsowania
+        if len(water_matches) > 1:
+            # Sprawdź czy inne dopasowania są podobne (może być kilka pozycji z różnymi stawkami)
+            for other_match in water_matches[1:]:
+                other_usage = float(other_match[0].replace(',', '.'))
+                # Jeśli zużycie jest rozsądne (nie jest 4x większe niż pierwsze), dodaj
+                if other_usage < usage * 4:  # Heurystyka: unikaj błędnych dopasowań
+                    usage += other_usage
+                    value += float(other_match[2].replace(',', '.'))
         
-        data['usage'] = total_usage
+        # Oblicz cenę za m³ (jeśli zużycie > 0, użyj wartości/zużycie, inaczej cenę z faktury)
+        if usage > 0:
+            calculated_price = value / usage
+            # Użyj ceny z faktury jeśli jest bardzo podobna, inaczej obliczoną
+            if abs(calculated_price - price) < 0.1:
+                avg_price = price
+            else:
+                avg_price = calculated_price
+        else:
+            avg_price = price
+        
+        data['usage'] = usage
         data['water_cost_m3'] = avg_price
     else:
         # Fallback - stary sposób szukania
-        usage_match = re.search(r'(?:zużycie|usage|Zużycie)\s*:?\s*(\d+[.,]\d+)\s*m[³3]', text, re.IGNORECASE)
+        usage_match = re.search(r'(?:zużycie|usage|Zużycie|Ilość\s+do\s+rozliczenia)\s*:?\s*(\d+[.,]\d+)\s*m[³3]', text, re.IGNORECASE)
         if usage_match:
             data['usage'] = float(usage_match.group(1).replace(',', '.'))
         
@@ -224,18 +252,67 @@ def parse_invoice_data(text: str) -> Optional[Dict]:
         else:
             data['nr_of_subscription'] = 2  # Domyślnie 2 miesiące
     
-    # Wyszukaj koszty abonamentów
-    abonament_water_match = re.search(r'abonament.*?woda.*?(\d+[.,]\d+)', text, re.IGNORECASE)
-    if abonament_water_match:
-        data['water_subscr_cost'] = float(abonament_water_match.group(1).replace(',', '.'))
-    else:
-        data['water_subscr_cost'] = 0.0
+    # Wyszukaj koszty abonamentów - szukaj w sekcji z pozycjami faktury
+    # Format: "Abonament za wodę" lub "Abonament woda" + wartość
+    # Użyj tej samej sekcji co dla wody (search_text jest już zdefiniowany powyżej)
+    search_text_abonament = search_text
     
-    abonament_sewage_match = re.search(r'abonament.*?ścieki.*?(\d+[.,]\d+)', text, re.IGNORECASE)
-    if abonament_sewage_match:
-        data['sewage_subscr_cost'] = float(abonament_sewage_match.group(1).replace(',', '.'))
-    else:
-        data['sewage_subscr_cost'] = 0.0
+    # Szukaj abonamentu wody - bardziej precyzyjny wzorzec
+    # Format w tabeli może być różny:
+    # - "Abonament za wodę [liczba miesięcy] [cena za miesiąc] [wartość] [vat%]"
+    # - "Abonament Woda szt. [liczba miesięcy] [cena za miesiąc] [wartość] [vat%]"
+    # - "Abonament woda [liczba miesięcy] [cena za miesiąc] [wartość] [vat%]"
+    abonament_water_patterns = [
+        r'Abonament\s+Woda\s+szt\.\s+\d+[.,]\d+\s+(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format: "Abonament Woda szt. 1,00 13,37 13,37"
+        r'Abonament\s+(?:za\s+)?wod[ęy]\s+(?:\d+\s+)?(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format: "Abonament za wodę 2 45,00 90,00"
+        r'Abonament\s+wodny\s+(?:\d+\s+)?(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format: "Abonament wodny 2 45,00 90,00"
+        r'abonament.*?woda.*?m[iesiącyec]+.*?(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format z liczbą miesięcy
+    ]
+    
+    water_subscr_found = False
+    for pattern in abonament_water_patterns:
+        abonament_water_match = re.search(pattern, search_text_abonament, re.IGNORECASE)
+        if abonament_water_match:
+            # Cena za miesiąc to pierwsza wartość w dopasowaniu
+            data['water_subscr_cost'] = float(abonament_water_match.group(1).replace(',', '.'))
+            water_subscr_found = True
+            break
+    
+    if not water_subscr_found:
+        # Fallback - szukaj w całym tekście, ale bardziej precyzyjnie
+        # Format: "Abonament" + "woda" + liczba (cena za miesiąc)
+        abonament_fallback = re.search(r'abonament.*?wod[ęy].*?(?:za\s+m[iesiącyec]+)?[:\s]+(\d+[.,]\d+)', text, re.IGNORECASE)
+        if abonament_fallback:
+            data['water_subscr_cost'] = float(abonament_fallback.group(1).replace(',', '.'))
+        else:
+            data['water_subscr_cost'] = 0.0
+    
+    # Szukaj abonamentu ścieków
+    # Format w tabeli może być różny:
+    # - "Abonament za ścieki [liczba miesięcy] [cena za miesiąc] [wartość] [vat%]"
+    # - "Abonament Ścieki szt. [liczba miesięcy] [cena za miesiąc] [wartość] [vat%]"
+    abonament_sewage_patterns = [
+        r'Abonament\s+[ŚS]cieki\s+szt\.\s+\d+[.,]\d+\s+(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format: "Abonament Ścieki szt. 1,00 33,93 33,93"
+        r'Abonament\s+(?:za\s+)?ścieki\s+(?:\d+\s+)?(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format: "Abonament za ścieki 2 35,00 70,00"
+        r'abonament.*?ścieki.*?m[iesiącyec]+.*?(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format z liczbą miesięcy
+    ]
+    
+    sewage_subscr_found = False
+    for pattern in abonament_sewage_patterns:
+        abonament_sewage_match = re.search(pattern, search_text_abonament, re.IGNORECASE)
+        if abonament_sewage_match:
+            # Cena za miesiąc to pierwsza wartość w dopasowaniu
+            data['sewage_subscr_cost'] = float(abonament_sewage_match.group(1).replace(',', '.'))
+            sewage_subscr_found = True
+            break
+    
+    if not sewage_subscr_found:
+        # Fallback - szukaj w całym tekście
+        abonament_sewage_fallback = re.search(r'abonament.*?ścieki.*?(?:za\s+m[iesiącyec]+)?[:\s]+(\d+[.,]\d+)', text, re.IGNORECASE)
+        if abonament_sewage_fallback:
+            data['sewage_subscr_cost'] = float(abonament_sewage_fallback.group(1).replace(',', '.'))
+        else:
+            data['sewage_subscr_cost'] = 0.0
     
     # Wyszukaj sumę brutto
     # Format 1: Tabela z nagłówkiem "Wartość Netto Stawka VAT Kwota VAT Wartość Brutto"
