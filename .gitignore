@@ -50,7 +50,20 @@ credentials.json
 *credentials*.json
 config/
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+
 # Keep folder structure but ignore PDFs
 !invoices_raw/.gitkeep
 !bills/.gitkeep
+
+# Validation reports
+prad_walidacja_faktur.md
+
+# Invoice analysis files (contain sensitive data)
+invoices_raw/**/analysis/
+invoices_raw/**/*.txt
+invoices_raw/**/parsed/
 

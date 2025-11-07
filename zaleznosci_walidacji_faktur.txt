@@ -1,0 +1,290 @@
+ZALEŻNOŚCI DO SPRAWDZENIA PRZY PARSOWANIU FAKTUR
+==================================================
+
+Niniejszy dokument zawiera listę zależności matematycznych i logicznych, które należy sprawdzać podczas parsowania faktur, aby upewnić się, że sparsowane dane są poprawne.
+
+================================================================================
+1. PRĄD (ELECTRICITY) - Faktury ENEA
+================================================================================
+
+1.1. SPRZEDAŻ ENERGII (tabela sprzedaz_energii)
+------------------------------------------------
+Dla każdej pozycji sprzedaży energii:
+  ✓ cena_za_kwh * ilosc_kwh ≈ naleznosc (netto lub brutto, w zależności od tego co jest w fakturze)
+  ✓ Jeśli naleznosc jest brutto: naleznosc_netto = naleznosc_brutto / (1 + VAT%)
+  ✓ Jeśli naleznosc jest netto: naleznosc_brutto = naleznosc_netto * (1 + VAT%)
+  ✓ VAT_amount = naleznosc_brutto - naleznosc_netto
+
+Suma wszystkich pozycji sprzedaży energii:
+  ✓ Suma(ilosc_kwh) = zuzycie_po_bilansowaniu_kwh (z podsumowania finansowego)
+  ✓ Suma(naleznosc_netto) = energy_value_net
+  ✓ Suma(naleznosc_brutto) = energy_value_gross
+  ✓ Suma(VAT_amount) = energy_vat_amount
+
+1.2. OPŁATY DYSTRYBUCYJNE (tabela oplaty_dystrybucyjne)
+--------------------------------------------------------
+Dla każdej opłaty dystrybucyjnej:
+  ✓ Jeśli jednostka = "kWh": cena * ilosc_kwh = naleznosc (netto lub brutto)
+  ✓ Jeśli jednostka = "zł/mc": cena * ilosc_miesiecy = naleznosc (netto lub brutto)
+  ✓ Jeśli jednostka = "zł" (stała): cena = naleznosc (netto lub brutto)
+  ✓ VAT_amount = naleznosc_brutto - naleznosc_netto
+
+Suma wszystkich opłat dystrybucyjnych:
+  ✓ Suma(naleznosc_netto) = distribution_fees_net
+  ✓ Suma(naleznosc_brutto) = distribution_fees_gross
+  ✓ Suma(VAT_amount) = distribution_fees_vat
+
+1.3. ODCZYTY LICZNIKÓW (tabela odczyty)
+----------------------------------------
+Dla każdego odczytu:
+  ✓ ilosc_kwh = (biezacy_odczyt - poprzedni_odczyt) * mnozna
+  ✓ razem_kwh = ilosc_kwh + straty_kwh
+  ✓ Jeśli typ_energii = "POBRANA": ilosc_kwh >= 0
+  ✓ Jeśli typ_energii = "ODDANA": ilosc_kwh może być ujemne (produkcja energii)
+
+Suma odczytów:
+  ✓ Suma(ilosc_kwh) dla wszystkich odczytów "POBRANA" ≈ zuzycie_po_bilansowaniu_kwh
+  ✓ Suma(ilosc_kwh) dla wszystkich odczytów "ODDANA" = energia oddana (jeśli jest)
+
+1.4. PODSUMOWANIE FINANSOWE
+----------------------------
+  ✓ total_net_sum = energy_value_net + distribution_fees_net
+  ✓ total_gross_sum = energy_value_gross + distribution_fees_gross
+  ✓ vat_amount = energy_vat_amount + distribution_fees_vat
+  ✓ vat_amount = total_gross_sum - total_net_sum
+  ✓ saldo_z_rozliczenia = naleznosc_za_okres + wynik_rozliczenia + odsetki - kwota_nadplacona
+  ✓ saldo_z_rozliczenia ≈ amount_to_pay (kwota do zapłaty)
+
+1.5. AKCYZA
+-----------
+  ✓ energia_do_akcyzy_kwh <= zuzycie_po_bilansowaniu_kwh
+  ✓ akcyza = energia_do_akcyzy_kwh * stawka_akcyzy (jeśli stawka jest znana)
+
+1.6. TARYFA
+-----------
+  ✓ Jeśli typ_taryfy = "DWUTARYFOWA": muszą być pozycje z strefa = "DZIENNA" i "NOCNA"
+  ✓ Jeśli typ_taryfy = "CAŁODOBOWA": pozycje mogą mieć strefa = NULL lub "CAŁODOBOWA"
+  ✓ Suma(ilosc_kwh dla strefa="DZIENNA") + Suma(ilosc_kwh dla strefa="NOCNA") = zuzycie_po_bilansowaniu_kwh (dla dwutaryfowej)
+
+================================================================================
+2. WODA (WATER) - Faktury wodociągowe
+================================================================================
+
+2.1. POZYCJE WODY I ŚCIEKÓW
+----------------------------
+Dla pozycji wody:
+  ✓ usage * water_cost_m3 = wartosc_netto_wody (z faktury)
+  ✓ wartosc_brutto_wody = wartosc_netto_wody * (1 + vat)
+
+Dla pozycji ścieków:
+  ✓ usage * sewage_cost_m3 = wartosc_netto_sciekow (z faktury)
+  ✓ wartosc_brutto_sciekow = wartosc_netto_sciekow * (1 + vat)
+
+UWAGA: usage dla wody i ścieków powinno być takie samo (zużycie wody = zużycie ścieków)
+
+2.2. ABONAMENTY
+---------------
+Dla abonamentu wody:
+  ✓ nr_of_subscription * water_subscr_cost = wartosc_netto_abonamentu_wody
+  ✓ wartosc_brutto_abonamentu_wody = wartosc_netto_abonamentu_wody * (1 + vat)
+
+Dla abonamentu ścieków:
+  ✓ nr_of_subscription * sewage_subscr_cost = wartosc_netto_abonamentu_sciekow
+  ✓ wartosc_brutto_abonamentu_sciekow = wartosc_netto_abonamentu_sciekow * (1 + vat)
+
+2.3. ODCZYTY LICZNIKÓW
+-----------------------
+  ✓ current_reading - previous_reading = quantity_to_settle
+  ✓ quantity_to_settle ≈ usage (z pozycji faktury)
+  ✓ current_reading > previous_reading (chyba że był remont/licznik wymieniony)
+
+2.4. SUMY
+----------
+  ✓ gross_sum = (wartosc_netto_wody + wartosc_netto_sciekow + wartosc_netto_abonamentu_wody + wartosc_netto_abonamentu_sciekow) * (1 + vat)
+  ✓ gross_sum = wartosc_brutto_wody + wartosc_brutto_sciekow + wartosc_brutto_abonamentu_wody + wartosc_brutto_abonamentu_sciekow
+  ✓ VAT_amount = gross_sum - (wartosc_netto_wody + wartosc_netto_sciekow + wartosc_netto_abonamentu_wody + wartosc_netto_abonamentu_sciekow)
+
+2.5. OKRES ROZLICZENIOWY
+-------------------------
+  ✓ period_stop > period_start
+  ✓ Liczba dni w okresie ≈ nr_of_subscription * 30 (dla faktur miesięcznych/dwumiesięcznych)
+
+================================================================================
+3. GAZ (GAS) - Faktury PGNiG
+================================================================================
+
+3.1. PALIWO GAZOWE
+------------------
+  ✓ current_reading - previous_reading = fuel_usage_m3
+  ✓ fuel_usage_m3 * fuel_conversion_factor = fuel_usage_kwh
+  ✓ fuel_usage_kwh * fuel_price_net = fuel_value_net
+  ✓ fuel_value_gross = fuel_value_net * (1 + vat_rate)
+  ✓ fuel_vat_amount = fuel_value_gross - fuel_value_net
+
+3.2. ABONAMENT
+--------------
+  ✓ subscription_quantity * subscription_price_net = subscription_value_net
+  ✓ subscription_value_gross = subscription_value_net * (1 + vat_rate)
+  ✓ subscription_vat_amount = subscription_value_gross - subscription_value_net
+
+3.3. DYSTRYBUCJA STAŁA
+-----------------------
+  ✓ distribution_fixed_quantity * distribution_fixed_price_net = distribution_fixed_value_net
+  ✓ distribution_fixed_value_gross = distribution_fixed_value_net * (1 + vat_rate)
+  ✓ distribution_fixed_vat_amount = distribution_fixed_value_gross - distribution_fixed_value_net
+
+3.4. DYSTRYBUCJA ZMIENNA
+------------------------
+Dla pierwszej dystrybucji zmiennej:
+  ✓ distribution_variable_usage_m3 * distribution_variable_conversion_factor = distribution_variable_usage_kwh
+  ✓ distribution_variable_usage_kwh * distribution_variable_price_net = distribution_variable_value_net
+  ✓ distribution_variable_value_gross = distribution_variable_value_net * (1 + vat_rate)
+  ✓ distribution_variable_vat_amount = distribution_variable_value_gross - distribution_variable_value_net
+
+Dla drugiej dystrybucji zmiennej (jeśli istnieje):
+  ✓ distribution_variable_2_usage_m3 * distribution_variable_2_conversion_factor = distribution_variable_2_usage_kwh
+  ✓ distribution_variable_2_usage_kwh * distribution_variable_2_price_net = distribution_variable_2_value_net
+
+3.5. PODSUMOWANIE FINANSOWE
+----------------------------
+  ✓ total_net_sum = fuel_value_net + subscription_value_net + distribution_fixed_value_net + distribution_variable_value_net [+ distribution_variable_2_value_net]
+  ✓ vat_amount = fuel_vat_amount + subscription_vat_amount + distribution_fixed_vat_amount + distribution_variable_vat_amount
+  ✓ total_gross_sum = total_net_sum + vat_amount
+  ✓ total_gross_sum = fuel_value_gross + subscription_value_gross + distribution_fixed_value_gross + distribution_variable_value_gross
+  ✓ amount_to_pay = total_gross_sum + late_payment_interest
+
+3.6. OKRES ROZLICZENIOWY
+------------------------
+  ✓ period_stop > period_start
+  ✓ subscription_quantity ≈ (period_stop - period_start) / 30 (dla faktur miesięcznych/dwumiesięcznych)
+  ✓ distribution_fixed_quantity ≈ subscription_quantity
+
+3.7. ODCZYTY
+------------
+  ✓ current_reading > previous_reading (chyba że był remont/licznik wymieniony)
+  ✓ fuel_usage_m3 = current_reading - previous_reading
+
+================================================================================
+4. ZALEŻNOŚCI OGÓLNE (dla wszystkich typów faktur)
+================================================================================
+
+4.1. DATY
+----------
+  ✓ period_start < period_stop
+  ✓ payment_due_date >= period_stop (termin płatności nie może być wcześniej niż koniec okresu)
+  ✓ data_wystawienia (dla prądu) >= period_start (faktura nie może być wystawiona przed początkiem okresu)
+
+4.2. VAT
+---------
+  ✓ vat_rate jest standardową stawką (8%, 23% lub 0%)
+  ✓ vat_amount = (suma_netto) * vat_rate
+  ✓ suma_brutto = suma_netto * (1 + vat_rate)
+  ✓ vat_amount = suma_brutto - suma_netto
+
+4.3. NUMERY FAKTUR
+-------------------
+  ✓ invoice_number nie jest pusty
+  ✓ invoice_number jest unikalny w danym okresie (data)
+
+4.4. WARTOŚCI FINANSOWE
+------------------------
+  ✓ Wszystkie wartości finansowe >= 0 (chyba że to faktura korygująca z ujemnymi wartościami)
+  ✓ Sumy częściowe sumują się do sumy całkowitej
+  ✓ Zaokrąglenia: różnice między obliczonymi a sparsowanymi wartościami < 0.01 (dla wartości w złotych)
+
+4.5. ZUŻYCIE
+------------
+  ✓ Zużycie >= 0 (chyba że to energia oddana do sieci)
+  ✓ Zużycie z odczytów liczników ≈ zużycie z pozycji faktury (z tolerancją na straty/zaokrąglenia)
+
+================================================================================
+5. TOLERANCJE I ZAAKRĄGLENIA
+================================================================================
+
+5.1. TOLERANCJE DLA PORÓWNAŃ
+------------------------------
+  - Dla wartości w złotych: tolerancja = 0.01 zł
+  - Dla wartości w kWh: tolerancja = 1 kWh
+  - Dla wartości w m³: tolerancja = 0.01 m³
+  - Dla procentów VAT: tolerancja = 0.001 (0.1%)
+
+5.2. ZAAKRĄGLENIA
+------------------
+  - Wszystkie wartości finansowe zaokrąglone do 2 miejsc po przecinku
+  - Ceny za kWh zaokrąglone do 4 miejsc po przecinku
+  - Współczynniki konwersji zaokrąglone do 4 miejsc po przecinku
+  - Zużycie w kWh zaokrąglone do liczb całkowitych
+  - Zużycie w m³ zaokrąglone do 2 miejsc po przecinku
+
+================================================================================
+6. PRZYKŁADY IMPLEMENTACJI WALIDACJI
+================================================================================
+
+6.1. PRĄD - Sprawdzenie ceny za kWh
+------------------------------------
+def validate_energy_sale(sale):
+    ilosc_kwh = float(sale['ilosc_kwh'])
+    cena_za_kwh = float(sale['cena_za_kwh'])
+    naleznosc = float(sale['naleznosc'])
+    
+    obliczona_naleznosc = ilosc_kwh * cena_za_kwh
+    roznica = abs(obliczona_naleznosc - naleznosc)
+    
+    if roznica > 0.01:  # Tolerancja 1 grosz
+        raise ValueError(f"Błąd: cena * ilość ({obliczona_naleznosc}) != należność ({naleznosc})")
+
+6.2. WODA - Sprawdzenie zużycia z odczytów
+-------------------------------------------
+def validate_water_readings(previous_reading, current_reading, usage_from_invoice):
+    obliczone_zuzycie = current_reading - previous_reading
+    roznica = abs(obliczone_zuzycie - usage_from_invoice)
+    
+    if roznica > 0.01:  # Tolerancja 0.01 m³
+        raise ValueError(f"Błąd: odczyty ({obliczone_zuzycie}) != zużycie z faktury ({usage_from_invoice})")
+
+6.3. GAZ - Sprawdzenie konwersji m³ na kWh
+-------------------------------------------
+def validate_gas_conversion(fuel_usage_m3, conversion_factor, fuel_usage_kwh):
+    obliczone_kwh = fuel_usage_m3 * conversion_factor
+    roznica = abs(obliczone_kwh - fuel_usage_kwh)
+    
+    if roznica > 1.0:  # Tolerancja 1 kWh
+        raise ValueError(f"Błąd: m³ * współczynnik ({obliczone_kwh}) != kWh ({fuel_usage_kwh})")
+
+6.4. OGÓLNE - Sprawdzenie VAT
+-------------------------------
+def validate_vat(netto, brutto, vat_rate):
+    obliczone_brutto = netto * (1 + vat_rate)
+    roznica = abs(obliczone_brutto - brutto)
+    
+    if roznica > 0.01:  # Tolerancja 1 grosz
+        raise ValueError(f"Błąd: netto * (1 + VAT) ({obliczone_brutto}) != brutto ({brutto})")
+
+================================================================================
+7. PRIORYTETY WALIDACJI
+================================================================================
+
+7.1. KRYTYCZNE (błąd uniemożliwia zapis faktury)
+-------------------------------------------------
+  - Numer faktury jest pusty
+  - Okres rozliczeniowy jest nieprawidłowy (period_start >= period_stop)
+  - Suma brutto nie zgadza się z sumą netto + VAT
+  - Zużycie jest ujemne (chyba że to energia oddana)
+
+7.2. WAŻNE (ostrzeżenie, ale można zapisać)
+--------------------------------------------
+  - Cena * ilość != należność (różnica > 0.01)
+  - Zużycie z odczytów != zużycie z faktury (różnica > 0.01)
+  - Suma pozycji != suma całkowita (różnica > 0.01)
+  - VAT nie zgadza się z obliczonym (różnica > 0.01)
+
+7.3. INFORMACYJNE (tylko logowanie)
+------------------------------------
+  - Zaokrąglenia powodują małe różnice (< 0.01)
+  - Wartości opcjonalne nie są wypełnione
+  - Taryfa nie jest zgodna z pozycjami (np. dwutaryfowa, ale brak pozycji nocnej)
+
+================================================================================
+KONIEC DOKUMENTU
+================================================================================
+

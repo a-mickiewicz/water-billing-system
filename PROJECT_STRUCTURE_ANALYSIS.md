@@ -1,41 +1,156 @@
 # 📊 Analiza Struktury Projektu - Propozycje Ulepszeń
 
+## 📁 Aktualna Struktura Projektu (Stan na 2025)
+
+```
+water_billing/
+├── app/                              # ✅ Główna aplikacja (zreorganizowana)
+│   ├── __init__.py
+│   ├── api/
+│   │   ├── __init__.py
+│   │   └── routes/
+│   │       ├── __init__.py
+│   │       ├── gas.py                # ✅ Routes dla gazu
+│   │       ├── water.py              # ✅ Routes dla wody
+│   │       └── electricity.py        # ✅ Routes dla prądu
+│   ├── core/
+│   │   ├── __init__.py
+│   │   └── database.py               # ✅ Baza danych
+│   ├── integrations/
+│   │   ├── __init__.py
+│   │   └── google_sheets.py          # ✅ Integracja Google Sheets
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── water.py                  # ✅ Modele wody
+│   │   └── gas.py                    # ✅ Modele gazu
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── water/
+│   │   │   ├── __init__.py
+│   │   │   ├── bill_generator.py
+│   │   │   ├── invoice_reader.py
+│   │   │   └── meter_manager.py
+│   │   └── gas/
+│   │       ├── __init__.py
+│   │       ├── bill_generator.py
+│   │       ├── invoice_reader.py
+│   │       └── manager.py
+│   └── static/
+│       └── dashboard.html
+│
+├── main.py                           # ✅ Główny plik - tylko endpointy pomocnicze
+├── run.py                            # Entry point
+│
+├── migrations/                       # ✅ Migracje (zreorganizowane)
+│   ├── __init__.py
+│   └── versions/
+│       ├── migrate_add_gas_column.py
+│       ├── migrate_update_gas_invoice_fields.py
+│       └── ...
+│
+├── tests/                            # ✅ Testy (zreorganizowane)
+│   ├── __init__.py
+│   ├── fixtures/
+│   ├── test_duplicates.py
+│   └── test_invoice_reader.py
+│
+├── tools/                            # ✅ Narzędzia pomocnicze
+│   ├── analyze_2022_06.py
+│   ├── check_bills.py
+│   ├── debug_invoice_parsing.py
+│   ├── generate_gas_bill_example.py
+│   ├── analyze_electricity_numbers.py    # 🔌 Narzędzia do prądu
+│   ├── electricity_test.py
+│   └── extract_electricity_structured.py
+│
+├── scripts/                          # ✅ Skrypty zarządzania
+│   └── reset_and_import.py
+│
+├── docs/                             # ✅ Dokumentacja (zreorganizowana)
+│   ├── API_EXAMPLES.md
+│   ├── ARCHITECTURE_PROPOSALS.md
+│   ├── CALCULATION_LOGIC.md
+│   ├── FILES_ANALYSIS.md
+│   ├── GAS_IMPLEMENTATION_INSTRUCTIONS.md
+│   ├── QUICKSTART.md
+│   ├── SECURITY_AUDIT_2025.md
+│   └── screenshots/
+│
+├── invoices_raw/                     # ✅ Faktury źródłowe
+│   ├── electricity/                  # 🔌 Faktury prądu (istniejące)
+│   │   ├── analysis/
+│   │   │   ├── auto_extracted/
+│   │   │   ├── correted/
+│   │   │   └── *.txt
+│   │   ├── parsed/
+│   │   └── *.pdf
+│   ├── gas/
+│   │   └── *.pdf
+│   └── *.pdf                         # Faktury wody
+│
+├── bills/                            # ✅ Wygenerowane rachunki
+│   ├── gaz/
+│   ├── prad/                         # 🔌 Folder na rachunki prądu (pusty)
+│   └── woda/
+│
+├── requirements.txt
+├── README.md
+└── PROJECT_STRUCTURE_ANALYSIS.md
+```
+
+### ✅ Co zostało zreorganizowane:
+- ✅ Struktura `app/` z podziałem na moduły
+- ✅ Migracje w `migrations/versions/`
+- ✅ Testy w `tests/`
+- ✅ Dokumentacja w `docs/`
+- ✅ Narzędzia w `tools/`
+- ✅ Serwisy dla wody i gazu w `app/services/`
+- ✅ Modele w `app/models/`
+
+### ⚠️ Co wymaga dalszej pracy:
+- ✅ `main.py` zawiera tylko endpointy pomocnicze, routes dla wody w `app/api/routes/water.py`
+- ✅ Struktura dla prądu (electricity) w `app/services/` i `app/models/` - **ZREALIZOWANE**
+- ✅ Routes dla prądu w `app/api/routes/electricity.py` - **ZREALIZOWANE**
+- ✅ Modele prądu w `app/models/electricity.py` - **ZREALIZOWANE**
+
+---
+
 ## 🔍 Obecna Struktura - Identyfikowane Problemy
 
-### ❌ Główne Problemy
+### ❌ Główne Problemy (Zaktualizowane)
 
-1. **Mieszane pliki w głównym katalogu**
-   - 7 plików migracyjnych (`migrate_*.py`)
-   - Główne moduły aplikacji (`main.py`, `models.py`, `db.py`)
-   - Narzędzia pomocnicze (`invoice_reader.py`, `meter_manager.py`)
-   - Pliki konfiguracyjne (`run.py`, `reset_and_import.py`)
+1. **Routes dla wody w `main.py`** ✅ **ZREALIZOWANE**
+   - ✅ Routes dla wody zostały przeniesione do `app/api/routes/water.py`
+   - ✅ `main.py` zawiera tylko endpointy pomocnicze (root, dashboard, load_sample_data)
+   - ✅ Spójność z routes dla gazu (`app/api/routes/gas.py`) i prądu (`app/api/routes/electricity.py`)
 
-2. **Niespójna organizacja API**
-   - `api/gas_routes.py` - routes dla gazu
-   - `main.py` - routes dla wody mieszane z logiką aplikacji
-   - Brak spójnej struktury dla wszystkich mediów
+2. **Brak pełnej struktury dla prądu** ✅ **ZREALIZOWANE**
+   - ✅ `app/models/electricity.py` - **ISTNIEJE**
+   - ✅ `app/services/electricity/` - **ISTNIEJE** (calculator.py, invoice_reader.py, manager.py, bill_generator.py)
+   - ✅ `app/api/routes/electricity.py` - **ISTNIEJE**
+   - ✅ Narzędzia pomocnicze w `tools/` i dane w `invoices_raw/electricity/` - **ISTNIEJĄ**
 
-3. **Pusty folder `utilities/water/`**
-   - `utilities/gas/` ma pełną strukturę (generator, manager, reader, models)
-   - `utilities/water/` jest pusty - brak spójności
+3. **Brak struktury konfiguracji** ✅ **ZREALIZOWANE**
+   - ✅ `app/config.py` - **ISTNIEJE** (centralne zarządzanie konfiguracją z Pydantic Settings)
+   - ✅ `pydantic-settings==2.1.0` dodane do `requirements.txt`
+   - ⚠️ Brak `.env.example` (opcjonalne, ale zalecane - można utworzyć ręcznie na podstawie `app/config.py`)
+   - ✅ Konfiguracja scentralizowana w jednym miejscu
+   - ✅ `.env` dodany do `.gitignore` (bezpieczeństwo)
 
-4. **Pliki testowe w `tools/`**
-   - `tools/test_*.py` - powinny być w `tests/`
-   - `tools/` powinien zawierać tylko skrypty pomocnicze
+4. **Brak testów dla prądu** ⚠️ **CZĘŚCIOWO ZREALIZOWANE**
+   - ✅ `tests/test_electricity_calculator.py` - **ISTNIEJE**
+   - ⚠️ Brak `tests/test_electricity_services.py` i `tests/test_electricity_api.py`
 
-5. **Migracje w głównym katalogu**
-   - Powinny być w `migrations/` lub `alembic/versions/`
+### ✅ Rozwiązane Problemy
 
-6. **Brak struktury konfiguracji**
-   - Brak `config/` lub `.env.example`
-   - Brak centralnego zarządzania konfiguracją
-
-7. **Dokumentacja rozproszona**
-   - 8+ plików `.md` w głównym katalogu
-   - Powinny być w `docs/`
-
-8. **Pusty folder `core/`**
-   - Albo wykorzystać, albo usunąć
+1. ✅ **Migracje zreorganizowane** - są w `migrations/versions/`
+2. ✅ **Testy zreorganizowane** - są w `tests/`
+3. ✅ **Dokumentacja zreorganizowana** - jest w `docs/`
+4. ✅ **Narzędzia pomocnicze** - są w `tools/`
+5. ✅ **Struktura `app/`** - zreorganizowana z podziałem na moduły
+6. ✅ **Serwisy dla wody i gazu** - są w `app/services/`
+7. ✅ **Modele** - są w `app/models/`
+8. ✅ **Core** - wykorzystany (`app/core/database.py`)
 
 ---
 
@@ -54,6 +169,7 @@ water_billing/
 │   │   │   ├── __init__.py
 │   │   │   ├── water.py              # Routes dla wody
 │   │   │   ├── gas.py                # Routes dla gazu
+│   │   │   ├── electricity.py        # 🔌 Routes dla prądu
 │   │   │   └── common.py             # Wspólne routes (stats, health)
 │   │   └── dependencies.py           # FastAPI dependencies
 │   │
@@ -66,7 +182,8 @@ water_billing/
 │   │   ├── __init__.py
 │   │   ├── base.py                   # Base model
 │   │   ├── water.py                  # Water models (Local, Reading, Invoice, Bill)
-│   │   └── gas.py                    # Gas models
+│   │   ├── gas.py                    # Gas models
+│   │   └── electricity.py            # 🔌 Electricity models
 │   │
 │   ├── services/                     # Business logic
 │   │   ├── __init__.py
@@ -76,11 +193,18 @@ water_billing/
 │   │   │   ├── meter_manager.py      # meter_manager.py → tutaj
 │   │   │   ├── bill_generator.py     # bill_generator.py → tutaj
 │   │   │   └── calculator.py         # Logika obliczeń
-│   │   └── gas/
+│   │   ├── gas/
+│   │   │   ├── __init__.py
+│   │   │   ├── invoice_reader.py
+│   │   │   ├── bill_generator.py
+│   │   │   ├── manager.py
+│   │   │   └── calculator.py
+│   │   └── electricity/              # 🔌 Serwisy dla prądu
 │   │       ├── __init__.py
-│   │       ├── invoice_reader.py
-│   │       ├── bill_generator.py
-│   │       └── calculator.py
+│   │       ├── invoice_reader.py     # Parsowanie faktur prądu
+│   │       ├── bill_generator.py     # Generowanie rachunków prądu
+│   │       ├── manager.py            # Zarządzanie odczytami i rozliczeniami
+│   │       └── calculator.py         # Logika obliczeń dla prądu
 │   │
 │   ├── integrations/                 # Integracje zewnętrzne
 │   │   ├── __init__.py
@@ -127,15 +251,126 @@ water_billing/
 │   ├── .env.example
 │   └── settings.py
 │
-├── data/                             # Dane (opcjonalnie)
-│   ├── invoices_raw/
-│   └── bills/
+├── invoices_raw/                     # Faktury źródłowe
+│   ├── electricity/                  # 🔌 Faktury prądu
+│   ├── gas/                          # Faktury gazu
+│   └── *.pdf                         # Faktury wody
+│
+├── bills/                            # Wygenerowane rachunki
+│   ├── prad/                         # 🔌 Rachunki prądu
+│   ├── gaz/                          # Rachunki gazu
+│   └── woda/                         # Rachunki wody
 │
 ├── .gitignore
 ├── requirements.txt
 ├── pyproject.toml                    # Nowoczesna konfiguracja projektu
 ├── README.md                          # Link do docs/README.md
 └── run.py                            # Entry point (minimalny)
+```
+
+---
+
+## 🔌 Szczegółowa Struktura dla Prądu (Electricity)
+
+### Struktura folderów i plików do utworzenia:
+
+```
+app/
+├── models/
+│   └── electricity.py              # Modele: ElectricityLocal, ElectricityReading, 
+│                                   #         ElectricityInvoice, ElectricityBill
+│
+├── services/
+│   └── electricity/
+│       ├── __init__.py
+│       ├── invoice_reader.py       # Parsowanie faktur PDF prądu (ENEA)
+│       ├── bill_generator.py      # Generowanie rachunków PDF dla lokali
+│       ├── manager.py             # Zarządzanie odczytami i rozliczeniami
+│       └── calculator.py         # Logika obliczeń kosztów prądu
+│
+└── api/
+    └── routes/
+        └── electricity.py         # Endpointy API dla prądu
+```
+
+### Pliki do utworzenia:
+
+#### 1. `app/models/electricity.py`
+- `ElectricityLocal` - Lokale z licznikami prądu
+- `ElectricityReading` - Odczyty liczników prądu
+- `ElectricityInvoice` - Faktury za prąd (ENEA)
+- `ElectricityBill` - Wygenerowane rachunki dla lokali
+
+#### 2. `app/services/electricity/invoice_reader.py`
+- Parsowanie faktur PDF z ENEA
+- Wyciąganie danych: data, zużycie (kWh), koszty, opłaty dystrybucyjne
+- Wykorzystanie istniejących narzędzi: `tools/extract_electricity_structured.py`
+
+#### 3. `app/services/electricity/manager.py`
+- Zarządzanie odczytami liczników
+- Rozliczanie zużycia między lokalami
+- Obliczanie kosztów na podstawie faktur
+
+#### 4. `app/services/electricity/bill_generator.py`
+- Generowanie rachunków PDF dla każdego lokalu
+- Wzór podobny do `app/services/water/bill_generator.py`
+- Zapis w `bills/prad/`
+
+#### 5. `app/services/electricity/calculator.py`
+- Logika obliczeń kosztów prądu
+- Podział kosztów między lokale
+- Uwzględnienie opłat stałych i zmiennych
+
+#### 6. `app/api/routes/electricity.py`
+- `GET /api/electricity/locals` - Lista lokali
+- `GET /api/electricity/readings` - Odczyty liczników
+- `GET /api/electricity/invoices` - Faktury
+- `GET /api/electricity/bills` - Wygenerowane rachunki
+- `POST /api/electricity/readings` - Dodanie odczytu
+- `POST /api/electricity/invoices` - Upload faktury PDF
+- `POST /api/electricity/generate-bills` - Generowanie rachunków
+
+### Migracje bazy danych:
+
+```
+migrations/versions/
+└── migrate_add_electricity_tables.py
+```
+
+Tabele do utworzenia:
+- `electricity_locals` - Lokale z licznikami prądu
+- `electricity_readings` - Odczyty liczników
+- `electricity_invoices` - Faktury za prąd
+- `electricity_bills` - Wygenerowane rachunki
+
+### Testy:
+
+```
+tests/
+├── test_electricity_models.py
+├── test_electricity_services.py
+└── test_electricity_api.py
+```
+
+### Narzędzia pomocnicze (już istniejące):
+
+```
+tools/
+├── analyze_electricity_numbers.py    # ✅ Istnieje
+├── electricity_test.py                # ✅ Istnieje
+└── extract_electricity_structured.py  # ✅ Istnieje
+```
+
+### Dane źródłowe (już istniejące):
+
+```
+invoices_raw/electricity/              # ✅ Istnieje
+├── analysis/                          # ✅ Istnieje
+│   ├── auto_extracted/                # ✅ Istnieje
+│   ├── correted/                      # ✅ Istnieje
+│   └── *.txt                          # ✅ Istnieje
+├── parsed/                            # ✅ Istnieje
+└── *.pdf                              # ✅ Istnieje (ENEA 2021-2024)
 ```
 
 ---
@@ -153,13 +388,14 @@ water_billing/
 - ✅ Wszystkie API routes w jednym miejscu
 - ✅ Wszystkie modele w `models/`
 - ✅ Wszystkie serwisy w `services/` z podziałem na media
-- ✅ Wspólna struktura dla wody i gazu
+- ✅ Wspólna struktura dla wody, gazu i prądu
 
 ### 3. **Łatwiejsze Utrzymanie**
 - ✅ Łatwe znajdowanie plików
 - ✅ Jasne granice modułów
 - ✅ Łatwiejsze testowanie
-- ✅ Łatwiejsze dodawanie nowych mediów (prąd, etc.)
+- ✅ Łatwiejsze dodawanie nowych mediów (prąd już przygotowany)
+- ✅ Spójna struktura dla wszystkich mediów (woda, gaz, prąd)
 
 ### 4. **Zgodność z Best Practices**
 - ✅ Struktura zgodna z FastAPI best practices
@@ -179,6 +415,7 @@ water_billing/
 1. Podzielić `main.py` na moduły routes
 2. Przenieść logikę biznesową do `services/`
 3. Ujednolicić strukturę dla wody i gazu
+4. Dodać pełną strukturę dla prądu (electricity)
 
 ### Faza 3: Testy i Dokumentacja
 1. Utworzyć strukture testów
@@ -242,10 +479,48 @@ water_billing/
 
 ## 📝 Podsumowanie
 
-**Obecna struktura:** 6/10 - Działa, ale wymaga reorganizacji
+**Obecna struktura:** 9/10 - ✅ Zreorganizowana, działa dobrze, prąd zaimplementowany, routes dla wody przeniesione
 **Proponowana struktura:** 9/10 - Profesjonalna, skalowalna, zgodna z best practices
 
-**Priorytet:** Średni (projekt działa, ale reorganizacja ułatwi rozwój)
+**Priorytet:** Niski (projekt działa dobrze, główne problemy strukturalne rozwiązane)
 
-**Szacowany czas migracji:** 4-8 godzin (w zależności od testów)
+**Szacowany czas migracji:** < 1 godzina (pozostało: testy services/api dla prądu, implementacja bill_generator dla prądu)
+
+---
+
+## 📋 Plan Implementacji Prądu (Electricity)
+
+### Krok 1: Modele bazy danych
+- [x] Utworzyć `app/models/electricity.py` ✅
+- [x] Zdefiniować modele: ElectricityReading, ElectricityInvoice, ElectricityBill ✅
+- [x] Utworzyć migrację `migrate_add_electricity_tables.py` ✅
+- [x] Uruchomić migrację ✅
+
+### Krok 2: Serwisy
+- [x] Utworzyć `app/services/electricity/invoice_reader.py` ✅
+  - Wykorzystuje logikę z `tools/extract_electricity_structured.py` ✅
+  - Parsowanie faktur ENEA ✅
+- [x] Utworzyć `app/services/electricity/manager.py` ✅
+  - Zarządzanie odczytami ✅
+  - Rozliczanie zużycia ✅
+- [x] Utworzyć `app/services/electricity/bill_generator.py` ✅
+  - Placeholder dla generowania rachunków PDF (do implementacji później)
+- [x] Utworzyć `app/services/electricity/calculator.py` ✅
+  - Logika obliczeń kosztów ✅
+
+### Krok 3: API Routes
+- [x] Utworzyć `app/api/routes/electricity.py` ✅
+- [x] Dodać wszystkie endpointy (CRUD dla readings, invoices, bills) ✅
+- [x] Zarejestrować router w `main.py` ✅
+
+### Krok 4: Testy
+- [x] Utworzyć `tests/test_electricity_calculator.py` ✅
+- [ ] Utworzyć `tests/test_electricity_services.py` ⚠️
+- [ ] Utworzyć `tests/test_electricity_api.py` ⚠️
+
+### Krok 5: Integracja z dashboardem
+- [x] Dodać zakładkę "Prąd" w `app/static/dashboard.html` ✅
+- [x] Dodać widoki dla odczytów, faktur i rachunków prądu ✅
+
+**Status implementacji:** 90% ukończone (pozostało: testy services/api, implementacja bill_generator)
 

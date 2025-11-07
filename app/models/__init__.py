@@ -4,6 +4,15 @@ Modele bazy danych - eksport wszystkich modeli.
 
 from app.models.water import Local, Reading, Invoice, Bill
 from app.models.gas import GasInvoice, GasBill
+from app.models.electricity import ElectricityReading, ElectricityBill
+from app.models.electricity_invoice import (
+    ElectricityInvoice,
+    ElectricityInvoiceBlankiet,
+    ElectricityInvoiceOdczyt,
+    ElectricityInvoiceSprzedazEnergii,
+    ElectricityInvoiceOplataDystrybucyjna,
+    ElectricityInvoiceRozliczenieOkres
+)
 
 __all__ = [
     "Local",
@@ -11,6 +20,14 @@ __all__ = [
     "Invoice",
     "Bill",
     "GasInvoice",
-    "GasBill"
+    "GasBill",
+    "ElectricityReading",
+    "ElectricityInvoice",
+    "ElectricityBill",
+    "ElectricityInvoiceBlankiet",
+    "ElectricityInvoiceOdczyt",
+    "ElectricityInvoiceSprzedazEnergii",
+    "ElectricityInvoiceOplataDystrybucyjna",
+    "ElectricityInvoiceRozliczenieOkres"
 ]
 

@@ -23,12 +23,12 @@
             --border-color: #e2e8f0;
             --hover-bg: #f7fafc;
             --water-color: #4299e1;
-            --gas-color: #f6ad55;
-            --electricity-color: #fbd38d;
+            --gas-color: #f4c574;
+            --electricity-color: #d47474;
             --edit-color: #90cdf4;
             --delete-color: #fcb3b3;
             --warning-bg: #fef5e7;
-            --warning-border: #f6ad55;
+            --warning-border: #f4c574;
             --warning-text: #744210;
         }
 
@@ -43,12 +43,12 @@
             --border-color: #4a5568;
             --hover-bg: #2d3748;
             --water-color: #63b3ed;
-            --gas-color: #fbbf24;
-            --electricity-color: #fcd34d;
+            --gas-color: #ffd574;
+            --electricity-color: #e47474;
             --edit-color: #7dd3fc;
             --delete-color: #fca5a5;
             --warning-bg: #78350f;
-            --warning-border: #fbbf24;
+            --warning-border: #ffd574;
             --warning-text: #fef3c7;
         }
 
@@ -154,6 +154,31 @@
             background: var(--hover-bg);
         }
 
+        /* Cienie w kolorach medium dla stat-card */
+        #medium-water .stat-card.clickable {
+            box-shadow: 0 2px 6px rgba(66, 153, 225, 0.4);
+        }
+
+        #medium-water .stat-card.clickable:hover {
+            box-shadow: 0 4px 10px rgba(66, 153, 225, 0.5);
+        }
+
+        #medium-gas .stat-card.clickable {
+            box-shadow: 0 2px 6px rgba(244, 197, 116, 0.4);
+        }
+
+        #medium-gas .stat-card.clickable:hover {
+            box-shadow: 0 4px 10px rgba(244, 197, 116, 0.5);
+        }
+
+        #medium-electricity .stat-card.clickable {
+            box-shadow: 0 2px 6px rgba(212, 116, 116, 0.4);
+        }
+
+        #medium-electricity .stat-card.clickable:hover {
+            box-shadow: 0 4px 10px rgba(212, 116, 116, 0.5);
+        }
+
         .stat-card:not(.clickable) {
             cursor: default;
         }
@@ -226,7 +251,12 @@
         }
 
         .tab.gas-tab.active {
-            background: linear-gradient(135deg, #c49a6a 0%, #b88a5f 100%);
+            background: linear-gradient(135deg, #f4c574 0%, #e4b564 100%);
+            color: white;
+        }
+
+        .tab.electricity-tab.active {
+            background: linear-gradient(135deg, #d47474 0%, #c46464 100%);
             color: white;
         }
 
@@ -620,7 +650,7 @@
                 </div>
                 
                 <!-- Karta Gazu -->
-                <div class="medium-card" onclick="openMedium('gas')" style="cursor: pointer; background: linear-gradient(135deg, #c49a6a 0%, #b88a5f 100%); color: white; padding: 40px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.15); transition: transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                <div class="medium-card" onclick="openMedium('gas')" style="cursor: pointer; background: linear-gradient(135deg, #f4c574 0%, #e4b564 100%); color: white; padding: 40px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.15); transition: transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                     <div style="font-size: 4em; margin-bottom: 20px; font-weight: 300; opacity: 0.9;">△</div>
                     <h2 style="margin-bottom: 10px; font-size: 2em; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">Gaz</h2>
                     <p style="font-size: 1.1em; opacity: 0.95; margin-bottom: 20px; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">Gas</p>
@@ -647,6 +677,34 @@
                         </div>
                     </div>
                 </div>
+                
+                <div class="medium-card" onclick="openMedium('electricity')" style="cursor: pointer; background: linear-gradient(135deg, #d47474 0%, #c46464 100%); color: white; padding: 40px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.15); transition: transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    <div style="font-size: 4em; margin-bottom: 20px; font-weight: 300; opacity: 0.9;">◇</div>
+                    <h2 style="margin-bottom: 10px; font-size: 2em; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">Prąd</h2>
+                    <p style="font-size: 1.1em; opacity: 0.95; margin-bottom: 20px; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">Electricity</p>
+                    <div id="main-electricity-stats" class="stats-grid" style="margin-top: 20px; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 10px;">
+                            <div style="font-size: 1.5em; font-weight: bold;" id="main-electricity-readings">-</div>
+                            <div style="font-size: 0.9em; opacity: 0.9;">Odczyty</div>
+                            <div style="font-size: 0.75em; opacity: 0.8; margin-top: 3px;">Readings</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 10px;">
+                            <div style="font-size: 1.5em; font-weight: bold;" id="main-electricity-invoices">-</div>
+                            <div style="font-size: 0.9em; opacity: 0.9;">Faktury</div>
+                            <div style="font-size: 0.75em; opacity: 0.8; margin-top: 3px;">Invoices</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 10px;">
+                            <div style="font-size: 1.5em; font-weight: bold;" id="main-electricity-bills">-</div>
+                            <div style="font-size: 0.9em; opacity: 0.9;">Rachunki</div>
+                            <div style="font-size: 0.75em; opacity: 0.8; margin-top: 3px;">Bills</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 10px;">
+                            <div style="font-size: 1.5em; font-weight: bold;" id="main-electricity-period">-</div>
+                            <div style="font-size: 0.9em; opacity: 0.9;">Najnowszy okres</div>
+                            <div style="font-size: 0.75em; opacity: 0.8; margin-top: 3px;">Latest period</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -663,6 +721,7 @@
             <div class="tabs" style="margin-bottom: 20px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">
                 <button class="tab water-tab" id="tab-water" onclick="showMedium('water')" style="text-transform: uppercase;">◯ WODA</button>
                 <button class="tab gas-tab" id="tab-gas" onclick="showMedium('gas')" style="text-transform: uppercase;">△ GAZ</button>
+                <button class="tab electricity-tab" id="tab-electricity" onclick="showMedium('electricity')" style="text-transform: uppercase;">PRĄD</button>
             </div>
 
             <!-- Sekcje dla Wody -->
@@ -1237,6 +1296,368 @@
                     <div id="gas-bills-list" class="loading">Ładowanie...</div>
                 </div>
             </div>  <!-- koniec medium-gas -->
+
+            <!-- Sekcje dla Prądu -->
+            <div id="medium-electricity" class="medium-content" style="display: none;">
+                <!-- Statystyki prądu -->
+                <div class="stats-grid" id="electricity-stats" style="margin-bottom: 25px;">
+                    <div class="stat-card clickable" onclick="showElectricityTab('electricity-tab-readings')">
+                        <h3 id="electricity-stat-readings">-</h3>
+                        <p>Odczyty</p>
+                        <p style="font-size: 0.85em; color: var(--text-secondary); margin-top: 3px;">Readings</p>
+                    </div>
+                    <div class="stat-card clickable" onclick="showElectricityTab('electricity-tab-invoices')">
+                        <h3 id="electricity-stat-invoices">-</h3>
+                        <p>Faktury</p>
+                        <p style="font-size: 0.85em; color: var(--text-secondary); margin-top: 3px;">Invoices</p>
+                    </div>
+                    <div class="stat-card clickable" onclick="showElectricityTab('electricity-tab-bills')">
+                        <h3 id="electricity-stat-bills">-</h3>
+                        <p>Rachunki</p>
+                        <p style="font-size: 0.85em; color: var(--text-secondary); margin-top: 3px;">Bills</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="electricity-stat-total">-</h3>
+                        <p>Suma brutto</p>
+                        <p style="font-size: 0.85em; color: var(--text-secondary); margin-top: 3px;">Total gross</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="electricity-stat-latest-period">-</h3>
+                        <p>Najnowszy okres</p>
+                        <p style="font-size: 0.85em; color: var(--text-secondary); margin-top: 3px;">Latest period</p>
+                    </div>
+                </div>
+
+                <!-- Sekcja Odczyty prądu -->
+                <div id="electricity-tab-readings" class="tab-content active">
+                    <h2>Odczyty liczników prądu</h2>
+                    <form id="form-electricity-reading" class="form-grid">
+                        <div class="form-group">
+                            <label>Okres (YYYY-MM)</label>
+                            <input type="text" name="data" placeholder="2025-02" pattern="\d{4}-\d{2}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Licznik DOM - Jednotaryfowy?</label>
+                            <select name="licznik_dom_jednotaryfowy" onchange="toggleDomMeterType()">
+                                <option value="true">Tak (jednotaryfowy)</option>
+                                <option value="false">Nie (dwutaryfowy)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="dom-jednotaryfowy-group">
+                            <label>Odczyt DOM (jednotaryfowy)</label>
+                            <input type="number" step="0.01" name="odczyt_dom">
+                        </div>
+                        <div class="form-group" id="dom-dwutaryfowy-group" style="display: none;">
+                            <label>Odczyt DOM - Taryfa I</label>
+                            <input type="number" step="0.01" name="odczyt_dom_I">
+                        </div>
+                        <div class="form-group" id="dom-dwutaryfowy-group-2" style="display: none;">
+                            <label>Odczyt DOM - Taryfa II</label>
+                            <input type="number" step="0.01" name="odczyt_dom_II">
+                        </div>
+                        <div class="form-group">
+                            <label>Licznik DÓŁ - Jednotaryfowy?</label>
+                            <select name="licznik_dol_jednotaryfowy" onchange="toggleDolMeterType()">
+                                <option value="true">Tak (jednotaryfowy)</option>
+                                <option value="false">Nie (dwutaryfowy)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="dol-jednotaryfowy-group">
+                            <label>Odczyt DÓŁ (jednotaryfowy)</label>
+                            <input type="number" step="0.01" name="odczyt_dol">
+                        </div>
+                        <div class="form-group" id="dol-dwutaryfowy-group" style="display: none;">
+                            <label>Odczyt DÓŁ - Taryfa I</label>
+                            <input type="number" step="0.01" name="odczyt_dol_I">
+                        </div>
+                        <div class="form-group" id="dol-dwutaryfowy-group-2" style="display: none;">
+                            <label>Odczyt DÓŁ - Taryfa II</label>
+                            <input type="number" step="0.01" name="odczyt_dol_II">
+                        </div>
+                        <div class="form-group">
+                            <label>Odczyt GABINET (zawsze jednotaryfowy)</label>
+                            <input type="number" step="0.01" name="odczyt_gabinet" required>
+                        </div>
+                    </form>
+                    <button class="btn btn-success" onclick="addElectricityReading()" style="text-transform: uppercase;">DODAJ ODCZYT</button>
+                    
+                    <div id="electricity-readings-list" class="loading">Ładowanie...</div>
+                </div>
+
+                <!-- Sekcja Faktury prądu -->
+                <div id="electricity-tab-invoices" class="tab-content">
+                    <h2>Faktury prądu (ENEA)</h2>
+                    
+                    <div class="verification-banner">
+                        <h3>⚠️ Weryfikacja faktur</h3>
+                        <p>
+                            Po wczytaniu faktury PDF, dane zostaną wyświetlone poniżej do weryfikacji i ewentualnej zmiany przed zapisem do bazy danych.
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="text-transform: uppercase;">WCZYTAJ FAKTURĘ PDF</h3>
+                        <div class="file-input-wrapper">
+                            <label for="electricity-invoice-file" class="file-input-label">WYBIERZ PLIK</label>
+                            <input type="file" id="electricity-invoice-file" accept=".pdf" onchange="updateFileName('electricity-invoice-file', 'electricity-invoice-file-name')">
+                            <span id="electricity-invoice-file-name" class="file-name-display"></span>
+                        </div>
+                        <button class="btn btn-success" onclick="uploadElectricityInvoice()" style="text-transform: uppercase; margin-top: 10px;">WCZYTAJ PDF</button>
+                    </div>
+
+                    <!-- Formularz weryfikacji faktury (ukryty do momentu parsowania) -->
+                    <div id="electricity-invoice-verification" style="display: none; background: var(--hover-bg); border: 2px solid var(--primary-color); padding: 20px; margin-bottom: 20px; border-radius: 8px;">
+                        <h3>Weryfikuj dane faktury przed zapisem</h3>
+                        <form id="form-electricity-invoice-verify" class="form-grid">
+                            <div class="form-group">
+                                <label>Rok</label>
+                                <input type="number" name="rok" placeholder="2021" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Numer faktury</label>
+                                <input type="text" name="numer_faktury" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Data wystawienia</label>
+                                <input type="date" name="data_wystawienia" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Data początku okresu</label>
+                                <input type="date" name="data_poczatku_okresu" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Data końca okresu</label>
+                                <input type="date" name="data_konca_okresu" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Należność za okres</label>
+                                <input type="number" step="0.01" name="naleznosc_za_okres" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Wartość prognozy</label>
+                                <input type="number" step="0.01" name="wartosc_prognozy" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Faktury korygujące</label>
+                                <input type="number" step="0.01" name="faktury_korygujace" value="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Odsetki</label>
+                                <input type="number" step="0.01" name="odsetki" value="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Wynik rozliczenia</label>
+                                <input type="number" step="0.01" name="wynik_rozliczenia" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Kwota nadpłacona</label>
+                                <input type="number" step="0.01" name="kwota_nadplacona" value="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Saldo z rozliczenia</label>
+                                <input type="number" step="0.01" name="saldo_z_rozliczenia" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Niedopłata/Nadpłata</label>
+                                <input type="number" step="0.01" name="niedoplata_nadplata" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Energia do akcyzy (kWh)</label>
+                                <input type="number" name="energia_do_akcyzy_kwh" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Akcyza</label>
+                                <input type="number" step="0.01" name="akcyza" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Do zapłaty</label>
+                                <input type="number" step="0.01" name="do_zaplaty" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Zużycie (kWh)</label>
+                                <input type="number" name="zuzycie_kwh" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Ogółem sprzedaż energii</label>
+                                <input type="number" step="0.01" name="ogolem_sprzedaz_energii" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Ogółem usługa dystrybucji</label>
+                                <input type="number" step="0.01" name="ogolem_usluga_dystrybucji" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Grupa taryfowa</label>
+                                <input type="text" name="grupa_taryfowa" placeholder="G12" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Typ taryfy</label>
+                                <select name="typ_taryfy" required>
+                                    <option value="DWUTARYFOWA">Dwutaryfowa (dzienna/nocna)</option>
+                                    <option value="CAŁODOBOWA">Całodobowa (jednotaryfowa)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Energia łącznie zużyta w roku (kWh)</label>
+                                <input type="number" name="energia_lacznie_zuzyta_w_roku_kwh" required>
+                            </div>
+                        </form>
+                        
+                        <!-- Sekcje dla pozostałych tabel szczegółowych -->
+                        <div style="margin-top: 30px; border-top: 2px solid var(--primary-color); padding-top: 20px;">
+                            <h4 style="color: var(--primary-color); margin-bottom: 15px;">📋 Szczegółowe dane faktury</h4>
+                            
+                            <!-- Blankiety prognozowe -->
+                            <div id="electricity-blankiety-section" style="margin-bottom: 20px; display: none;">
+                                <h5 style="margin-bottom: 10px;">Blankiety prognozowe</h5>
+                                <div id="electricity-blankiety-list" style="overflow-x: auto;">
+                                    <div id="electricity-blankiety-editable"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Odczyty liczników -->
+                            <div id="electricity-odczyty-section" style="margin-bottom: 20px; display: none;">
+                                <h5 style="margin-bottom: 10px;">Odczyty liczników</h5>
+                                <div id="electricity-odczyty-list" style="overflow-x: auto;">
+                                    <div id="electricity-odczyty-editable"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Sprzedaż energii -->
+                            <div id="electricity-sprzedaz-section" style="margin-bottom: 20px; display: none;">
+                                <h5 style="margin-bottom: 10px;">Sprzedaż energii (szczegółowa)</h5>
+                                <div id="electricity-sprzedaz-list" style="overflow-x: auto;">
+                                    <div id="electricity-sprzedaz-editable"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Opłaty dystrybucyjne -->
+                            <div id="electricity-oplaty-section" style="margin-bottom: 20px; display: none;">
+                                <h5 style="margin-bottom: 10px;">Opłaty dystrybucyjne (szczegółowe)</h5>
+                                <div id="electricity-oplaty-list" style="overflow-x: auto;">
+                                    <div id="electricity-oplaty-editable"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Rozliczenie okresów -->
+                            <div id="electricity-rozliczenie-section" style="margin-bottom: 20px; display: none;">
+                                <h5 style="margin-bottom: 10px;">Rozliczenie okresów</h5>
+                                <div id="electricity-rozliczenie-list" style="overflow-x: auto;">
+                                    <div id="electricity-rozliczenie-editable"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-success" onclick="verifyAndSaveElectricityInvoice()">Zatwierdź i zapisz</button>
+                        <button class="btn btn-secondary" onclick="cancelElectricityInvoiceVerification()">Anuluj</button>
+                    </div>
+
+                    <!-- Przycisk do pokazania formularza ręcznego -->
+                    <div style="margin-bottom: 20px;">
+                        <button class="btn btn-success" onclick="toggleManualElectricityInvoiceForm()" id="btn-show-manual-electricity-invoice" style="text-transform: uppercase;">
+                            LUB DODAJ RĘCZNIE
+                        </button>
+                    </div>
+
+                    <!-- Formularz ręcznego dodawania faktury (ukryty domyślnie) -->
+                    <div id="electricity-invoice-manual-form" style="display: none;">
+                        <h3>Dodaj fakturę ręcznie</h3>
+                        <form id="form-electricity-invoice" class="form-grid">
+                            <div class="form-group">
+                                <label>Okres (YYYY-MM)</label>
+                                <input type="text" name="data" placeholder="2025-02" pattern="\d{4}-\d{2}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Numer faktury</label>
+                                <input type="text" name="invoice_number" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Data początku okresu</label>
+                                <input type="date" name="period_start" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Data końca okresu</label>
+                                <input type="date" name="period_stop" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Zużycie (kWh)</label>
+                                <input type="number" step="0.01" name="usage_kwh" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Cena energii netto za kWh</label>
+                                <input type="number" step="0.0001" name="energy_price_net" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Wartość energii netto</label>
+                                <input type="number" step="0.01" name="energy_value_net" required>
+                            </div>
+                            <div class="form-group">
+                                <label>VAT energii</label>
+                                <input type="number" step="0.01" name="energy_vat_amount" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Wartość energii brutto</label>
+                                <input type="number" step="0.01" name="energy_value_gross" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Opłaty dystrybucyjne netto</label>
+                                <input type="number" step="0.01" name="distribution_fees_net" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Opłaty dystrybucyjne VAT</label>
+                                <input type="number" step="0.01" name="distribution_fees_vat" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Opłaty dystrybucyjne brutto</label>
+                                <input type="number" step="0.01" name="distribution_fees_gross" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label>VAT (np. 0.23 dla 23%)</label>
+                                <input type="number" step="0.01" name="vat_rate" value="0.23" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Kwota VAT ogółem</label>
+                                <input type="number" step="0.01" name="vat_amount" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Suma netto</label>
+                                <input type="number" step="0.01" name="total_net_sum" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Suma brutto</label>
+                                <input type="number" step="0.01" name="total_gross_sum" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Do zapłaty</label>
+                                <input type="number" step="0.01" name="amount_to_pay" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Termin płatności</label>
+                                <input type="date" name="payment_due_date" required>
+                            </div>
+                        </form>
+                        <button class="btn btn-primary" onclick="addElectricityInvoice()">Dodaj fakturę</button>
+                        <button class="btn btn-secondary" onclick="toggleManualElectricityInvoiceForm()" style="margin-left: 10px;">Ukryj formularz</button>
+                    </div>
+                    
+                    <div id="electricity-invoices-list" class="loading">Ładowanie...</div>
+                </div>
+
+                <!-- Sekcja Rachunki prądu -->
+                <div id="electricity-tab-bills" class="tab-content">
+                    <h2>Rachunki prądu</h2>
+                    <div class="period-selector">
+                        <label>Okres (YYYY-MM):</label>
+                        <input type="text" id="electricity-bill-period" placeholder="2025-02" pattern="\d{4}-\d{2}" list="available-electricity-periods">
+                        <datalist id="available-electricity-periods"></datalist>
+                        <button class="btn btn-success" onclick="generateElectricityBills()" style="text-transform: uppercase;">GENERUJ RACHUNKI</button>
+                    </div>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9em;">
+                        💡 Podaj okres w formacie YYYY-MM. System automatycznie wygeneruje rachunki dla wszystkich lokali na podstawie faktur i odczytów.
+                    </p>
+                    
+                    <div id="electricity-bills-list" class="loading">Ładowanie...</div>
+                </div>
+            </div>  <!-- koniec medium-electricity -->
         </div>
     </div>
 
@@ -1293,7 +1714,7 @@
         // Statystyki wody
         async function loadWaterStats() {
             try {
-                const res = await fetch(`${API_BASE}/api/stats`);
+                const res = await fetch(`${API_BASE}/api/water/stats`);
                 const stats = await res.json();
                 document.getElementById('water-stat-locals').textContent = stats.locals_count || 0;
                 document.getElementById('water-stat-readings').textContent = stats.readings_count || 0;
@@ -1320,7 +1741,7 @@
         // Lokale
         async function loadLocals() {
             try {
-                const res = await fetch(`${API_BASE}/locals/`);
+                const res = await fetch(`${API_BASE}/api/water/locals/`);
                 const locals = await res.json();
                 const listEl = document.getElementById('locals-list');
                 
@@ -1356,7 +1777,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/locals/?${params}`, { method: 'POST' });
+                const res = await fetch(`${API_BASE}/api/water/locals/?${params}`, { method: 'POST' });
                 if (res.ok) {
                     showAlert('Lokal dodany pomyślnie!');
                     form.reset();
@@ -1374,7 +1795,7 @@
         // Odczyty
         async function loadReadings() {
             try {
-                const res = await fetch(`${API_BASE}/readings/`);
+                const res = await fetch(`${API_BASE}/api/water/readings/`);
                 const readings = await res.json();
                 const listEl = document.getElementById('readings-list');
                 
@@ -1423,7 +1844,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/readings/?${params}`, { method: 'POST' });
+                const res = await fetch(`${API_BASE}/api/water/readings/?${params}`, { method: 'POST' });
                 if (res.ok) {
                     showAlert('Odczyt dodany pomyślnie!');
                     form.reset();
@@ -1441,7 +1862,7 @@
         // Faktury
         async function loadInvoices() {
             try {
-                const res = await fetch(`${API_BASE}/invoices/`);
+                const res = await fetch(`${API_BASE}/api/water/invoices/`);
                 const invoices = await res.json();
                 const listEl = document.getElementById('invoices-list');
                 
@@ -1501,7 +1922,7 @@
             formData.append('file', fileInput.files[0]);
 
             try {
-                const res = await fetch(`${API_BASE}/invoices/parse`, {
+                const res = await fetch(`${API_BASE}/api/water/invoices/parse`, {
                     method: 'POST',
                     body: formData
                 });
@@ -1549,7 +1970,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/invoices/verify`, {
+                const res = await fetch(`${API_BASE}/api/water/invoices/verify`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -1616,7 +2037,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/invoices/?${params}`, { method: 'POST' });
+                const res = await fetch(`${API_BASE}/api/water/invoices/?${params}`, { method: 'POST' });
                 if (res.ok) {
                     showAlert('Faktura dodana pomyślnie!');
                     form.reset();
@@ -1639,7 +2060,7 @@
         // Rachunki
         async function loadBills() {
             try {
-                const res = await fetch(`${API_BASE}/bills/`);
+                const res = await fetch(`${API_BASE}/api/water/bills/`);
                 const bills = await res.json();
                 const listEl = document.getElementById('bills-list');
                 
@@ -1656,7 +2077,7 @@
                         <td>${b.usage_m3}</td>
                         <td>${b.gross_sum.toFixed(2)} zł</td>
                         <td class="actions" onclick="event.stopPropagation()">
-                            <a href="${API_BASE}/bills/download/${b.id}" target="_blank" class="btn btn-success btn-small">📥 PDF</a>
+                            <a href="${API_BASE}/api/water/bills/download/${b.id}" target="_blank" class="btn btn-success btn-small">📥 PDF</a>
                             <button class="btn btn-edit btn-small" onclick="editBill(${b.id})" title="Edytuj rachunek">✏️</button>
                             <button class="btn btn-danger btn-small" onclick="deleteBill(${b.id})" title="Usuń rachunek">🗑️</button>
                         </td>
@@ -1695,7 +2116,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/bills/generate/${period}`, { method: 'POST' });
+                const res = await fetch(`${API_BASE}/api/water/bills/generate/${period}`, { method: 'POST' });
                 const result = await res.json();
                 if (res.ok) {
                     showAlert(`Wygenerowano ${result.bills_count} rachunków dla okresu ${period}`);
@@ -1721,7 +2142,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/bills/regenerate/${period}`, { method: 'POST' });
+                const res = await fetch(`${API_BASE}/api/water/bills/regenerate/${period}`, { method: 'POST' });
                 const result = await res.json();
                 if (res.ok) {
                     showAlert(`Zregenerowano ${result.bills_count} rachunków dla okresu ${period}`);
@@ -1741,7 +2162,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/bills/${billId}`, { method: 'DELETE' });
+                const res = await fetch(`${API_BASE}/api/water/bills/${billId}`, { method: 'DELETE' });
                 if (res.ok) {
                     showAlert('Rachunek usunięty');
                     loadBills();
@@ -1761,7 +2182,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/locals/${localId}`, { method: 'DELETE' });
+                const res = await fetch(`${API_BASE}/api/water/locals/${localId}`, { method: 'DELETE' });
                 if (res.ok) {
                     const result = await res.json();
                     showAlert(`Lokal usunięty. Usunięto również ${result.deleted_bills_count} powiązanych rachunków.`);
@@ -1786,7 +2207,7 @@
 
         async function editReading(period) {
             try {
-                const res = await fetch(`${API_BASE}/readings/${period}`);
+                const res = await fetch(`${API_BASE}/api/water/readings/${period}`);
                 if (res.ok) {
                     const reading = await res.json();
                     // Utwórz formularz edycji
@@ -1861,7 +2282,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/readings/${period}?${params}`, {
+                const res = await fetch(`${API_BASE}/api/water/readings/${period}?${params}`, {
                     method: 'PUT'
                 });
                 if (res.ok) {
@@ -1896,7 +2317,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/readings/${period}`, { method: 'DELETE' });
+                const res = await fetch(`${API_BASE}/api/water/readings/${period}`, { method: 'DELETE' });
                 if (res.ok) {
                     const result = await res.json();
                     showAlert(`Odczyt dla okresu ${period} usunięty. Usunięto również ${result.deleted_bills_count} rachunków.`);
@@ -1990,7 +2411,7 @@
         // Funkcje edycji
         async function editInvoice(invoiceId) {
             try {
-                const res = await fetch(`${API_BASE}/invoices/${invoiceId}`);
+                        const res = await fetch(`${API_BASE}/api/water/invoices/${invoiceId}`);
                 if (res.ok) {
                     const invoice = await res.json();
                     // Wypełnij formularz weryfikacji danymi faktury
@@ -2039,7 +2460,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/invoices/${invoiceId}`, {
+                const res = await fetch(`${API_BASE}/api/water/invoices/${invoiceId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -2069,7 +2490,7 @@
 
         async function editBill(billId) {
             try {
-                const res = await fetch(`${API_BASE}/bills/${billId}`);
+                const res = await fetch(`${API_BASE}/api/water/bills/${billId}`);
                 if (res.ok) {
                     const bill = await res.json();
                     // Utwórz formularz edycji
@@ -2478,7 +2899,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/invoices/${invoiceId}`, { method: 'DELETE' });
+                const res = await fetch(`${API_BASE}/api/water/invoices/${invoiceId}`, { method: 'DELETE' });
                 if (res.ok) {
                     const result = await res.json();
                     if (result.deleted_bills_count > 0) {
@@ -2529,7 +2950,7 @@
         async function loadMainStats() {
             try {
                 // Statystyki wody
-                const waterRes = await fetch(`${API_BASE}/api/stats`);
+                const waterRes = await fetch(`${API_BASE}/api/water/stats`);
                 if (waterRes.ok) {
                     const waterStats = await waterRes.json();
                     document.getElementById('main-water-invoices').textContent = waterStats.invoices_count || 0;
@@ -2572,23 +2993,28 @@
             loadMainStats();
         }
 
-        // Przełączanie między medium (Woda/Gaz)
+        // Przełączanie między medium (Woda/Gaz/Prąd)
         function showMedium(medium) {
             // Aktualizuj zakładki
             document.querySelectorAll('#medium-sections .tab').forEach(t => {
-                if (t.textContent.includes('WODA') || t.textContent.includes('Woda') || t.textContent.includes('GAZ') || t.textContent.includes('Gaz')) {
+                if (t.textContent.includes('WODA') || t.textContent.includes('Woda') || 
+                    t.textContent.includes('GAZ') || t.textContent.includes('Gaz') ||
+                    t.textContent.includes('PRĄD') || t.textContent.includes('Prąd')) {
                     t.classList.remove('active');
                 }
             });
             if (medium === 'water') {
                 document.getElementById('tab-water').classList.add('active');
-            } else {
+            } else if (medium === 'gas') {
                 document.getElementById('tab-gas').classList.add('active');
+            } else if (medium === 'electricity') {
+                document.getElementById('tab-electricity').classList.add('active');
             }
             
             // Pokaż odpowiednią sekcję
             document.getElementById('medium-water').style.display = medium === 'water' ? 'block' : 'none';
             document.getElementById('medium-gas').style.display = medium === 'gas' ? 'block' : 'none';
+            document.getElementById('medium-electricity').style.display = medium === 'electricity' ? 'block' : 'none';
             
             // Załaduj dane
             if (medium === 'water') {
@@ -2598,6 +3024,11 @@
                 loadGasStats();
                 loadGasInvoices();
                 loadGasBills();
+            } else if (medium === 'electricity') {
+                loadElectricityStats();
+                loadElectricityReadings();
+                loadElectricityInvoices();
+                loadElectricityBills();
             }
         }
 
@@ -2617,6 +3048,33 @@
             
             if (tabName === 'gas-tab-invoices') loadGasInvoices();
             if (tabName === 'gas-tab-bills') loadGasBills();
+        }
+
+        // Przełączanie zakładek dla prądu
+        function showElectricityTab(tabName) {
+            document.querySelectorAll('#medium-electricity .tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            
+            if (tabName === 'electricity-tab-readings') loadElectricityReadings();
+            if (tabName === 'electricity-tab-invoices') loadElectricityInvoices();
+            if (tabName === 'electricity-tab-bills') loadElectricityBills();
+        }
+
+        // Funkcje pomocnicze dla formularza odczytów prądu
+        function toggleDomMeterType() {
+            const select = document.querySelector('[name="licznik_dom_jednotaryfowy"]');
+            const isJednotaryfowy = select.value === 'true';
+            document.getElementById('dom-jednotaryfowy-group').style.display = isJednotaryfowy ? 'flex' : 'none';
+            document.getElementById('dom-dwutaryfowy-group').style.display = isJednotaryfowy ? 'none' : 'flex';
+            document.getElementById('dom-dwutaryfowy-group-2').style.display = isJednotaryfowy ? 'none' : 'flex';
+        }
+
+        function toggleDolMeterType() {
+            const select = document.querySelector('[name="licznik_dol_jednotaryfowy"]');
+            const isJednotaryfowy = select.value === 'true';
+            document.getElementById('dol-jednotaryfowy-group').style.display = isJednotaryfowy ? 'flex' : 'none';
+            document.getElementById('dol-dwutaryfowy-group').style.display = isJednotaryfowy ? 'none' : 'flex';
+            document.getElementById('dol-dwutaryfowy-group-2').style.display = isJednotaryfowy ? 'none' : 'flex';
         }
 
         // Przełączanie trybu nocnego
@@ -3022,6 +3480,1961 @@
             }
         }
 
+        // ========== FUNKCJE DLA PRĄDU ==========
+        
+        // Statystyki prądu
+        async function loadElectricityStats() {
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/stats`);
+                const stats = await res.json();
+                document.getElementById('electricity-stat-readings').textContent = stats.readings_count || 0;
+                document.getElementById('electricity-stat-invoices').textContent = stats.invoices_count || 0;
+                document.getElementById('electricity-stat-bills').textContent = stats.bills_count || 0;
+                document.getElementById('electricity-stat-total').textContent = (stats.total_gross_sum || 0).toFixed(2) + ' zł';
+                document.getElementById('electricity-stat-latest-period').textContent = stats.latest_period || '-';
+                
+                // Statystyki na głównej stronie
+                document.getElementById('main-electricity-readings').textContent = stats.readings_count || 0;
+                document.getElementById('main-electricity-invoices').textContent = stats.invoices_count || 0;
+                document.getElementById('main-electricity-bills').textContent = stats.bills_count || 0;
+                document.getElementById('main-electricity-period').textContent = stats.latest_period || '-';
+            } catch (error) {
+                console.error('Błąd ładowania statystyk prądu:', error);
+            }
+        }
+
+        // Odczyty prądu
+        async function loadElectricityReadings() {
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/readings`);
+                const readings = await res.json();
+                const listEl = document.getElementById('electricity-readings-list');
+                
+                if (readings.length === 0) {
+                    listEl.innerHTML = '<p>Brak odczytów prądu</p>';
+                    return;
+                }
+
+                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>DOM</th><th>DÓŁ</th><th>GABINET</th><th>Akcje</th></tr></thead><tbody>';
+                readings.forEach(r => {
+                    // Debug - sprawdź wartości
+                    console.log('Reading data:', r);
+                    
+                    // Formatowanie DOM
+                    let domStr = '-';
+                    if (r.is_main_meter_single_tariff === true || r.is_main_meter_single_tariff === 1) {
+                        // Licznik jednotaryfowy
+                        if (r.main_reading != null && r.main_reading !== undefined && !isNaN(r.main_reading)) {
+                            domStr = parseFloat(r.main_reading).toFixed(2);
+                        }
+                    } else {
+                        // Licznik dwutaryfowy
+                        const t1 = (r.main_reading_t1 != null && r.main_reading_t1 !== undefined && !isNaN(r.main_reading_t1)) 
+                            ? parseFloat(r.main_reading_t1).toFixed(2) : '-';
+                        const t2 = (r.main_reading_t2 != null && r.main_reading_t2 !== undefined && !isNaN(r.main_reading_t2)) 
+                            ? parseFloat(r.main_reading_t2).toFixed(2) : '-';
+                        domStr = `${t1} / ${t2}`;
+                    }
+                    
+                    // Formatowanie DÓŁ
+                    let dolStr = '-';
+                    if (r.is_dol_meter_single_tariff === true || r.is_dol_meter_single_tariff === 1) {
+                        // Licznik jednotaryfowy
+                        if (r.dol_reading != null && r.dol_reading !== undefined && !isNaN(r.dol_reading)) {
+                            dolStr = parseFloat(r.dol_reading).toFixed(2);
+                        }
+                    } else {
+                        // Licznik dwutaryfowy
+                        const t1 = (r.dol_reading_t1 != null && r.dol_reading_t1 !== undefined && !isNaN(r.dol_reading_t1)) 
+                            ? parseFloat(r.dol_reading_t1).toFixed(2) : '-';
+                        const t2 = (r.dol_reading_t2 != null && r.dol_reading_t2 !== undefined && !isNaN(r.dol_reading_t2)) 
+                            ? parseFloat(r.dol_reading_t2).toFixed(2) : '-';
+                        dolStr = `${t1} / ${t2}`;
+                    }
+                    
+                    // Formatowanie GABINET
+                    let gabinetStr = '-';
+                    if (r.gabinet_reading != null && r.gabinet_reading !== undefined && !isNaN(r.gabinet_reading)) {
+                        gabinetStr = parseFloat(r.gabinet_reading).toFixed(2);
+                    }
+                    
+                    html += `<tr data-reading-data="${r.data}">
+                        <td>${r.data}</td>
+                        <td>${domStr}</td>
+                        <td>${dolStr}</td>
+                        <td>${gabinetStr}</td>
+                        <td class="actions" onclick="event.stopPropagation()">
+                            <button class="btn btn-edit btn-small" onclick="editElectricityReading('${r.data}')" title="Edytuj odczyt">✏️</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteElectricityReading('${r.data}')" title="Usuń odczyt">🗑️</button>
+                        </td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                listEl.innerHTML = html;
+            } catch (error) {
+                document.getElementById('electricity-readings-list').innerHTML = '<p class="error">Błąd ładowania odczytów</p>';
+            }
+        }
+
+        async function addElectricityReading() {
+            const form = document.getElementById('form-electricity-reading');
+            const formData = new FormData(form);
+            const data = {};
+            
+            // Konwersja wartości
+            data['data'] = formData.get('data');
+            data['is_main_meter_single_tariff'] = formData.get('licznik_dom_jednotaryfowy') === 'true';
+            data['is_dol_meter_single_tariff'] = formData.get('licznik_dol_jednotaryfowy') === 'true';
+            data['gabinet_reading'] = parseFloat(formData.get('odczyt_gabinet')) || 0;
+            
+            if (data['is_main_meter_single_tariff']) {
+                data['main_reading'] = parseFloat(formData.get('odczyt_dom')) || null;
+                data['main_reading_t1'] = null;
+                data['main_reading_t2'] = null;
+            } else {
+                data['main_reading'] = null;
+                data['main_reading_t1'] = parseFloat(formData.get('odczyt_dom_I')) || null;
+                data['main_reading_t2'] = parseFloat(formData.get('odczyt_dom_II')) || null;
+            }
+            
+            if (data['is_dol_meter_single_tariff']) {
+                data['dol_reading'] = parseFloat(formData.get('odczyt_dol')) || null;
+                data['dol_reading_t1'] = null;
+                data['dol_reading_t2'] = null;
+            } else {
+                data['dol_reading'] = null;
+                data['dol_reading_t1'] = parseFloat(formData.get('odczyt_dol_I')) || null;
+                data['dol_reading_t2'] = parseFloat(formData.get('odczyt_dol_II')) || null;
+            }
+            
+            // local_id - domyślnie 1 (główny lokal)
+            data['local_id'] = 1;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/readings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    showAlert('Odczyt prądu dodany pomyślnie!');
+                    form.reset();
+                    loadElectricityReadings();
+                    loadElectricityStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd dodawania odczytu', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        // Edycja odczytu prądu
+        async function editElectricityReading(data) {
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/readings/${data}`);
+                if (res.ok) {
+                    const reading = await res.json();
+                    // Utwórz formularz edycji
+                    const formHtml = `
+                        <div style="background: #f0f9ff; border: 2px solid #d47474; padding: 20px; margin: 20px 0; border-radius: 8px;">
+                            <h3>Edytuj odczyt prądu</h3>
+                            <form id="form-electricity-reading-edit-${data}" class="form-grid">
+                                <div class="form-group">
+                                    <label>Okres (YYYY-MM)</label>
+                                    <input type="text" name="data" value="${reading.data}" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Licznik DOM - Jednotaryfowy?</label>
+                                    <select name="licznik_dom_jednotaryfowy" id="edit-dom-meter-type-${data}" onchange="toggleEditDomMeterType('${data}')">
+                                        <option value="true" ${reading.is_main_meter_single_tariff ? 'selected' : ''}>Tak (jednotaryfowy)</option>
+                                        <option value="false" ${!reading.is_main_meter_single_tariff ? 'selected' : ''}>Nie (dwutaryfowy)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="edit-dom-jednotaryfowy-group-${data}" style="display: ${reading.is_main_meter_single_tariff ? 'flex' : 'none'};">
+                                    <label>Odczyt DOM (jednotaryfowy)</label>
+                                    <input type="number" step="0.01" name="odczyt_dom" value="${reading.main_reading || ''}">
+                                </div>
+                                <div class="form-group" id="edit-dom-dwutaryfowy-group-${data}" style="display: ${!reading.is_main_meter_single_tariff ? 'flex' : 'none'};">
+                                    <label>Odczyt DOM - Taryfa I</label>
+                                    <input type="number" step="0.01" name="odczyt_dom_I" value="${reading.main_reading_t1 || ''}">
+                                </div>
+                                <div class="form-group" id="edit-dom-dwutaryfowy-group-2-${data}" style="display: ${!reading.is_main_meter_single_tariff ? 'flex' : 'none'};">
+                                    <label>Odczyt DOM - Taryfa II</label>
+                                    <input type="number" step="0.01" name="odczyt_dom_II" value="${reading.main_reading_t2 || ''}">
+                                </div>
+                                <div class="form-group">
+                                    <label>Licznik DÓŁ - Jednotaryfowy?</label>
+                                    <select name="licznik_dol_jednotaryfowy" id="edit-dol-meter-type-${data}" onchange="toggleEditDolMeterType('${data}')">
+                                        <option value="true" ${reading.is_dol_meter_single_tariff ? 'selected' : ''}>Tak (jednotaryfowy)</option>
+                                        <option value="false" ${!reading.is_dol_meter_single_tariff ? 'selected' : ''}>Nie (dwutaryfowy)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="edit-dol-jednotaryfowy-group-${data}" style="display: ${reading.is_dol_meter_single_tariff ? 'flex' : 'none'};">
+                                    <label>Odczyt DÓŁ (jednotaryfowy)</label>
+                                    <input type="number" step="0.01" name="odczyt_dol" value="${reading.dol_reading || ''}">
+                                </div>
+                                <div class="form-group" id="edit-dol-dwutaryfowy-group-${data}" style="display: ${!reading.is_dol_meter_single_tariff ? 'flex' : 'none'};">
+                                    <label>Odczyt DÓŁ - Taryfa I</label>
+                                    <input type="number" step="0.01" name="odczyt_dol_I" value="${reading.dol_reading_t1 || ''}">
+                                </div>
+                                <div class="form-group" id="edit-dol-dwutaryfowy-group-2-${data}" style="display: ${!reading.is_dol_meter_single_tariff ? 'flex' : 'none'};">
+                                    <label>Odczyt DÓŁ - Taryfa II</label>
+                                    <input type="number" step="0.01" name="odczyt_dol_II" value="${reading.dol_reading_t2 || ''}">
+                                </div>
+                                <div class="form-group">
+                                    <label>Odczyt GABINET</label>
+                                    <input type="number" step="0.01" name="odczyt_gabinet" value="${reading.gabinet_reading || 0}" required>
+                                </div>
+                            </form>
+                            <button class="btn btn-success" onclick="updateElectricityReading('${data}')">Zapisz zmiany</button>
+                            <button class="btn btn-secondary" onclick="cancelElectricityReadingEdit('${data}')">Anuluj</button>
+                        </div>
+                    `;
+                    // Znajdź wiersz z odczytem i dodaj formularz
+                    const readingRow = document.querySelector(`tr[data-reading-data="${data}"]`);
+                    if (readingRow) {
+                        const existingForm = document.getElementById(`form-electricity-reading-edit-${data}`);
+                        if (existingForm) {
+                            existingForm.parentElement.remove();
+                        } else {
+                            readingRow.insertAdjacentHTML('afterend', `<tr><td colspan="5">${formHtml}</td></tr>`);
+                        }
+                    } else {
+                        // Jeśli nie ma wiersza, dodaj na końcu listy
+                        const listEl = document.getElementById('electricity-readings-list');
+                        listEl.insertAdjacentHTML('beforeend', `<tr><td colspan="5">${formHtml}</td></tr>`);
+                    }
+                } else {
+                    showAlert('Błąd pobierania odczytu', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        function toggleEditDomMeterType(data) {
+            const select = document.getElementById(`edit-dom-meter-type-${data}`);
+            const isJednotaryfowy = select.value === 'true';
+            document.getElementById(`edit-dom-jednotaryfowy-group-${data}`).style.display = isJednotaryfowy ? 'flex' : 'none';
+            document.getElementById(`edit-dom-dwutaryfowy-group-${data}`).style.display = isJednotaryfowy ? 'none' : 'flex';
+            document.getElementById(`edit-dom-dwutaryfowy-group-2-${data}`).style.display = isJednotaryfowy ? 'none' : 'flex';
+        }
+
+        function toggleEditDolMeterType(data) {
+            const select = document.getElementById(`edit-dol-meter-type-${data}`);
+            const isJednotaryfowy = select.value === 'true';
+            document.getElementById(`edit-dol-jednotaryfowy-group-${data}`).style.display = isJednotaryfowy ? 'flex' : 'none';
+            document.getElementById(`edit-dol-dwutaryfowy-group-${data}`).style.display = isJednotaryfowy ? 'none' : 'flex';
+            document.getElementById(`edit-dol-dwutaryfowy-group-2-${data}`).style.display = isJednotaryfowy ? 'none' : 'flex';
+        }
+
+        async function updateElectricityReading(data) {
+            const form = document.getElementById(`form-electricity-reading-edit-${data}`);
+            const formData = new FormData(form);
+            const readingData = {};
+            
+            // Konwersja wartości
+            readingData['data'] = formData.get('data');
+            readingData['is_main_meter_single_tariff'] = formData.get('licznik_dom_jednotaryfowy') === 'true';
+            readingData['is_dol_meter_single_tariff'] = formData.get('licznik_dol_jednotaryfowy') === 'true';
+            readingData['gabinet_reading'] = parseFloat(formData.get('odczyt_gabinet')) || 0;
+            
+            if (readingData['is_main_meter_single_tariff']) {
+                readingData['main_reading'] = parseFloat(formData.get('odczyt_dom')) || null;
+                readingData['main_reading_t1'] = null;
+                readingData['main_reading_t2'] = null;
+            } else {
+                readingData['main_reading'] = null;
+                readingData['main_reading_t1'] = parseFloat(formData.get('odczyt_dom_I')) || null;
+                readingData['main_reading_t2'] = parseFloat(formData.get('odczyt_dom_II')) || null;
+            }
+            
+            if (readingData['is_dol_meter_single_tariff']) {
+                readingData['dol_reading'] = parseFloat(formData.get('odczyt_dol')) || null;
+                readingData['dol_reading_t1'] = null;
+                readingData['dol_reading_t2'] = null;
+            } else {
+                readingData['dol_reading'] = null;
+                readingData['dol_reading_t1'] = parseFloat(formData.get('odczyt_dol_I')) || null;
+                readingData['dol_reading_t2'] = parseFloat(formData.get('odczyt_dol_II')) || null;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/readings/${data}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(readingData)
+                });
+                if (res.ok) {
+                    showAlert('Odczyt prądu zaktualizowany pomyślnie!');
+                    cancelElectricityReadingEdit(data);
+                    loadElectricityReadings();
+                    loadElectricityStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd aktualizacji odczytu', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        function cancelElectricityReadingEdit(data) {
+            const formDiv = document.getElementById(`form-electricity-reading-edit-${data}`);
+            if (formDiv) {
+                formDiv.closest('tr').remove();
+            }
+        }
+
+        async function deleteElectricityReading(data) {
+            if (!confirm(`Czy na pewno chcesz usunąć odczyt dla okresu ${data}? Zostaną również usunięte wszystkie rachunki dla tego okresu.`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/readings/${data}`, { method: 'DELETE' });
+                if (res.ok) {
+                    const result = await res.json();
+                    showAlert(`Odczyt dla okresu ${data} usunięty. Usunięto również ${result.deleted_bills_count} rachunków.`);
+                    loadElectricityReadings();
+                    loadElectricityBills();
+                    loadElectricityStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd usuwania odczytu', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        // Faktury prądu
+        async function loadElectricityInvoices() {
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/`);
+                const invoices = await res.json();
+                const listEl = document.getElementById('electricity-invoices-list');
+                
+                if (invoices.length === 0) {
+                    listEl.innerHTML = '<p>Brak faktur prądu</p>';
+                    return;
+                }
+
+                let html = '<table class="data-table"><thead><tr><th>Rok</th><th>Numer faktury</th><th>Okres</th><th>Zużycie (kWh)</th><th>Typ taryfy</th><th>Do zapłaty</th><th>Akcje</th></tr></thead><tbody>';
+                invoices.forEach(i => {
+                    const okres = i.data_poczatku_okresu ? 
+                        `${i.data_poczatku_okresu.substring(0, 7)}` : 
+                        `${i.rok}`;
+                    html += `<tr class="clickable" onclick="showElectricityInvoiceDetails(${i.id})" data-invoice-id="${i.id}">
+                        <td>${i.rok}</td>
+                        <td>${i.numer_faktury}</td>
+                        <td>${okres}</td>
+                        <td>${(i.zuzycie_kwh || 0)}</td>
+                        <td>${i.typ_taryfy || '-'}</td>
+                        <td>${(i.do_zaplaty || 0).toFixed(2)} zł</td>
+                        <td class="actions" onclick="event.stopPropagation()">
+                            <button class="btn btn-edit btn-small" onclick="editElectricityInvoice(${i.id})" title="Edytuj fakturę">✏️</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteElectricityInvoice(${i.id})" title="Usuń fakturę">🗑️</button>
+                        </td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                listEl.innerHTML = html;
+            } catch (error) {
+                console.error('Błąd ładowania faktur:', error);
+                document.getElementById('electricity-invoices-list').innerHTML = '<p class="error">Błąd ładowania faktur</p>';
+            }
+        }
+        
+        async function showElectricityInvoiceDetails(invoiceId) {
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/${invoiceId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const invoice = data.invoice;
+                    
+                    // Pokaż szczegóły w modalnym oknie lub rozwiń wiersz
+                    alert(`Faktura: ${invoice.numer_faktury}\nRok: ${invoice.rok}\nOkres: ${invoice.data_poczatku_okresu} - ${invoice.data_konca_okresu}\nZużycie: ${invoice.zuzycie_kwh} kWh\nDo zapłaty: ${invoice.do_zaplaty} zł`);
+                }
+            } catch (error) {
+                console.error('Błąd pobierania szczegółów faktury:', error);
+            }
+        }
+
+        async function uploadElectricityInvoice() {
+            const fileInput = document.getElementById('electricity-invoice-file');
+            if (!fileInput.files[0]) {
+                showAlert('Wybierz plik PDF', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/parse`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (res.ok) {
+                    const result = await res.json();
+                    console.log('Sparsowane dane faktury:', result);
+                    
+                    // Wypełnij formularz weryfikacji
+                    const verifyForm = document.getElementById('form-electricity-invoice-verify');
+                    if (!verifyForm) {
+                        showAlert('Nie znaleziono formularza weryfikacji', 'error');
+                        return;
+                    }
+                    
+                    // Mapowanie starych pól na nowe (jeśli parser zwraca stare nazwy)
+                    const fieldMapping = {
+                        'data': 'rok',  // Okres -> Rok (wyciągnij rok z okresu)
+                        'invoice_number': 'numer_faktury',
+                        'period_start': 'data_poczatku_okresu',
+                        'period_stop': 'data_konca_okresu',
+                        'usage_kwh': 'zuzycie_kwh',
+                        'total_gross_sum': 'do_zaplaty',
+                        'amount_to_pay': 'do_zaplaty'
+                    };
+                    
+                    // Wyciągnij rok z okresu jeśli jest
+                    if (result.data && !result.rok) {
+                        const yearMatch = result.data.match(/^(\d{4})/);
+                        if (yearMatch) {
+                            result.rok = parseInt(yearMatch[1]);
+                        }
+                    }
+                    
+                    // Jeśli nie ma rok, wyciągnij z daty początku okresu
+                    if (!result.rok && result.period_start) {
+                        const yearMatch = result.period_start.toString().match(/^(\d{4})/);
+                        if (yearMatch) {
+                            result.rok = parseInt(yearMatch[1]);
+                        }
+                    }
+                    
+                    // Jeśli nie ma data_wystawienia, użyj data_poczatku_okresu lub period_start
+                    if (!result.data_wystawienia) {
+                        if (result.data_poczatku_okresu) {
+                            result.data_wystawienia = result.data_poczatku_okresu;
+                        } else if (result.period_start) {
+                            result.data_wystawienia = result.period_start;
+                        }
+                    }
+                    
+                    // Mapuj period_start/period_stop na data_poczatku_okresu/data_konca_okresu jeśli brakuje
+                    if (!result.data_poczatku_okresu && result.period_start) {
+                        result.data_poczatku_okresu = result.period_start;
+                    }
+                    if (!result.data_konca_okresu && result.period_stop) {
+                        result.data_konca_okresu = result.period_stop;
+                    }
+                    
+                    // Mapuj invoice_number na numer_faktury jeśli brakuje
+                    if (!result.numer_faktury && result.invoice_number) {
+                        result.numer_faktury = result.invoice_number;
+                    }
+                    
+                    // Mapuj usage_kwh na zuzycie_kwh jeśli brakuje
+                    if (!result.zuzycie_kwh && result.usage_kwh !== undefined) {
+                        result.zuzycie_kwh = result.usage_kwh;
+                    }
+                    
+                    // Mapuj amount_to_pay na do_zaplaty jeśli brakuje
+                    if (!result.do_zaplaty && result.amount_to_pay !== undefined) {
+                        result.do_zaplaty = result.amount_to_pay;
+                    }
+                    if (!result.do_zaplaty && result.total_gross_sum !== undefined) {
+                        result.do_zaplaty = result.total_gross_sum;
+                    }
+                    
+                    // Funkcja pomocnicza do konwersji daty
+                    function convertDateToISO(dateValue) {
+                        if (!dateValue) return null;
+                        
+                        // Jeśli to już obiekt Date
+                        if (dateValue instanceof Date) {
+                            return dateValue.toISOString().substring(0, 10);
+                        }
+                        
+                        // Jeśli to string
+                        if (typeof dateValue === 'string') {
+                            // Format YYYY-MM-DD
+                            if (dateValue.match(/^\d{4}-\d{2}-\d{2}/)) {
+                                return dateValue.substring(0, 10);
+                            }
+                            // Format DD/MM/YYYY
+                            if (dateValue.match(/^\d{1,2}\/\d{1,2}\/\d{4}/)) {
+                                const parts = dateValue.split('/');
+                                const day = parts[0].padStart(2, '0');
+                                const month = parts[1].padStart(2, '0');
+                                const year = parts[2];
+                                return `${year}-${month}-${day}`;
+                            }
+                            // Spróbuj sparsować jako Date
+                            try {
+                                const date = new Date(dateValue);
+                                if (!isNaN(date.getTime())) {
+                                    return date.toISOString().substring(0, 10);
+                                }
+                            } catch (e) {
+                                console.warn(`Nie można sparsować daty:`, dateValue);
+                            }
+                        }
+                        return null;
+                    }
+                    
+                    // Wypełnij wszystkie pola formularza
+                    // Najpierw wypełnij pola z result
+                    Object.keys(result).forEach(key => {
+                        // Pomiń pola pomocnicze i szczegółowe (będą obsłużone osobno)
+                        if (key.startsWith('_')) return;
+                        if (['blankiety', 'odczyty', 'sprzedaz_energii', 'oplaty_dystrybucyjne', 'rozliczenie_okresy'].includes(key)) return;
+                        
+                        const fieldName = fieldMapping[key] || key;
+                        const input = verifyForm.querySelector(`[name="${fieldName}"]`);
+                        
+                        if (input) {
+                            const value = result[key];
+                            
+                            // Sprawdź czy wartość istnieje (nawet jeśli to 0 lub pusty string)
+                            if (value !== null && value !== undefined) {
+                                if (input.type === 'date') {
+                                    const isoDate = convertDateToISO(value);
+                                    if (isoDate) {
+                                        input.value = isoDate;
+                                    }
+                                } else if (input.type === 'number') {
+                                    const numValue = parseFloat(value);
+                                    if (!isNaN(numValue)) {
+                                        input.value = numValue;
+                                    } else if (value === '' || value === 0) {
+                                        // Dla pól numerycznych, 0 jest ważną wartością
+                                        input.value = 0;
+                                    }
+                                } else if (input.tagName === 'SELECT') {
+                                    // Dla selectów sprawdź czy wartość pasuje
+                                    const strValue = String(value);
+                                    if (Array.from(input.options).some(opt => opt.value === strValue)) {
+                                        input.value = strValue;
+                                    }
+                                } else {
+                                    // Dla pól tekstowych
+                                    input.value = String(value);
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Upewnij się, że wszystkie wymagane pola mają wartości (nawet jeśli 0)
+                    const requiredFields = {
+                        'rok': result.rok || new Date().getFullYear(),
+                        'numer_faktury': result.numer_faktury || result.invoice_number || '',
+                        'data_wystawienia': result.data_wystawienia || result.data_poczatku_okresu || result.period_start || '',
+                        'data_poczatku_okresu': result.data_poczatku_okresu || result.period_start || '',
+                        'data_konca_okresu': result.data_konca_okresu || result.period_stop || '',
+                        'naleznosc_za_okres': result.naleznosc_za_okres || 0,
+                        'wartosc_prognozy': result.wartosc_prognozy || 0,
+                        'faktury_korygujace': result.faktury_korygujace || 0,
+                        'odsetki': result.odsetki || 0,
+                        'wynik_rozliczenia': result.wynik_rozliczenia || 0,
+                        'kwota_nadplacona': result.kwota_nadplacona || 0,
+                        'saldo_z_rozliczenia': result.saldo_z_rozliczenia || result.do_zaplaty || 0,
+                        'niedoplata_nadplata': result.niedoplata_nadplata || 0,
+                        'energia_do_akcyzy_kwh': result.energia_do_akcyzy_kwh || 0,
+                        'akcyza': result.akcyza || 0,
+                        'do_zaplaty': result.do_zaplaty || result.amount_to_pay || result.total_gross_sum || 0,
+                        'zuzycie_kwh': result.zuzycie_kwh || result.usage_kwh || 0,
+                        'ogolem_sprzedaz_energii': result.ogolem_sprzedaz_energii || 0,
+                        'ogolem_usluga_dystrybucji': result.ogolem_usluga_dystrybucji || 0,
+                        'grupa_taryfowa': result.grupa_taryfowa || 'G12',
+                        'typ_taryfy': result.typ_taryfy || 'DWUTARYFOWA',
+                        'energia_lacznie_zuzyta_w_roku_kwh': result.energia_lacznie_zuzyta_w_roku_kwh || 0
+                    };
+                    
+                    // Wypełnij wszystkie wymagane pola
+                    Object.keys(requiredFields).forEach(fieldName => {
+                        const input = verifyForm.querySelector(`[name="${fieldName}"]`);
+                        if (input) {
+                            const value = requiredFields[fieldName];
+                            if (input.type === 'date') {
+                                const isoDate = convertDateToISO(value);
+                                if (isoDate) {
+                                    input.value = isoDate;
+                                }
+                            } else if (input.type === 'number') {
+                                input.value = parseFloat(value) || 0;
+                            } else if (input.tagName === 'SELECT') {
+                                const strValue = String(value);
+                                if (Array.from(input.options).some(opt => opt.value === strValue)) {
+                                    input.value = strValue;
+                                }
+                            } else {
+                                input.value = String(value);
+                            }
+                        }
+                    });
+                    
+                    // Wyświetl sekcje szczegółowe
+                    displayElectricityInvoiceDetails(result);
+                    
+                    document.getElementById('electricity-invoice-verification').style.display = 'block';
+                    showAlert('Faktura sparsowana - zweryfikuj dane przed zapisem');
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd parsowania faktury', 'error');
+                }
+            } catch (error) {
+                console.error('Błąd parsowania faktury:', error);
+                showAlert('Błąd połączenia: ' + error.message, 'error');
+            }
+        }
+
+        // Funkcja pomocnicza do parsowania wartości numerycznych (globalna)
+        function parseNumericValue(value, isInt = false) {
+            if (!value || value === '' || value === null || value === undefined) {
+                return isInt ? 0 : 0.0;
+            }
+            // Usuń spacje i zamień przecinki na kropki
+            const cleaned = String(value).replace(/\s/g, '').replace(',', '.');
+            const parsed = isInt ? parseInt(cleaned) : parseFloat(cleaned);
+            return isNaN(parsed) ? (isInt ? 0 : 0.0) : parsed;
+        }
+        
+        // Funkcja pomocnicza do zbierania danych z edytowalnych formularzy szczegółowych
+        function collectDetailedData() {
+            const detailedData = {
+                blankiety: [],
+                odczyty: [],
+                sprzedaz_energii: [],
+                oplaty_dystrybucyjne: [],
+                rozliczenie_okresy: []
+            };
+            
+            // Zbierz blankiety
+            const blankietyInputs = document.querySelectorAll('[name^="blankiety["]');
+            const blankietyMap = {};
+            blankietyInputs.forEach(input => {
+                const match = input.name.match(/blankiety\[(\d+)\]\[(.+)\]/);
+                if (match) {
+                    const idx = parseInt(match[1]);
+                    const field = match[2];
+                    if (!blankietyMap[idx]) blankietyMap[idx] = {};
+                    blankietyMap[idx][field] = input.value;
+                }
+            });
+            
+            Object.keys(blankietyMap).forEach(idx => {
+                const b = blankietyMap[idx];
+                if (b.nr_blankietu || b.okres_od || b.okres_do) { // Tylko jeśli są jakieś dane
+                    detailedData.blankiety.push({
+                        id: b.id || null,
+                        nr_blankietu: b.nr_blankietu || '',
+                        okres_od: b.okres_od || null,
+                        okres_do: b.okres_do || null,
+                        ilosc_d: b.ilosc_d ? parseNumericValue(b.ilosc_d, true) : null,
+                        ilosc_c: b.ilosc_c ? parseNumericValue(b.ilosc_c, true) : null,
+                        ilosc_calodobowa: b.ilosc_calodobowa ? parseNumericValue(b.ilosc_calodobowa, true) : null,
+                        kwota_brutto: parseNumericValue(b.kwota_brutto, false),
+                        akcyza: parseNumericValue(b.akcyza, false),
+                        energia_do_akcyzy: parseNumericValue(b.energia_do_akcyzy, true),
+                        nadplata_niedoplata: parseNumericValue(b.nadplata_niedoplata, false),
+                        odsetki: parseNumericValue(b.odsetki, false),
+                        termin_platnosci: b.termin_platnosci || null,
+                        do_zaplaty: parseNumericValue(b.do_zaplaty, false)
+                    });
+                }
+            });
+            
+            // Zbierz odczyty
+            const odczytyInputs = document.querySelectorAll('[name^="odczyty["]');
+            const odczytyMap = {};
+            odczytyInputs.forEach(input => {
+                const match = input.name.match(/odczyty\[(\d+)\]\[(.+)\]/);
+                if (match) {
+                    const idx = parseInt(match[1]);
+                    const field = match[2];
+                    if (!odczytyMap[idx]) odczytyMap[idx] = {};
+                    odczytyMap[idx][field] = input.value;
+                }
+            });
+            Object.keys(odczytyMap).forEach(idx => {
+                const o = odczytyMap[idx];
+                if (o.data || o.biezace || o.poprzednie) { // Tylko jeśli są jakieś dane
+                    detailedData.odczyty.push({
+                        id: o.id || null,
+                        typ: o.typ || 'pobrana',
+                        strefa: o.strefa || null,
+                        data: o.data || null,
+                        biezace: parseNumericValue(o.biezace, true),
+                        poprzednie: parseNumericValue(o.poprzednie, true),
+                        mnozna: parseNumericValue(o.mnozna, true) || 1,
+                        ilosc: parseNumericValue(o.ilosc, true),
+                        straty: parseNumericValue(o.straty, true),
+                        razem: parseNumericValue(o.razem, true)
+                    });
+                }
+            });
+            
+            // Zbierz sprzedaż energii
+            const sprzedazInputs = document.querySelectorAll('[name^="sprzedaz_energii["]');
+            const sprzedazMap = {};
+            sprzedazInputs.forEach(input => {
+                const match = input.name.match(/sprzedaz_energii\[(\d+)\]\[(.+)\]/);
+                if (match) {
+                    const idx = parseInt(match[1]);
+                    const field = match[2];
+                    if (!sprzedazMap[idx]) sprzedazMap[idx] = {};
+                    sprzedazMap[idx][field] = input.value;
+                }
+            });
+            Object.keys(sprzedazMap).forEach(idx => {
+                const s = sprzedazMap[idx];
+                // Sprawdź czy są jakieś dane (nawet jeśli wartości to 0)
+                if (s.ilosc_kwh !== undefined && s.ilosc_kwh !== '' || 
+                    s.cena !== undefined && s.cena !== '' || 
+                    s.naleznosc !== undefined && s.naleznosc !== '') {
+                    detailedData.sprzedaz_energii.push({
+                        id: s.id || null,
+                        strefa: s.strefa || null,
+                        ilosc_kwh: parseNumericValue(s.ilosc_kwh, true),
+                        cena: parseNumericValue(s.cena, false),
+                        naleznosc: parseNumericValue(s.naleznosc, false),
+                        vat: parseNumericValue(s.vat, false) || 23.0
+                    });
+                }
+            });
+            
+            // Zbierz opłaty dystrybucyjne
+            const oplatyInputs = document.querySelectorAll('[name^="oplaty_dystrybucyjne["]');
+            const oplatyMap = {};
+            oplatyInputs.forEach(input => {
+                const match = input.name.match(/oplaty_dystrybucyjne\[(\d+)\]\[(.+)\]/);
+                if (match) {
+                    const idx = parseInt(match[1]);
+                    const field = match[2];
+                    if (!oplatyMap[idx]) oplatyMap[idx] = {};
+                    oplatyMap[idx][field] = input.value;
+                }
+            });
+            Object.keys(oplatyMap).forEach(idx => {
+                const op = oplatyMap[idx];
+                // Sprawdź czy są jakieś dane (nawet jeśli wartości to 0)
+                if (op.nazwa !== undefined && op.nazwa !== '' || 
+                    op.cena !== undefined && op.cena !== '' || 
+                    op.naleznosc !== undefined && op.naleznosc !== '') {
+                    detailedData.oplaty_dystrybucyjne.push({
+                        id: op.id || null,
+                        nazwa: op.nazwa || '',
+                        strefa: op.strefa || null,
+                        jednostka: op.jednostka || 'kWh',
+                        data: op.data || null,
+                        ilosc_kwh: op.ilosc_kwh ? parseNumericValue(op.ilosc_kwh, true) : null,
+                        ilosc_miesiecy: op.ilosc_miesiecy ? parseNumericValue(op.ilosc_miesiecy, false) : null,
+                        wspolczynnik: op.wspolczynnik ? parseNumericValue(op.wspolczynnik, false) : null,
+                        cena: parseNumericValue(op.cena, false),
+                        naleznosc: parseNumericValue(op.naleznosc, false),
+                        vat: parseNumericValue(op.vat, false) || 23.0
+                    });
+                }
+            });
+            
+            // Zbierz rozliczenie okresów
+            const rozliczenieInputs = document.querySelectorAll('[name^="rozliczenie_okresy["]');
+            const rozliczenieMap = {};
+            rozliczenieInputs.forEach(input => {
+                const match = input.name.match(/rozliczenie_okresy\[(\d+)\]\[(.+)\]/);
+                if (match) {
+                    const idx = parseInt(match[1]);
+                    const field = match[2];
+                    if (!rozliczenieMap[idx]) rozliczenieMap[idx] = {};
+                    rozliczenieMap[idx][field] = input.value;
+                }
+            });
+            Object.keys(rozliczenieMap).forEach(idx => {
+                const r = rozliczenieMap[idx];
+                if (r.data_okresu || r.numer_okresu) { // Tylko jeśli są jakieś dane
+                    detailedData.rozliczenie_okresy.push({
+                        id: r.id || null,
+                        numer_okresu: r.numer_okresu ? parseInt(r.numer_okresu) : parseInt(idx) + 1,
+                        data_okresu: r.data_okresu || null
+                    });
+                }
+            });
+            
+            return detailedData;
+        }
+        
+        async function verifyAndSaveElectricityInvoice() {
+            const form = document.getElementById('form-electricity-invoice-verify');
+            const formData = new FormData(form);
+            const data = {};
+            
+            // Funkcja pomocnicza do parsowania wartości numerycznych
+            function parseNumericValue(value, isInt = false) {
+                if (!value || value === '' || value === null || value === undefined) {
+                    return isInt ? 0 : 0.0;
+                }
+                // Usuń spacje i zamień przecinki na kropki
+                const cleaned = String(value).replace(/\s/g, '').replace(',', '.');
+                const parsed = isInt ? parseInt(cleaned) : parseFloat(cleaned);
+                return isNaN(parsed) ? (isInt ? 0 : 0.0) : parsed;
+            }
+            
+            // Lista pól numerycznych
+            const numericFields = ['rok', 'naleznosc_za_okres', 'wartosc_prognozy', 'faktury_korygujace', 
+                'odsetki', 'wynik_rozliczenia', 'kwota_nadplacona', 'saldo_z_rozliczenia', 
+                'niedoplata_nadplata', 'energia_do_akcyzy_kwh', 'akcyza', 'do_zaplaty', 
+                'zuzycie_kwh', 'ogolem_sprzedaz_energii', 'ogolem_usluga_dystrybucji', 
+                'energia_lacznie_zuzyta_w_roku_kwh'];
+            
+            for (const [key, value] of formData.entries()) {
+                // Pomiń pola szczegółowe (będą zbierane osobno)
+                if (key.startsWith('blankiety[') || key.startsWith('odczyty[') || 
+                    key.startsWith('sprzedaz_energii[') || key.startsWith('oplaty_dystrybucyjne[') ||
+                    key.startsWith('rozliczenie_okresy[')) {
+                    continue;
+                }
+                
+                if (numericFields.includes(key)) {
+                    if (key.includes('kwh') || key === 'rok') {
+                        data[key] = parseNumericValue(value, true);
+                    } else {
+                        data[key] = parseNumericValue(value, false);
+                    }
+                } else {
+                    data[key] = value || '';
+                }
+            }
+            
+            // Upewnij się, że wszystkie wymagane pola mają wartości
+            if (!data.rok) data.rok = new Date().getFullYear();
+            if (!data.numer_faktury) data.numer_faktury = '';
+            if (!data.grupa_taryfowa) data.grupa_taryfowa = '';
+            if (!data.typ_taryfy) data.typ_taryfy = 'DWUTARYFOWA';
+            
+            // Zbierz szczegółowe dane z edytowalnych formularzy
+            const detailedData = collectDetailedData();
+            data.blankiety = detailedData.blankiety;
+            data.odczyty = detailedData.odczyty;
+            data.sprzedaz_energii = detailedData.sprzedaz_energii;
+            data.oplaty_dystrybucyjne = detailedData.oplaty_dystrybucyjne;
+            data.rozliczenie_okresy = detailedData.rozliczenie_okresy;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                // Sprawdź typ odpowiedzi
+                const contentType = res.headers.get('content-type');
+                let errorData = null;
+                
+                if (res.ok) {
+                    showAlert('Faktura prądu zapisana pomyślnie ze wszystkimi szczegółami!');
+                    form.reset();
+                    document.getElementById('electricity-invoice-verification').style.display = 'none';
+                    document.getElementById('electricity-invoice-file').value = '';
+                    document.getElementById('electricity-invoice-file-name').textContent = '';
+                    
+                    // Wyczyść zmienną globalną
+                    currentInvoiceDetails = null;
+                    
+                    // Wyczyść sekcje szczegółowe
+                    cancelElectricityInvoiceVerification();
+                    
+                    loadElectricityInvoices();
+                    loadElectricityStats();
+                } else {
+                    // Spróbuj sparsować odpowiedź jako JSON
+                    if (contentType && contentType.includes('application/json')) {
+                        try {
+                            errorData = await res.json();
+                            showAlert(errorData?.detail || errorData?.message || `Błąd zapisywania faktury (${res.status})`, 'error');
+                        } catch (e) {
+                            const text = await res.text();
+                            showAlert(`Błąd serwera (${res.status}): ${text.substring(0, 200)}`, 'error');
+                            console.error('Błąd odpowiedzi:', text);
+                        }
+                    } else {
+                        const text = await res.text();
+                        showAlert(`Błąd serwera (${res.status}): ${text.substring(0, 200)}`, 'error');
+                        console.error('Błąd odpowiedzi (nie JSON):', text);
+                    }
+                }
+            } catch (error) {
+                console.error('Błąd zapisywania faktury:', error);
+                showAlert('Błąd połączenia: ' + error.message, 'error');
+            }
+        }
+
+        function cancelElectricityInvoiceVerification() {
+            document.getElementById('electricity-invoice-verification').style.display = 'none';
+            document.getElementById('form-electricity-invoice-verify').reset();
+            document.getElementById('electricity-invoice-file').value = '';
+            document.getElementById('electricity-invoice-file-name').textContent = '';
+            
+            // Wyczyść zmienną globalną
+            currentInvoiceDetails = null;
+            window.editingInvoiceId = null;
+            
+            // Przywróć przycisk zapisu
+            const saveBtn = document.querySelector('#electricity-invoice-verification .btn-success');
+            if (saveBtn) {
+                saveBtn.textContent = 'Zatwierdź i zapisz';
+                saveBtn.onclick = verifyAndSaveElectricityInvoice;
+            }
+            
+            // Ukryj sekcje szczegółowe
+            document.getElementById('electricity-blankiety-section').style.display = 'none';
+            document.getElementById('electricity-odczyty-section').style.display = 'none';
+            document.getElementById('electricity-sprzedaz-section').style.display = 'none';
+            document.getElementById('electricity-oplaty-section').style.display = 'none';
+            document.getElementById('electricity-rozliczenie-section').style.display = 'none';
+            
+            // Wyczyść kontenery edytowalne
+            document.getElementById('electricity-blankiety-editable').innerHTML = '';
+            document.getElementById('electricity-odczyty-editable').innerHTML = '';
+            document.getElementById('electricity-sprzedaz-editable').innerHTML = '';
+            document.getElementById('electricity-oplaty-editable').innerHTML = '';
+            document.getElementById('electricity-rozliczenie-editable').innerHTML = '';
+        }
+
+        // Zmienna globalna do przechowywania szczegółowych danych faktury
+        let currentInvoiceDetails = null;
+        
+        // Funkcja pomocnicza do konwersji daty DD/MM/YYYY na ISO
+        function convertDDMMYYYYToISO(dateStr) {
+            if (!dateStr) return '';
+            if (dateStr.includes('/')) {
+                const parts = dateStr.split('/');
+                if (parts.length === 3) {
+                    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+            }
+            // Jeśli już w formacie ISO, zwróć jak jest
+            if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+                return dateStr.substring(0, 10);
+            }
+            return dateStr;
+        }
+        
+        // Funkcja pomocnicza do konwersji wartości numerycznej z formatu polskiego (przecinek) na format angielski (kropka)
+        function convertNumericValue(value) {
+            if (value === null || value === undefined || value === '') {
+                return '';
+            }
+            // Jeśli to już liczba, zwróć jako string
+            if (typeof value === 'number') {
+                return String(value);
+            }
+            // Jeśli to string, zamień przecinki na kropki i usuń spacje
+            const str = String(value).replace(/\s/g, '').replace(',', '.');
+            // Sprawdź czy to poprawna liczba
+            const num = parseFloat(str);
+            if (!isNaN(num)) {
+                return String(num);
+            }
+            return str;
+        }
+        
+        // Funkcja do wyświetlania szczegółowych danych faktury jako edytowalnych formularzy
+        function displayElectricityInvoiceDetails(invoiceData) {
+            // Zapisz szczegółowe dane do zmiennej globalnej
+            currentInvoiceDetails = {
+                blankiety: invoiceData.blankiety || [],
+                odczyty: invoiceData.odczyty || [],
+                sprzedaz_energii: invoiceData.sprzedaz_energii || [],
+                oplaty_dystrybucyjne: invoiceData.oplaty_dystrybucyjne || [],
+                rozliczenie_okresy: invoiceData.rozliczenie_okresy || []
+            };
+            
+            // Blankiety prognozowe - edytowalne formularze
+            const blankietyContainer = document.getElementById('electricity-blankiety-editable');
+            if (invoiceData.blankiety && invoiceData.blankiety.length > 0) {
+                blankietyContainer.innerHTML = '';
+                invoiceData.blankiety.forEach((blankiet, idx) => {
+                    if (blankiet.ogolem) return; // Pomiń "Ogółem"
+                    
+                    const blankietDiv = document.createElement('div');
+                    blankietDiv.className = 'editable-record';
+                    blankietDiv.style.cssText = 'border: 1px solid var(--border-color); padding: 15px; margin-bottom: 10px; border-radius: 5px; background: var(--hover-bg);';
+                    blankietDiv.innerHTML = `
+                        <h6 style="margin-top: 0; color: var(--primary-color);">Blankiet ${idx + 1}</h6>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                            <div class="form-group">
+                                <label>Nr blankietu</label>
+                                <input type="text" name="blankiety[${idx}][nr_blankietu]" value="${blankiet.nr_blankietu || ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Okres od</label>
+                                <input type="date" name="blankiety[${idx}][okres_od]" value="${blankiet.okres_od ? convertDDMMYYYYToISO(blankiet.okres_od) : ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Okres do</label>
+                                <input type="date" name="blankiety[${idx}][okres_do]" value="${blankiet.okres_do ? convertDDMMYYYYToISO(blankiet.okres_do) : ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Ilość dzienna (kWh)</label>
+                                <input type="number" name="blankiety[${idx}][ilosc_d]" value="${blankiet.ilosc_d ? convertNumericValue(blankiet.ilosc_d) : ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Ilość nocna (kWh)</label>
+                                <input type="number" name="blankiety[${idx}][ilosc_c]" value="${blankiet.ilosc_c ? convertNumericValue(blankiet.ilosc_c) : ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Ilość całodobowa (kWh)</label>
+                                <input type="number" name="blankiety[${idx}][ilosc_calodobowa]" value="${blankiet.ilosc_calodobowa ? convertNumericValue(blankiet.ilosc_calodobowa) : ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Kwota brutto</label>
+                                <input type="number" step="0.01" name="blankiety[${idx}][kwota_brutto]" value="${blankiet.kwota_brutto ? convertNumericValue(blankiet.kwota_brutto) : '0.00'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Akcyza</label>
+                                <input type="number" step="0.01" name="blankiety[${idx}][akcyza]" value="${blankiet.akcyza ? convertNumericValue(blankiet.akcyza) : '0.00'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Energia do akcyzy (kWh)</label>
+                                <input type="number" name="blankiety[${idx}][energia_do_akcyzy]" value="${blankiet.energia_do_akcyzy ? convertNumericValue(blankiet.energia_do_akcyzy) : '0'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Nadpłata/Niedopłata</label>
+                                <input type="number" step="0.01" name="blankiety[${idx}][nadplata_niedoplata]" value="${blankiet.nadplata_niedoplata ? convertNumericValue(blankiet.nadplata_niedoplata) : '0.00'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Odsetki</label>
+                                <input type="number" step="0.01" name="blankiety[${idx}][odsetki]" value="${blankiet.odsetki ? convertNumericValue(blankiet.odsetki) : '0.00'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Termin płatności</label>
+                                <input type="date" name="blankiety[${idx}][termin_platnosci]" value="${blankiet.termin_platnosci ? convertDDMMYYYYToISO(blankiet.termin_platnosci) : ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Do zapłaty</label>
+                                <input type="number" step="0.01" name="blankiety[${idx}][do_zaplaty]" value="${blankiet.do_zaplaty ? convertNumericValue(blankiet.do_zaplaty) : '0.00'}" class="form-control">
+                            </div>
+                        </div>
+                        <input type="hidden" name="blankiety[${idx}][id]" value="${blankiet.id || ''}">
+                    `;
+                    blankietyContainer.appendChild(blankietDiv);
+                });
+                document.getElementById('electricity-blankiety-section').style.display = 'block';
+            }
+            
+            // Odczyty liczników - edytowalne formularze
+            const odczytyContainer = document.getElementById('electricity-odczyty-editable');
+            if (invoiceData.odczyty && invoiceData.odczyty.length > 0) {
+                odczytyContainer.innerHTML = '';
+                invoiceData.odczyty.forEach((odczyt, idx) => {
+                    const odczytDiv = document.createElement('div');
+                    odczytDiv.className = 'editable-record';
+                    odczytDiv.style.cssText = 'border: 1px solid var(--border-color); padding: 15px; margin-bottom: 10px; border-radius: 5px; background: var(--hover-bg);';
+                    odczytDiv.innerHTML = `
+                        <h6 style="margin-top: 0; color: var(--primary-color);">Odczyt ${idx + 1}</h6>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                            <div class="form-group">
+                                <label>Typ energii</label>
+                                <select name="odczyty[${idx}][typ]" class="form-control">
+                                    <option value="pobrana" ${odczyt.typ === 'pobrana' ? 'selected' : ''}>POBRANA</option>
+                                    <option value="oddana" ${odczyt.typ === 'oddana' ? 'selected' : ''}>ODDANA</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Strefa</label>
+                                <select name="odczyty[${idx}][strefa]" class="form-control">
+                                    <option value="">-</option>
+                                    <option value="dzienna" ${odczyt.strefa && odczyt.strefa.toLowerCase() === 'dzienna' ? 'selected' : ''}>DZIENNA</option>
+                                    <option value="nocna" ${odczyt.strefa && odczyt.strefa.toLowerCase() === 'nocna' ? 'selected' : ''}>NOCNA</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Data odczytu</label>
+                                <input type="date" name="odczyty[${idx}][data]" value="${odczyt.data ? convertDDMMYYYYToISO(odczyt.data) : ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Bieżący odczyt</label>
+                                <input type="number" name="odczyty[${idx}][biezace]" value="${odczyt.biezace || '0'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Poprzedni odczyt</label>
+                                <input type="number" name="odczyty[${idx}][poprzednie]" value="${odczyt.poprzednie || '0'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Mnożna</label>
+                                <input type="number" name="odczyty[${idx}][mnozna]" value="${odczyt.mnozna || '1'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Ilość (kWh)</label>
+                                <input type="number" name="odczyty[${idx}][ilosc]" value="${odczyt.ilosc || '0'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Straty (kWh)</label>
+                                <input type="number" name="odczyty[${idx}][straty]" value="${odczyt.straty || '0'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Razem (kWh)</label>
+                                <input type="number" name="odczyty[${idx}][razem]" value="${odczyt.razem || '0'}" class="form-control">
+                            </div>
+                        </div>
+                        <input type="hidden" name="odczyty[${idx}][id]" value="${odczyt.id || ''}">
+                    `;
+                    odczytyContainer.appendChild(odczytDiv);
+                });
+                document.getElementById('electricity-odczyty-section').style.display = 'block';
+            }
+            
+            // Sprzedaż energii - edytowalne formularze
+            const sprzedazContainer = document.getElementById('electricity-sprzedaz-editable');
+            if (invoiceData.sprzedaz_energii && invoiceData.sprzedaz_energii.length > 0) {
+                sprzedazContainer.innerHTML = '';
+                invoiceData.sprzedaz_energii.forEach((sprzedaz, idx) => {
+                    if (sprzedaz.typ === 'upust') return; // Pomiń upusty
+                    
+                    const sprzedazDiv = document.createElement('div');
+                    sprzedazDiv.className = 'editable-record';
+                    sprzedazDiv.style.cssText = 'border: 1px solid var(--border-color); padding: 15px; margin-bottom: 10px; border-radius: 5px; background: var(--hover-bg);';
+                    sprzedazDiv.innerHTML = `
+                        <h6 style="margin-top: 0; color: var(--primary-color);">Pozycja sprzedaży ${idx + 1}</h6>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                            <div class="form-group">
+                                <label>Strefa</label>
+                                <select name="sprzedaz_energii[${idx}][strefa]" class="form-control">
+                                    <option value="">-</option>
+                                    <option value="dzienna" ${sprzedaz.strefa && sprzedaz.strefa.toLowerCase() === 'dzienna' ? 'selected' : ''}>DZIENNA</option>
+                                    <option value="nocna" ${sprzedaz.strefa && sprzedaz.strefa.toLowerCase() === 'nocna' ? 'selected' : ''}>NOCNA</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Ilość (kWh)</label>
+                                <input type="number" name="sprzedaz_energii[${idx}][ilosc_kwh]" value="${(sprzedaz.ilosc_kwh || sprzedaz.ilosc) ? convertNumericValue(sprzedaz.ilosc_kwh || sprzedaz.ilosc) : '0'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Cena za kWh</label>
+                                <input type="number" step="0.0001" name="sprzedaz_energii[${idx}][cena]" value="${sprzedaz.cena ? convertNumericValue(sprzedaz.cena) : '0.00'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Należność</label>
+                                <input type="number" step="0.01" name="sprzedaz_energii[${idx}][naleznosc]" value="${sprzedaz.naleznosc ? convertNumericValue(sprzedaz.naleznosc) : '0.00'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>VAT (%)</label>
+                                <input type="number" step="0.01" name="sprzedaz_energii[${idx}][vat]" value="${sprzedaz.vat ? convertNumericValue(sprzedaz.vat) : '23'}" class="form-control">
+                            </div>
+                        </div>
+                        <input type="hidden" name="sprzedaz_energii[${idx}][id]" value="${sprzedaz.id || ''}">
+                    `;
+                    sprzedazContainer.appendChild(sprzedazDiv);
+                });
+                document.getElementById('electricity-sprzedaz-section').style.display = 'block';
+            }
+            
+            // Opłaty dystrybucyjne - edytowalne formularze
+            const oplatyContainer = document.getElementById('electricity-oplaty-editable');
+            if (invoiceData.oplaty_dystrybucyjne && invoiceData.oplaty_dystrybucyjne.length > 0) {
+                oplatyContainer.innerHTML = '';
+                invoiceData.oplaty_dystrybucyjne.forEach((oplata, idx) => {
+                    const oplataDiv = document.createElement('div');
+                    oplataDiv.className = 'editable-record';
+                    oplataDiv.style.cssText = 'border: 1px solid var(--border-color); padding: 15px; margin-bottom: 10px; border-radius: 5px; background: var(--hover-bg);';
+                    oplataDiv.innerHTML = `
+                        <h6 style="margin-top: 0; color: var(--primary-color);">Opłata ${idx + 1}</h6>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                            <div class="form-group">
+                                <label>Typ opłaty</label>
+                                <input type="text" name="oplaty_dystrybucyjne[${idx}][nazwa]" value="${oplata.nazwa || ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Strefa</label>
+                                <select name="oplaty_dystrybucyjne[${idx}][strefa]" class="form-control">
+                                    <option value="">-</option>
+                                    <option value="dzienna" ${oplata.strefa && oplata.strefa.toLowerCase() === 'dzienna' ? 'selected' : ''}>DZIENNA</option>
+                                    <option value="nocna" ${oplata.strefa && oplata.strefa.toLowerCase() === 'nocna' ? 'selected' : ''}>NOCNA</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Jednostka</label>
+                                <select name="oplaty_dystrybucyjne[${idx}][jednostka]" class="form-control">
+                                    <option value="kWh" ${oplata.jednostka === 'kWh' ? 'selected' : ''}>kWh</option>
+                                    <option value="zł/mc" ${oplata.jednostka === 'zł/mc' ? 'selected' : ''}>zł/mc</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Data</label>
+                                <input type="date" name="oplaty_dystrybucyjne[${idx}][data]" value="${oplata.data ? convertDDMMYYYYToISO(oplata.data) : ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Ilość kWh</label>
+                                <input type="number" name="oplaty_dystrybucyjne[${idx}][ilosc_kwh]" value="${(oplata.ilosc_kwh || oplata.ilosc) ? convertNumericValue(oplata.ilosc_kwh || oplata.ilosc) : ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Ilość miesięcy</label>
+                                <input type="number" step="0.0001" name="oplaty_dystrybucyjne[${idx}][ilosc_miesiecy]" value="${oplata.ilosc_miesiecy ? convertNumericValue(oplata.ilosc_miesiecy) : ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Współczynnik</label>
+                                <input type="number" step="0.0001" name="oplaty_dystrybucyjne[${idx}][wspolczynnik]" value="${(oplata.wspolczynnik || oplata.wspolczynnik1) ? convertNumericValue(oplata.wspolczynnik || oplata.wspolczynnik1) : ''}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Cena</label>
+                                <input type="number" step="0.0001" name="oplaty_dystrybucyjne[${idx}][cena]" value="${oplata.cena ? convertNumericValue(oplata.cena) : '0.00'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Należność</label>
+                                <input type="number" step="0.01" name="oplaty_dystrybucyjne[${idx}][naleznosc]" value="${oplata.naleznosc ? convertNumericValue(oplata.naleznosc) : '0.00'}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>VAT (%)</label>
+                                <input type="number" step="0.01" name="oplaty_dystrybucyjne[${idx}][vat]" value="${oplata.vat ? convertNumericValue(oplata.vat) : '23'}" class="form-control">
+                            </div>
+                        </div>
+                        <input type="hidden" name="oplaty_dystrybucyjne[${idx}][id]" value="${oplata.id || ''}">
+                    `;
+                    oplatyContainer.appendChild(oplataDiv);
+                });
+                document.getElementById('electricity-oplaty-section').style.display = 'block';
+            }
+            
+            // Rozliczenie okresów - edytowalne formularze
+            const rozliczenieContainer = document.getElementById('electricity-rozliczenie-editable');
+            if (invoiceData.rozliczenie_okresy && invoiceData.rozliczenie_okresy.length > 0) {
+                rozliczenieContainer.innerHTML = '';
+                invoiceData.rozliczenie_okresy.forEach((okres, idx) => {
+                    const okresDiv = document.createElement('div');
+                    okresDiv.className = 'editable-record';
+                    okresDiv.style.cssText = 'border: 1px solid var(--border-color); padding: 15px; margin-bottom: 10px; border-radius: 5px; background: var(--hover-bg);';
+                    okresDiv.innerHTML = `
+                        <h6 style="margin-top: 0; color: var(--primary-color);">Okres ${idx + 1}</h6>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                            <div class="form-group">
+                                <label>Numer okresu</label>
+                                <input type="number" name="rozliczenie_okresy[${idx}][numer_okresu]" value="${okres.numer_okresu || idx + 1}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Data okresu</label>
+                                <input type="date" name="rozliczenie_okresy[${idx}][data_okresu]" value="${okres.data_okresu ? convertDDMMYYYYToISO(okres.data_okresu) : ''}" class="form-control">
+                            </div>
+                        </div>
+                        <input type="hidden" name="rozliczenie_okresy[${idx}][id]" value="${okres.id || ''}">
+                    `;
+                    rozliczenieContainer.appendChild(okresDiv);
+                });
+                document.getElementById('electricity-rozliczenie-section').style.display = 'block';
+            } else if (invoiceData.blankiety && invoiceData.blankiety.length > 0) {
+                // Fallback: generuj z blankietów jeśli nie ma rozliczenie_okresy
+                rozliczenieContainer.innerHTML = '';
+                let okresNum = 1;
+                invoiceData.blankiety.forEach((blankiet, idx) => {
+                    if (blankiet.ogolem || !blankiet.okres_do) return;
+                    const okresDiv = document.createElement('div');
+                    okresDiv.className = 'editable-record';
+                    okresDiv.style.cssText = 'border: 1px solid var(--border-color); padding: 15px; margin-bottom: 10px; border-radius: 5px; background: var(--hover-bg);';
+                    okresDiv.innerHTML = `
+                        <h6 style="margin-top: 0; color: var(--primary-color);">Okres ${okresNum}</h6>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                            <div class="form-group">
+                                <label>Numer okresu</label>
+                                <input type="number" name="rozliczenie_okresy[${idx}][numer_okresu]" value="${okresNum}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Data okresu</label>
+                                <input type="date" name="rozliczenie_okresy[${idx}][data_okresu]" value="${blankiet.okres_do ? convertDDMMYYYYToISO(blankiet.okres_do) : ''}" class="form-control">
+                            </div>
+                        </div>
+                    `;
+                    rozliczenieContainer.appendChild(okresDiv);
+                    okresNum++;
+                });
+                if (okresNum > 1) {
+                    document.getElementById('electricity-rozliczenie-section').style.display = 'block';
+                }
+            }
+        }
+        
+        // Funkcje edycji i usuwania faktur
+        async function editElectricityInvoice(invoiceId) {
+            try {
+                // Pobierz dane faktury
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/${invoiceId}`);
+                if (!res.ok) {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd pobierania faktury', 'error');
+                    return;
+                }
+                
+                const invoiceData = await res.json();
+                
+                // Endpoint zwraca dane w formacie {invoice: {...}, blankiety: [...], odczyty: [...], etc.}
+                const invoice = invoiceData.invoice || invoiceData;
+                
+                // Wypełnij formularz weryfikacji danymi faktury
+                const verifyForm = document.getElementById('form-electricity-invoice-verify');
+                if (!verifyForm) {
+                    showAlert('Nie znaleziono formularza weryfikacji', 'error');
+                    return;
+                }
+                
+                // Funkcja pomocnicza do konwersji daty
+                function convertDateToISO(dateValue) {
+                    if (!dateValue) return null;
+                    if (typeof dateValue === 'string') {
+                        if (dateValue.match(/^\d{4}-\d{2}-\d{2}/)) {
+                            return dateValue.substring(0, 10);
+                        }
+                    }
+                    return dateValue;
+                }
+                
+                // Wypełnij wszystkie pola formularza
+                Object.keys(invoice).forEach(key => {
+                    if (key.startsWith('_')) return;
+                    
+                    const input = verifyForm.querySelector(`[name="${key}"]`);
+                    if (input) {
+                        if (input.type === 'date') {
+                            const isoDate = convertDateToISO(invoice[key]);
+                            if (isoDate) {
+                                input.value = isoDate;
+                            }
+                        } else if (input.type === 'number') {
+                            const numValue = parseFloat(invoice[key]);
+                            if (!isNaN(numValue)) {
+                                input.value = numValue;
+                            }
+                        } else if (input.tagName === 'SELECT') {
+                            const value = String(invoice[key]);
+                            if (Array.from(input.options).some(opt => opt.value === value)) {
+                                input.value = value;
+                            }
+                        } else {
+                            input.value = String(invoice[key] || '');
+                        }
+                    }
+                });
+                
+                // Funkcja pomocnicza do formatowania daty DD/MM/YYYY (globalna)
+                window.formatDateDDMMYYYY = function(dateStr) {
+                    if (!dateStr) return null;
+                    const date = new Date(dateStr);
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const year = date.getFullYear();
+                    return `${day}/${month}/${year}`;
+                };
+                
+                // Funkcja pomocnicza do formatowania daty DD/MM/YYYY
+                function formatDateDDMMYYYY(dateStr) {
+                    return window.formatDateDDMMYYYY(dateStr);
+                }
+                
+                // Przygotuj dane szczegółowe w formacie dla displayElectricityInvoiceDetails
+                const detailsData = {
+                    blankiety: invoiceData.blankiety ? invoiceData.blankiety.map(b => ({
+                        id: b.id,
+                        nr_blankietu: b.numer_blankietu,
+                        okres_od: formatDateDDMMYYYY(b.poczatek_podokresu),
+                        okres_do: formatDateDDMMYYYY(b.koniec_podokresu),
+                        ilosc_d: b.ilosc_dzienna_kwh,
+                        ilosc_c: b.ilosc_nocna_kwh,
+                        ilosc_calodobowa: b.ilosc_calodobowa_kwh,
+                        kwota_brutto: b.kwota_brutto,
+                        akcyza: b.akcyza,
+                        energia_do_akcyzy: b.energia_do_akcyzy_kwh,
+                        nadplata_niedoplata: b.nadplata_niedoplata,
+                        odsetki: b.odsetki,
+                        termin_platnosci: formatDateDDMMYYYY(b.termin_platnosci),
+                        do_zaplaty: b.do_zaplaty
+                    })) : [],
+                    odczyty: invoiceData.odczyty ? invoiceData.odczyty.map(o => ({
+                        id: o.id,
+                        typ: o.typ_energii === 'POBRANA' ? 'pobrana' : 'oddana',
+                        strefa: o.strefa ? o.strefa.toLowerCase() : null,
+                        data: formatDateDDMMYYYY(o.data_odczytu),
+                        biezace: o.biezacy_odczyt,
+                        poprzednie: o.poprzedni_odczyt,
+                        mnozna: o.mnozna,
+                        ilosc: o.ilosc_kwh,
+                        straty: o.straty_kwh,
+                        razem: o.razem_kwh
+                    })) : [],
+                    sprzedaz_energii: invoiceData.sprzedaz_energii ? invoiceData.sprzedaz_energii.map(s => ({
+                        id: s.id,
+                        strefa: s.strefa ? s.strefa.toLowerCase() : null,
+                        ilosc_kwh: s.ilosc_kwh,
+                        cena: s.cena_za_kwh,
+                        naleznosc: s.naleznosc,
+                        vat: s.vat_procent
+                    })) : [],
+                    oplaty_dystrybucyjne: invoiceData.oplaty_dystrybucyjne ? invoiceData.oplaty_dystrybucyjne.map(op => ({
+                        id: op.id,
+                        nazwa: op.typ_oplaty,
+                        strefa: op.strefa ? op.strefa.toLowerCase() : null,
+                        jednostka: op.jednostka,
+                        data: formatDateDDMMYYYY(op.data),
+                        ilosc_kwh: op.ilosc_kwh,
+                        ilosc_miesiecy: op.ilosc_miesiecy,
+                        wspolczynnik: op.wspolczynnik,
+                        cena: op.cena,
+                        naleznosc: op.naleznosc,
+                        vat: op.vat_procent
+                    })) : [],
+                    rozliczenie_okresy: invoiceData.rozliczenie_okresy ? invoiceData.rozliczenie_okresy.map(r => ({
+                        id: r.id,
+                        numer_okresu: r.numer_okresu,
+                        data_okresu: r.data_okresu
+                    })) : []
+                };
+                
+                // Zapisz szczegółowe dane do zmiennej globalnej
+                currentInvoiceDetails = detailsData;
+                
+                // Wyświetl szczegółowe dane
+                displayElectricityInvoiceDetails(detailsData);
+                
+                // Zapisz ID faktury do zmiennej globalnej (dla zapisu)
+                window.editingInvoiceId = invoiceId;
+                
+                // Pokaż formularz weryfikacji
+                document.getElementById('electricity-invoice-verification').style.display = 'block';
+                
+                // Zmień przycisk zapisu na "Zaktualizuj"
+                const saveBtn = document.querySelector('#electricity-invoice-verification .btn-success');
+                if (saveBtn) {
+                    saveBtn.textContent = 'Zaktualizuj fakturę';
+                    saveBtn.onclick = () => updateElectricityInvoice(invoiceId);
+                }
+                
+                showAlert('Faktura załadowana do edycji');
+                
+                // Przewiń do formularza
+                document.getElementById('electricity-invoice-verification').scrollIntoView({ behavior: 'smooth' });
+            } catch (error) {
+                console.error('Błąd pobierania faktury:', error);
+                showAlert('Błąd połączenia: ' + error.message, 'error');
+            }
+        }
+        
+        async function updateElectricityInvoice(invoiceId) {
+            const form = document.getElementById('form-electricity-invoice-verify');
+            const formData = new FormData(form);
+            const data = {};
+            
+            // Lista pól numerycznych
+            const numericFields = ['rok', 'naleznosc_za_okres', 'wartosc_prognozy', 'faktury_korygujace', 
+                'odsetki', 'wynik_rozliczenia', 'kwota_nadplacona', 'saldo_z_rozliczenia', 
+                'niedoplata_nadplata', 'energia_do_akcyzy_kwh', 'akcyza', 'do_zaplaty', 
+                'zuzycie_kwh', 'ogolem_sprzedaz_energii', 'ogolem_usluga_dystrybucji', 
+                'energia_lacznie_zuzyta_w_roku_kwh'];
+            
+            for (const [key, value] of formData.entries()) {
+                // Pomiń pola szczegółowe (będą zbierane osobno)
+                if (key.startsWith('blankiety[') || key.startsWith('odczyty[') || 
+                    key.startsWith('sprzedaz_energii[') || key.startsWith('oplaty_dystrybucyjne[') ||
+                    key.startsWith('rozliczenie_okresy[')) {
+                    continue;
+                }
+                
+                if (numericFields.includes(key)) {
+                    if (key.includes('kwh') || key === 'rok') {
+                        data[key] = parseInt(value) || 0;
+                    } else {
+                        data[key] = parseFloat(value) || 0;
+                    }
+                } else {
+                    data[key] = value;
+                }
+            }
+            
+            // Zbierz szczegółowe dane z edytowalnych formularzy
+            const detailedData = collectDetailedData();
+            data.blankiety = detailedData.blankiety;
+            data.odczyty = detailedData.odczyty;
+            data.sprzedaz_energii = detailedData.sprzedaz_energii;
+            data.oplaty_dystrybucyjne = detailedData.oplaty_dystrybucyjne;
+            data.rozliczenie_okresy = detailedData.rozliczenie_okresy;
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/${invoiceId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    showAlert('Faktura zaktualizowana pomyślnie!');
+                    form.reset();
+                    document.getElementById('electricity-invoice-verification').style.display = 'none';
+                    
+                    // Wyczyść zmienną globalną
+                    currentInvoiceDetails = null;
+                    window.editingInvoiceId = null;
+                    
+                    // Przywróć przycisk zapisu
+                    const saveBtn = document.querySelector('#electricity-invoice-verification .btn-success');
+                    if (saveBtn) {
+                        saveBtn.textContent = 'Zatwierdź i zapisz';
+                        saveBtn.onclick = verifyAndSaveElectricityInvoice;
+                    }
+                    
+                    // Wyczyść sekcje szczegółowe
+                    cancelElectricityInvoiceVerification();
+                    
+                    loadElectricityInvoices();
+                    loadElectricityStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd aktualizacji faktury', 'error');
+                }
+            } catch (error) {
+                console.error('Błąd aktualizacji faktury:', error);
+                showAlert('Błąd połączenia: ' + error.message, 'error');
+            }
+        }
+        
+        async function deleteElectricityInvoice(invoiceId) {
+            if (!confirm('Czy na pewno chcesz usunąć tę fakturę? Zostaną również usunięte wszystkie powiązane dane (blankiety, odczyty, sprzedaż, opłaty, rozliczenia).')) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/${invoiceId}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    const result = await res.json();
+                    showAlert(result.message || 'Faktura usunięta pomyślnie!');
+                    loadElectricityInvoices();
+                    loadElectricityStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd usuwania faktury', 'error');
+                }
+            } catch (error) {
+                console.error('Błąd usuwania faktury:', error);
+                showAlert('Błąd połączenia: ' + error.message, 'error');
+            }
+        }
+        
+        // Funkcje edycji/usuwania dla blankietów
+        async function editElectricityBlankiet(blankietId, invoiceId) {
+            if (typeof blankietId === 'string' && blankietId.startsWith('new-')) {
+                showAlert('Nowe blankiety można edytować tylko po zapisaniu faktury', 'error');
+                return;
+            }
+            
+            // Pobierz dane blankietu z currentInvoiceDetails
+            const blankiet = currentInvoiceDetails?.blankiety?.find(b => b.id === blankietId);
+            if (!blankiet) {
+                showAlert('Nie znaleziono blankietu', 'error');
+                return;
+            }
+            
+            // Pokaż formularz edycji inline
+            const row = document.querySelector(`tr[data-blankiet-id="${blankietId}"]`);
+            if (!row) return;
+            
+            const formHtml = `
+                <td colspan="9">
+                    <form id="form-edit-blankiet-${blankietId}" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 10px; background: var(--hover-bg);">
+                        <div class="form-group">
+                            <label>Nr blankietu</label>
+                            <input type="text" name="numer_blankietu" value="${blankiet.nr_blankietu || ''}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Okres od</label>
+                            <input type="date" name="poczatek_podokresu" value="${blankiet.okres_od ? convertDDMMYYYYToISO(blankiet.okres_od) : ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Okres do</label>
+                            <input type="date" name="koniec_podokresu" value="${blankiet.okres_do ? convertDDMMYYYYToISO(blankiet.okres_do) : ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Ilość dzienna (kWh)</label>
+                            <input type="number" name="ilosc_dzienna_kwh" value="${blankiet.ilosc_d || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Ilość nocna (kWh)</label>
+                            <input type="number" name="ilosc_nocna_kwh" value="${blankiet.ilosc_c || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Ilość całodobowa (kWh)</label>
+                            <input type="number" name="ilosc_calodobowa_kwh" value="${blankiet.ilosc_calodobowa || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Kwota brutto</label>
+                            <input type="number" step="0.01" name="kwota_brutto" value="${blankiet.kwota_brutto || '0.00'}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Akcyza</label>
+                            <input type="number" step="0.01" name="akcyza" value="${blankiet.akcyza || '0.00'}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Energia do akcyzy (kWh)</label>
+                            <input type="number" name="energia_do_akcyzy_kwh" value="${blankiet.energia_do_akcyzy || '0'}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Nadpłata/Niedopłata</label>
+                            <input type="number" step="0.01" name="nadplata_niedoplata" value="${blankiet.nadplata_niedoplata || '0.00'}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Odsetki</label>
+                            <input type="number" step="0.01" name="odsetki" value="${blankiet.odsetki || '0.00'}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Termin płatności</label>
+                            <input type="date" name="termin_platnosci" value="${blankiet.termin_platnosci ? convertDDMMYYYYToISO(blankiet.termin_platnosci) : ''}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Do zapłaty</label>
+                            <input type="number" step="0.01" name="do_zaplaty" value="${blankiet.do_zaplaty || '0.00'}" required>
+                        </div>
+                        <div class="form-group" style="grid-column: span 3;">
+                            <button type="button" class="btn btn-success" onclick="saveElectricityBlankiet(${blankietId}, ${invoiceId})">Zapisz</button>
+                            <button type="button" class="btn btn-secondary" onclick="cancelEditElectricityBlankiet(${blankietId})">Anuluj</button>
+                        </div>
+                    </form>
+                </td>
+            `;
+            
+            const editRow = document.createElement('tr');
+            editRow.id = `edit-blankiet-${blankietId}`;
+            editRow.innerHTML = formHtml;
+            row.insertAdjacentElement('afterend', editRow);
+            row.style.display = 'none';
+        }
+        
+        function convertDDMMYYYYToISO(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            return dateStr;
+        }
+        
+        async function saveElectricityBlankiet(blankietId, invoiceId) {
+            const form = document.getElementById(`form-edit-blankiet-${blankietId}`);
+            const formData = new FormData(form);
+            const data = {};
+            
+            for (const [key, value] of formData.entries()) {
+                if (key.includes('kwh') || key === 'energia_do_akcyzy_kwh') {
+                    data[key] = parseInt(value) || null;
+                } else if (key.includes('date') || key.includes('podokresu') || key.includes('platnosci')) {
+                    data[key] = value || null;
+                } else {
+                    data[key] = parseFloat(value) || 0;
+                }
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/blankiety/${blankietId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    showAlert('Blankiet zaktualizowany!');
+                    cancelEditElectricityBlankiet(blankietId);
+                    // Odśwież dane faktury
+                    if (invoiceId) {
+                        editElectricityInvoice(invoiceId);
+                    }
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd aktualizacji blankietu', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia: ' + error.message, 'error');
+            }
+        }
+        
+        function cancelEditElectricityBlankiet(blankietId) {
+            const editRow = document.getElementById(`edit-blankiet-${blankietId}`);
+            const row = document.querySelector(`tr[data-blankiet-id="${blankietId}"]`);
+            if (editRow) editRow.remove();
+            if (row) row.style.display = '';
+        }
+        
+        async function deleteElectricityBlankiet(blankietId, invoiceId) {
+            if (typeof blankietId === 'string' && blankietId.startsWith('new-')) {
+                // Usuń z currentInvoiceDetails
+                if (currentInvoiceDetails?.blankiety) {
+                    currentInvoiceDetails.blankiety = currentInvoiceDetails.blankiety.filter(b => b.id !== blankietId);
+                    displayElectricityInvoiceDetails(currentInvoiceDetails);
+                }
+                return;
+            }
+            
+            if (!confirm('Czy na pewno chcesz usunąć ten blankiet?')) return;
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/blankiety/${blankietId}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    showAlert('Blankiet usunięty!');
+                    if (invoiceId) {
+                        editElectricityInvoice(invoiceId);
+                    }
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd usuwania blankietu', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia: ' + error.message, 'error');
+            }
+        }
+        
+        // Podobne funkcje dla pozostałych tabel - uproszczone wersje
+        async function editElectricityOdczyt(odczytId, invoiceId) {
+            if (typeof odczytId === 'string' && odczytId.startsWith('new-')) {
+                showAlert('Nowe odczyty można edytować tylko po zapisaniu faktury', 'error');
+                return;
+            }
+            showAlert('Edycja odczytów - funkcja w przygotowaniu. Użyj edycji całej faktury.', 'info');
+        }
+        
+        async function deleteElectricityOdczyt(odczytId, invoiceId) {
+            if (typeof odczytId === 'string' && odczytId.startsWith('new-')) {
+                if (currentInvoiceDetails?.odczyty) {
+                    currentInvoiceDetails.odczyty = currentInvoiceDetails.odczyty.filter(o => o.id !== odczytId);
+                    displayElectricityInvoiceDetails(currentInvoiceDetails);
+                }
+                return;
+            }
+            if (!confirm('Czy na pewno chcesz usunąć ten odczyt?')) return;
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/odczyty/${odczytId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showAlert('Odczyt usunięty!');
+                    if (invoiceId) editElectricityInvoice(invoiceId);
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd usuwania odczytu', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia: ' + error.message, 'error');
+            }
+        }
+        
+        async function editElectricitySprzedaz(sprzedazId, invoiceId) {
+            if (typeof sprzedazId === 'string' && sprzedazId.startsWith('new-')) {
+                showAlert('Nowe pozycje można edytować tylko po zapisaniu faktury', 'error');
+                return;
+            }
+            showAlert('Edycja sprzedaży - funkcja w przygotowaniu. Użyj edycji całej faktury.', 'info');
+        }
+        
+        async function deleteElectricitySprzedaz(sprzedazId, invoiceId) {
+            if (typeof sprzedazId === 'string' && sprzedazId.startsWith('new-')) {
+                if (currentInvoiceDetails?.sprzedaz_energii) {
+                    currentInvoiceDetails.sprzedaz_energii = currentInvoiceDetails.sprzedaz_energii.filter(s => s.id !== sprzedazId);
+                    displayElectricityInvoiceDetails(currentInvoiceDetails);
+                }
+                return;
+            }
+            if (!confirm('Czy na pewno chcesz usunąć tę pozycję sprzedaży?')) return;
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/sprzedaz/${sprzedazId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showAlert('Pozycja sprzedaży usunięta!');
+                    if (invoiceId) editElectricityInvoice(invoiceId);
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd usuwania pozycji', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia: ' + error.message, 'error');
+            }
+        }
+        
+        async function editElectricityOplata(oplataId, invoiceId) {
+            if (typeof oplataId === 'string' && oplataId.startsWith('new-')) {
+                showAlert('Nowe opłaty można edytować tylko po zapisaniu faktury', 'error');
+                return;
+            }
+            showAlert('Edycja opłat - funkcja w przygotowaniu. Użyj edycji całej faktury.', 'info');
+        }
+        
+        async function deleteElectricityOplata(oplataId, invoiceId) {
+            if (typeof oplataId === 'string' && oplataId.startsWith('new-')) {
+                if (currentInvoiceDetails?.oplaty_dystrybucyjne) {
+                    currentInvoiceDetails.oplaty_dystrybucyjne = currentInvoiceDetails.oplaty_dystrybucyjne.filter(op => op.id !== oplataId);
+                    displayElectricityInvoiceDetails(currentInvoiceDetails);
+                }
+                return;
+            }
+            if (!confirm('Czy na pewno chcesz usunąć tę opłatę?')) return;
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/oplaty/${oplataId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showAlert('Opłata usunięta!');
+                    if (invoiceId) editElectricityInvoice(invoiceId);
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd usuwania opłaty', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia: ' + error.message, 'error');
+            }
+        }
+        
+        async function editElectricityRozliczenieOkres(okresId, invoiceId) {
+            if (typeof okresId === 'string' && okresId.startsWith('new-')) {
+                showAlert('Nowe okresy można edytować tylko po zapisaniu faktury', 'error');
+                return;
+            }
+            showAlert('Edycja okresów - funkcja w przygotowaniu. Użyj edycji całej faktury.', 'info');
+        }
+        
+        async function deleteElectricityRozliczenieOkres(okresId, invoiceId) {
+            if (typeof okresId === 'string' && okresId.startsWith('new-')) {
+                // Okresy są generowane z blankietów, więc nie ma sensu ich usuwać osobno
+                return;
+            }
+            if (!confirm('Czy na pewno chcesz usunąć ten okres?')) return;
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices-detailed/rozliczenie-okresy/${okresId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showAlert('Okres usunięty!');
+                    if (invoiceId) editElectricityInvoice(invoiceId);
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd usuwania okresu', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia: ' + error.message, 'error');
+            }
+        }
+        
+        // Funkcje dodawania nowych rekordów (placeholder)
+        function addElectricityBlankiet() {
+            showAlert('Aby dodać blankiet, edytuj fakturę i dodaj go ręcznie w formularzu weryfikacji', 'info');
+        }
+        
+        function addElectricityOdczyt() {
+            showAlert('Aby dodać odczyt, edytuj fakturę i dodaj go ręcznie w formularzu weryfikacji', 'info');
+        }
+        
+        function addElectricitySprzedaz() {
+            showAlert('Aby dodać pozycję sprzedaży, edytuj fakturę i dodaj ją ręcznie w formularzu weryfikacji', 'info');
+        }
+        
+        function addElectricityOplata() {
+            showAlert('Aby dodać opłatę, edytuj fakturę i dodaj ją ręcznie w formularzu weryfikacji', 'info');
+        }
+        
+        function addElectricityRozliczenieOkres() {
+            showAlert('Okresy są automatycznie generowane z blankietów', 'info');
+        }
+        
+        function toggleManualElectricityInvoiceForm() {
+            const formDiv = document.getElementById('electricity-invoice-manual-form');
+            const btn = document.getElementById('btn-show-manual-electricity-invoice');
+            if (formDiv.style.display === 'none' || formDiv.style.display === '') {
+                formDiv.style.display = 'block';
+                btn.textContent = 'Ukryj formularz ręczny';
+            } else {
+                formDiv.style.display = 'none';
+                btn.textContent = 'LUB DODAJ RĘCZNIE';
+            }
+        }
+
+        async function addElectricityInvoice() {
+            const form = document.getElementById('form-electricity-invoice');
+            const formData = new FormData(form);
+            const data = {};
+            
+            for (const [key, value] of formData.entries()) {
+                if (['usage_kwh', 'energy_price_net', 'energy_value_net', 'energy_vat_amount',
+                     'energy_value_gross', 'distribution_fees_net', 'distribution_fees_vat',
+                     'distribution_fees_gross', 'vat_rate', 'vat_amount', 'total_net_sum',
+                     'total_gross_sum', 'amount_to_pay'].includes(key)) {
+                    data[key] = parseFloat(value) || 0;
+                } else {
+                    data[key] = value;
+                }
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/invoices/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    showAlert('Faktura prądu dodana pomyślnie!');
+                    form.reset();
+                    toggleManualElectricityInvoiceForm();
+                    loadElectricityInvoices();
+                    loadElectricityStats();
+                } else {
+                    const error = await res.json();
+                    showAlert(error.detail || 'Błąd dodawania faktury', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        // Rachunki prądu
+        async function loadElectricityBills() {
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/bills/`);
+                const bills = await res.json();
+                const listEl = document.getElementById('electricity-bills-list');
+                
+                if (bills.length === 0) {
+                    listEl.innerHTML = '<p>Brak rachunków prądu. Wygeneruj rachunki dla okresu z fakturą i odczytami.</p>';
+                    return;
+                }
+
+                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Lokal</th><th>Zużycie (kWh)</th><th>Suma brutto</th><th>Akcje</th></tr></thead><tbody>';
+                bills.forEach(b => {
+                    html += `<tr>
+                        <td>${b.data}</td>
+                        <td>${b.local || '-'}</td>
+                        <td>${(b.usage_kwh || 0).toFixed(2)}</td>
+                        <td>${(b.total_gross_sum || 0).toFixed(2)} zł</td>
+                        <td class="actions">
+                            <button class="btn btn-edit btn-small" onclick="editElectricityBill(${b.id})" title="Edytuj rachunek">✏️</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteElectricityBill(${b.id})" title="Usuń rachunek">🗑️</button>
+                        </td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                listEl.innerHTML = html;
+            } catch (error) {
+                document.getElementById('electricity-bills-list').innerHTML = '<p class="error">Błąd ładowania rachunków</p>';
+            }
+        }
+
+        async function generateElectricityBills() {
+            const period = document.getElementById('electricity-bill-period').value.trim();
+            if (!period || !period.match(/^\d{4}-\d{2}$/)) {
+                showAlert('Podaj prawidłowy okres (YYYY-MM)', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/bills/generate/${period}`, { method: 'POST' });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert(`Wygenerowano ${result.bills_count || 0} rachunków prądu dla okresu ${period}`);
+                    loadElectricityBills();
+                    loadElectricityStats();
+                } else {
+                    showAlert(result.detail || 'Błąd generowania rachunków', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
         // Inicjalizacja - załaduj statystyki na głównej stronie
         loadMainStats();
         
@@ -3038,6 +5451,10 @@
             // Jeśli sekcja gazu jest widoczna, odśwież jej statystyki
             if (document.getElementById('medium-gas').style.display !== 'none') {
                 loadGasStats();
+            }
+            // Jeśli sekcja prądu jest widoczna, odśwież jej statystyki
+            if (document.getElementById('medium-electricity').style.display !== 'none') {
+                loadElectricityStats();
             }
         }, 30000); // Odśwież statystyki co 30 sekund
     </script>

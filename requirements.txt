@@ -7,4 +7,5 @@ python-dateutil==2.9.0
 python-multipart==0.0.12
 gspread==6.1.2
 google-auth==2.36.0
+pydantic-settings==2.1.0
 

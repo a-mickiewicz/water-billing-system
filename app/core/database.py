@@ -39,12 +39,32 @@ def get_db():
 def init_db():
     """
     Inicjalizuje bazę danych - tworzy wszystkie tabele.
+    Obsługuje błędy związane z już istniejącymi indeksami.
     """
     from app.models.water import Local, Reading, Invoice, Bill
     from app.models.gas import GasInvoice, GasBill
+    from app.models.electricity import ElectricityReading, ElectricityBill
+    from app.models.electricity_invoice import (
+        ElectricityInvoice,
+        ElectricityInvoiceBlankiet,
+        ElectricityInvoiceOdczyt,
+        ElectricityInvoiceSprzedazEnergii,
+        ElectricityInvoiceOplataDystrybucyjna,
+        ElectricityInvoiceRozliczenieOkres
+    )
     
-    Base.metadata.create_all(bind=engine)
-    print("[OK] Baza danych zainicjalizowana")
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+        print("[OK] Baza danych zainicjalizowana")
+    except Exception as e:
+        # Jeśli błąd dotyczy tylko indeksów, które już istnieją, to to nie jest problem
+        error_msg = str(e)
+        if "index" in error_msg.lower() and "already exists" in error_msg.lower():
+            print("[WARN] Niektóre indeksy już istnieją (używane przez inne tabele), ale tabele są gotowe")
+            print("[OK] Baza danych zainicjalizowana")
+        else:
+            # Jeśli to inny błąd, rzuć go dalej
+            raise
 
 
 if __name__ == "__main__":

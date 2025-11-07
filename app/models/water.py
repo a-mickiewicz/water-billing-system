@@ -20,6 +20,7 @@ class Local(Base):
     
     bills = relationship("Bill", back_populates="local_obj")
     gas_bills = relationship("GasBill", back_populates="local_obj", cascade="all, delete-orphan")
+    electricity_bills = relationship("ElectricityBill", back_populates="local_obj", cascade="all, delete-orphan")
 
 
 class Reading(Base):
