@@ -444,9 +444,13 @@ def calculate_gabinet_usage(current: ElectricityReading, previous: Optional[Elec
 
 ### 4️⃣ ZUŻYCIE GÓRA (obliczane, brak licznika)
 
+**UWAGA:** W nowej strukturze liczników DÓŁ jest podlicznikiem DOM i zawiera GABINET
+(GABINET jest podlicznikiem DÓŁ - zagnieżdżony).
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  GÓRA = DOM - (DÓŁ + GABINET)                               │
+│  GÓRA = DOM - DÓŁ                                           │
+│  (DÓŁ już zawiera GABINET, więc nie odejmujemy go osobno)  │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  SCENARIUSZ A: Oba okresy dwutaryfowe                       │
@@ -454,19 +458,16 @@ def calculate_gabinet_usage(current: ElectricityReading, previous: Optional[Elec
 │  zuzycie_gora_I = zuzycie_dom_I - zuzycie_dol_I            │
 │  zuzycie_gora_II = zuzycie_dom_II - zuzycie_dol_II          │
 │  zuzycie_gora_lacznie = zuzycie_gora_I + zuzycie_gora_II   │
-│                          - zuzycie_gabinet                  │
 │                                                              │
 │  SCENARIUSZ B: Aktualny jednotaryfowy, poprzedni dwutaryfowy│
 │  ────────────────────────────────────────────────────────   │
 │  zuzycie_gora_lacznie = zuzycie_dom_lacznie                │
 │                          - zuzycie_dol_lacznie             │
-│                          - zuzycie_gabinet                  │
 │                                                              │
 │  SCENARIUSZ C: Oba okresy jednotaryfowe                     │
 │  ────────────────────────────────────────                   │
 │  zuzycie_gora_lacznie = zuzycie_dom_lacznie                │
 │                          - zuzycie_dol_lacznie             │
-│                          - zuzycie_gabinet                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -476,10 +477,15 @@ def calculate_gabinet_usage(current: ElectricityReading, previous: Optional[Elec
 def calculate_gora_usage(
     dom_usage: Dict[str, float],
     dol_usage: Dict[str, float],
-    gabinet_usage: float
+    gabinet_usage: float  # Parametr zachowany dla kompatybilności, nie używany
 ) -> Dict[str, float]:
     """
     Oblicza zużycie dla GÓRA (brak licznika, obliczane).
+    GÓRA = DOM - DÓŁ
+    
+    Uwaga: W strukturze liczników DÓŁ jest podlicznikiem DOM i zawiera GABINET,
+    więc GABINET nie jest odejmowany osobno.
+    
     Zwraca: {
         'zuzycie_gora_I': float | None,
         'zuzycie_gora_II': float | None,
@@ -490,8 +496,8 @@ def calculate_gora_usage(
     if dom_usage['zuzycie_dom_I'] is not None and dol_usage['zuzycie_dol_I'] is not None:
         zuzycie_I = dom_usage['zuzycie_dom_I'] - dol_usage['zuzycie_dol_I']
         zuzycie_II = dom_usage['zuzycie_dom_II'] - dol_usage['zuzycie_dol_II']
-        # GABINET zawsze odejmujemy od łącznego
-        zuzycie_lacznie = zuzycie_I + zuzycie_II - gabinet_usage
+        # DÓŁ już zawiera GABINET, więc nie odejmujemy gabinet_usage
+        zuzycie_lacznie = zuzycie_I + zuzycie_II
         return {
             'zuzycie_gora_I': zuzycie_I,
             'zuzycie_gora_II': zuzycie_II,
@@ -499,7 +505,8 @@ def calculate_gora_usage(
         }
     
     # Jeśli mamy tylko łączne zużycie
-    zuzycie_lacznie = dom_usage['zuzycie_dom_lacznie'] - dol_usage['zuzycie_dol_lacznie'] - gabinet_usage
+    # DÓŁ już zawiera GABINET, więc nie odejmujemy gabinet_usage
+    zuzycie_lacznie = dom_usage['zuzycie_dom_lacznie'] - dol_usage['zuzycie_dol_lacznie']
     return {
         'zuzycie_gora_I': None,
         'zuzycie_gora_II': None,
@@ -574,7 +581,7 @@ OBLICZENIA:
   
   zuzycie_gora_I = 100 - 50 = 50
   zuzycie_gora_II = 200 - 100 = 100
-  zuzycie_gora_lacznie = 50 + 100 = 150
+  zuzycie_gora_lacznie = 50 + 100 = 150  # DOM - DÓŁ (DÓŁ zawiera GABINET)
 ```
 
 ### Przykład 2: Migracja z dwutaryfowego na jednotaryfowy
@@ -593,11 +600,11 @@ OKRES AKTUALNY (2025-01) - JEDNOTARYFOWY:
 OBLICZENIA:
   zuzycie_dom_lacznie = 3300 - 3000 = 300
   
-  zuzycie_dol_lacznie = 1050 - 900 = 150
+  zuzycie_dol_lacznie = 1050 - 900 = 150  # Zawiera GABINET
   
   zuzycie_gabinet = 150 - 100 = 50
   
-  zuzycie_gora_lacznie = 300 - 150 - 50 = 100
+  zuzycie_gora_lacznie = 300 - 150 = 150  # DOM - DÓŁ (nie odejmujemy GABINET, bo jest w DÓŁ)
 ```
 
 ---
@@ -686,7 +693,8 @@ OBLICZENIA:
         ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  OBLICZ ZUŻYCIE GÓRA                                         │
-│  zuzycie_gora = zuzycie_dom - zuzycie_dol - zuzycie_gabinet │
+│  zuzycie_gora = zuzycie_dom - zuzycie_dol                   │
+│  (DÓŁ zawiera GABINET, więc nie odejmujemy go osobno)       │
 └─────────────────────────────────────────────────────────────┘
         │
         ▼

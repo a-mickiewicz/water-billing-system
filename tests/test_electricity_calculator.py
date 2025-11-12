@@ -179,22 +179,38 @@ class TestCalculateGabinetUsage:
     def test_gabinet_no_previous(self):
         """Test: brak poprzedniego odczytu."""
         current = create_reading("2025-01", gabinet=100.0)
-        result = calculate_gabinet_usage(current, None)
-        assert result == 0.0
+        result = calculate_gabinet_usage(current, None, dom_is_dual_tariff=False)
+        assert result['zuzycie_gabinet'] == 0.0
+        assert result['zuzycie_gabinet_dzienna'] is None
+        assert result['zuzycie_gabinet_nocna'] is None
     
-    def test_gabinet_normal(self):
-        """Normalne obliczenie zużycia GABINET."""
+    def test_gabinet_normal_single_tariff(self):
+        """Normalne obliczenie zużycia GABINET (główny licznik jednotaryfowy)."""
         previous = create_reading("2024-12", gabinet=100.0)
         current = create_reading("2025-01", gabinet=150.0)
-        result = calculate_gabinet_usage(current, previous)
-        assert result == 50.0
+        result = calculate_gabinet_usage(current, previous, dom_is_dual_tariff=False)
+        assert result['zuzycie_gabinet'] == 50.0
+        assert result['zuzycie_gabinet_dzienna'] is None
+        assert result['zuzycie_gabinet_nocna'] is None
+    
+    def test_gabinet_with_approximation(self):
+        """Obliczenie zużycia GABINET z aproksymacją 70%/30% (główny licznik dwutaryfowy)."""
+        previous = create_reading("2024-12", gabinet=100.0)
+        current = create_reading("2025-01", gabinet=150.0)
+        result = calculate_gabinet_usage(current, previous, dom_is_dual_tariff=True)
+        assert result['zuzycie_gabinet'] == 50.0
+        assert result['zuzycie_gabinet_dzienna'] == 35.0  # 50 * 0.7
+        assert result['zuzycie_gabinet_nocna'] == 15.0  # 50 * 0.3
 
 
 class TestCalculateGoraUsage:
     """Testy obliczania zużycia GÓRA."""
     
     def test_gora_both_dual_tariff(self):
-        """Scenariusz A: Oba dwutaryfowe - rozdzielone taryfy."""
+        """Scenariusz A: Oba dwutaryfowe - rozdzielone taryfy.
+        
+        W nowej strukturze: DÓŁ zawiera GABINET, więc GÓRA = DOM - DÓŁ.
+        """
         dom_usage = {
             'zuzycie_dom_I': 100.0,
             'zuzycie_dom_II': 200.0,
@@ -204,17 +220,20 @@ class TestCalculateGoraUsage:
             'zuzycie_dol': None,
             'zuzycie_dol_I': 50.0,
             'zuzycie_dol_II': 100.0,
-            'zuzycie_dol_lacznie': 150.0
+            'zuzycie_dol_lacznie': 150.0  # Zawiera już GABINET
         }
-        gabinet_usage = 50.0
+        gabinet_usage = 50.0  # Parametr zachowany dla kompatybilności, nie używany
         
         result = calculate_gora_usage(dom_usage, dol_usage, gabinet_usage)
         assert result['zuzycie_gora_I'] == 50.0  # 100 - 50
         assert result['zuzycie_gora_II'] == 100.0  # 200 - 100
-        assert result['zuzycie_gora_lacznie'] == 100.0  # 50 + 100 - 50
+        assert result['zuzycie_gora_lacznie'] == 150.0  # 50 + 100 (nie odejmujemy GABINET)
     
     def test_gora_single_tariff(self):
-        """Scenariusz B/C: Tylko łączne zużycie."""
+        """Scenariusz B/C: Tylko łączne zużycie.
+        
+        W nowej strukturze: DÓŁ zawiera GABINET, więc GÓRA = DOM - DÓŁ.
+        """
         dom_usage = {
             'zuzycie_dom_I': None,
             'zuzycie_dom_II': None,
@@ -224,14 +243,14 @@ class TestCalculateGoraUsage:
             'zuzycie_dol': 150.0,
             'zuzycie_dol_I': None,
             'zuzycie_dol_II': None,
-            'zuzycie_dol_lacznie': 150.0
+            'zuzycie_dol_lacznie': 150.0  # Zawiera już GABINET
         }
-        gabinet_usage = 50.0
+        gabinet_usage = 50.0  # Parametr zachowany dla kompatybilności, nie używany
         
         result = calculate_gora_usage(dom_usage, dol_usage, gabinet_usage)
         assert result['zuzycie_gora_I'] is None
         assert result['zuzycie_gora_II'] is None
-        assert result['zuzycie_gora_lacznie'] == 100.0  # 300 - 150 - 50
+        assert result['zuzycie_gora_lacznie'] == 150.0  # 300 - 150 (nie odejmujemy GABINET)
 
 
 class TestCalculateAllUsage:
@@ -266,18 +285,24 @@ class TestCalculateAllUsage:
         assert result['dom']['zuzycie_dom_II'] == 200.0
         assert result['dom']['zuzycie_dom_lacznie'] == 300.0
         
-        # Sprawdź wartości DÓŁ
-        assert result['dol']['zuzycie_dol_I'] == 50.0
-        assert result['dol']['zuzycie_dol_II'] == 100.0
-        assert result['dol']['zuzycie_dol_lacznie'] == 150.0
+        # Sprawdź wartości DÓŁ (z odczytu - zawiera GABINET)
+        # DÓŁ z odczytu: I=50, II=100, łącznie=150
+        # GABINET: 50 (z aproksymacją: 35 dzienna, 15 nocna)
+        # Mikołaj (DOL) = DÓŁ - GABINET: I=50-35=15, II=100-15=85, łącznie=100
+        assert result['dol']['zuzycie_dol_I'] == 15.0  # 50 - 35
+        assert result['dol']['zuzycie_dol_II'] == 85.0  # 100 - 15
+        assert result['dol']['zuzycie_dol_lacznie'] == 100.0  # 150 - 50
         
-        # Sprawdź wartości GABINET
+        # Sprawdź wartości GABINET (z aproksymacją 70%/30%)
         assert result['gabinet']['zuzycie_gabinet'] == 50.0
+        assert result['gabinet']['zuzycie_gabinet_dzienna'] == 35.0  # 50 * 0.7
+        assert result['gabinet']['zuzycie_gabinet_nocna'] == 15.0  # 50 * 0.3
         
         # Sprawdź wartości GÓRA
-        assert result['gora']['zuzycie_gora_I'] == 50.0
-        assert result['gora']['zuzycie_gora_II'] == 100.0
-        assert result['gora']['zuzycie_gora_lacznie'] == 100.0
+        # W nowej strukturze: GÓRA = DOM - DÓŁ (DÓŁ zawiera GABINET)
+        assert result['gora']['zuzycie_gora_I'] == 50.0  # 100 - 50
+        assert result['gora']['zuzycie_gora_II'] == 100.0  # 200 - 100
+        assert result['gora']['zuzycie_gora_lacznie'] == 150.0  # 300 - 150 (nie odejmujemy GABINET)
     
     def test_all_usage_no_previous(self):
         """Test: brak poprzedniego odczytu."""
@@ -287,6 +312,8 @@ class TestCalculateAllUsage:
         assert result['dom']['zuzycie_dom_lacznie'] == 0.0
         assert result['dol']['zuzycie_dol_lacznie'] == 0.0
         assert result['gabinet']['zuzycie_gabinet'] == 0.0
+        assert result['gabinet']['zuzycie_gabinet_dzienna'] is None
+        assert result['gabinet']['zuzycie_gabinet_nocna'] is None
         assert result['gora']['zuzycie_gora_lacznie'] == 0.0
     
     def test_all_usage_migration_scenario(self):
@@ -309,12 +336,16 @@ class TestCalculateAllUsage:
         # DOM: 3300 - 3000 = 300
         assert result['dom']['zuzycie_dom_lacznie'] == 300.0
         
-        # DÓŁ: 1050 - 900 = 150
-        assert result['dol']['zuzycie_dol_lacznie'] == 150.0
-        
+        # DÓŁ z odczytu: 1050 - 900 = 150 (zawiera GABINET)
         # GABINET: 150 - 100 = 50
-        assert result['gabinet']['zuzycie_gabinet'] == 50.0
+        # Mikołaj (DOL): 150 - 50 = 100
+        assert result['dol']['zuzycie_dol_lacznie'] == 100.0  # DÓŁ - GABINET
         
-        # GÓRA: 300 - 150 - 50 = 100
-        assert result['gora']['zuzycie_gora_lacznie'] == 100.0
+        # GABINET: 150 - 100 = 50 (jednotaryfowy, więc bez aproksymacji)
+        assert result['gabinet']['zuzycie_gabinet'] == 50.0
+        assert result['gabinet']['zuzycie_gabinet_dzienna'] is None  # Główny licznik jednotaryfowy
+        assert result['gabinet']['zuzycie_gabinet_nocna'] is None
+        
+        # GÓRA: 300 - 150 = 150 (w nowej strukturze DÓŁ zawiera GABINET)
+        assert result['gora']['zuzycie_gora_lacznie'] == 150.0
 

@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Billing System - Dashboard Pro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --dark: #1e293b;
+            --light: #f8fafc;
+            --gray: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #1e293b;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 30px 40px;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .header-left h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 5px;
+        }
+
+        .header-left p {
+            color: var(--gray);
+            font-size: 1rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-outline:hover {
+            background: white;
+            color: var(--primary);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .stat-card.water::before {
+            background: #3b82f6;
+        }
+
+        .stat-card.gas::before {
+            background: #f59e0b;
+        }
+
+        .stat-card.electricity::before {
+            background: #ef4444;
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .stat-card.water .stat-icon {
+            background: #dbeafe;
+            color: #3b82f6;
+        }
+
+        .stat-card.gas .stat-icon {
+            background: #fef3c7;
+            color: #f59e0b;
+        }
+
+        .stat-card.electricity .stat-icon {
+            background: #fee2e2;
+            color: #ef4444;
+        }
+
+        .stat-title {
+            font-size: 0.875rem;
+            color: var(--gray);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin: 10px 0;
+        }
+
+        .stat-change {
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .stat-change.positive {
+            color: var(--success);
+        }
+
+        .stat-change.negative {
+            color: var(--danger);
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: var(--shadow);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            text-align: left;
+            padding: 12px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .table td {
+            padding: 15px 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--dark);
+        }
+
+        .table tr:hover {
+            background: var(--light);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-danger {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .medium-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .medium-card {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .medium-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+        }
+
+        .medium-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .medium-card.water {
+            border-top: 5px solid #3b82f6;
+        }
+
+        .medium-card.gas {
+            border-top: 5px solid #f59e0b;
+        }
+
+        .medium-card.electricity {
+            border-top: 5px solid #ef4444;
+        }
+
+        .medium-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.8;
+        }
+
+        .medium-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+
+        .medium-description {
+            color: var(--gray);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--gray);
+        }
+
+        .spinner {
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid var(--success);
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid var(--danger);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--gray);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1>💼 Billing System Pro</h1>
+                <p>Profesjonalny panel zarządzania rachunkami</p>
+            </div>
+            <div class="header-actions">
+                <a href="/dashboard" class="btn btn-secondary">
+                    ← Powrót do klasycznego widoku
+                </a>
+                <a href="/docs" target="_blank" class="btn btn-outline">
+                    📚 API Docs
+                </a>
+            </div>
+        </div>
+
+        <div id="alert" class="alert"></div>
+
+        <!-- Statystyki główne -->
+        <div class="stats-grid" id="main-stats">
+            <div class="stat-card water">
+                <div class="stat-header">
+                    <div>
+                        <div class="stat-title">Woda i Ścieki</div>
+                        <div class="stat-value" id="water-total">-</div>
+                    </div>
+                    <div class="stat-icon">💧</div>
+                </div>
+                <div class="stat-change">
+                    <span id="water-change">Ładowanie...</span>
+                </div>
+            </div>
+
+            <div class="stat-card gas">
+                <div class="stat-header">
+                    <div>
+                        <div class="stat-title">Gaz</div>
+                        <div class="stat-value" id="gas-total">-</div>
+                    </div>
+                    <div class="stat-icon">🔥</div>
+                </div>
+                <div class="stat-change">
+                    <span id="gas-change">Ładowanie...</span>
+                </div>
+            </div>
+
+            <div class="stat-card electricity">
+                <div class="stat-header">
+                    <div>
+                        <div class="stat-title">Prąd</div>
+                        <div class="stat-value" id="electricity-total">-</div>
+                    </div>
+                    <div class="stat-icon">⚡</div>
+                </div>
+                <div class="stat-change">
+                    <span id="electricity-change">Ładowanie...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Karty mediów -->
+        <div class="medium-cards">
+            <div class="medium-card water" onclick="showMediumDetails('water')">
+                <div class="medium-icon">💧</div>
+                <div class="medium-title">Woda i Ścieki</div>
+                <div class="medium-description">Zarządzaj odczytami, fakturami i rachunkami za wodę</div>
+            </div>
+
+            <div class="medium-card gas" onclick="showMediumDetails('gas')">
+                <div class="medium-icon">🔥</div>
+                <div class="medium-title">Gaz</div>
+                <div class="medium-description">Zarządzaj fakturami i rachunkami za gaz</div>
+            </div>
+
+            <div class="medium-card electricity" onclick="showMediumDetails('electricity')">
+                <div class="medium-icon">⚡</div>
+                <div class="medium-title">Prąd</div>
+                <div class="medium-description">Zarządzaj odczytami i rachunkami za prąd</div>
+            </div>
+        </div>
+
+        <!-- Szczegóły -->
+        <div class="content-grid" id="details-section" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title" id="details-title">Szczegóły</h2>
+                </div>
+                <div id="details-content">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Ładowanie danych...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Ostatnie akcje</h2>
+                </div>
+                <div id="recent-actions">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>Brak ostatnich akcji</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+
+        // Funkcje pomocnicze
+        function showAlert(message, type = 'success') {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.style.display = 'block';
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+
+        async function fetchAPI(endpoint) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        // Ładowanie statystyk
+        async function loadStats() {
+            try {
+                // Woda
+                try {
+                    const waterBills = await fetchAPI('/api/water/bills/');
+                    const waterTotal = waterBills.length;
+                    document.getElementById('water-total').textContent = waterTotal;
+                    document.getElementById('water-change').textContent = `${waterTotal} rachunków`;
+                    document.getElementById('water-change').className = 'stat-change positive';
+                } catch (e) {
+                    document.getElementById('water-total').textContent = '0';
+                    document.getElementById('water-change').textContent = 'Brak danych';
+                }
+
+                // Gaz
+                try {
+                    const gasBills = await fetchAPI('/api/gas/bills/');
+                    const gasTotal = gasBills.length;
+                    document.getElementById('gas-total').textContent = gasTotal;
+                    document.getElementById('gas-change').textContent = `${gasTotal} rachunków`;
+                    document.getElementById('gas-change').className = 'stat-change positive';
+                } catch (e) {
+                    document.getElementById('gas-total').textContent = '0';
+                    document.getElementById('gas-change').textContent = 'Brak danych';
+                }
+
+                // Prąd
+                try {
+                    const electricityBills = await fetchAPI('/api/electricity/bills');
+                    const electricityTotal = Array.isArray(electricityBills) ? electricityBills.length : 0;
+                    document.getElementById('electricity-total').textContent = electricityTotal;
+                    document.getElementById('electricity-change').textContent = `${electricityTotal} rachunków`;
+                    document.getElementById('electricity-change').className = 'stat-change positive';
+                } catch (e) {
+                    document.getElementById('electricity-total').textContent = '0';
+                    document.getElementById('electricity-change').textContent = 'Brak danych';
+                }
+            } catch (error) {
+                showAlert('Błąd podczas ładowania statystyk', 'error');
+            }
+        }
+
+        // Wyświetlanie szczegółów medium
+        async function showMediumDetails(medium) {
+            const detailsSection = document.getElementById('details-section');
+            const detailsContent = document.getElementById('details-content');
+            const detailsTitle = document.getElementById('details-title');
+
+            detailsSection.style.display = 'grid';
+            detailsContent.innerHTML = '<div class="loading"><div class="spinner"></div><p>Ładowanie danych...</p></div>';
+
+            try {
+                let data = [];
+                let title = '';
+
+                switch(medium) {
+                    case 'water':
+                        title = '💧 Woda i Ścieki - Ostatnie rachunki';
+                        data = await fetchAPI('/api/water/bills/');
+                        break;
+                    case 'gas':
+                        title = '🔥 Gaz - Ostatnie rachunki';
+                        data = await fetchAPI('/api/gas/bills/');
+                        break;
+                    case 'electricity':
+                        title = '⚡ Prąd - Ostatnie rachunki';
+                        const electricityData = await fetchAPI('/api/electricity/bills');
+                        data = Array.isArray(electricityData) ? electricityData : [];
+                        break;
+                }
+
+                detailsTitle.textContent = title;
+
+                if (data.length === 0) {
+                    detailsContent.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <p>Brak danych do wyświetlenia</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Sortuj po dacie (najnowsze pierwsze)
+                data.sort((a, b) => {
+                    const dateA = new Date(a.period || a.data || 0);
+                    const dateB = new Date(b.period || b.data || 0);
+                    return dateB - dateA;
+                });
+
+                // Pokaż tylko 10 najnowszych
+                const recentData = data.slice(0, 10);
+
+                let html = '<table class="table"><thead><tr>';
+                
+                if (medium === 'water') {
+                    html += '<th>Okres</th><th>Lokal</th><th>Zużycie</th><th>Kwota</th><th>Akcje</th>';
+                } else if (medium === 'gas') {
+                    html += '<th>Okres</th><th>Lokal</th><th>Zużycie (kWh)</th><th>Kwota</th><th>Akcje</th>';
+                } else {
+                    html += '<th>Okres</th><th>Lokal</th><th>Zużycie</th><th>Kwota</th><th>Akcje</th>';
+                }
+                
+                html += '</tr></thead><tbody>';
+
+                recentData.forEach(item => {
+                    const period = item.period || item.data || '-';
+                    const local = item.local || item.local_name || '-';
+                    let usage = '-';
+                    let amount = '-';
+                    
+                    if (medium === 'water') {
+                        usage = item.usage_m3 ? `${item.usage_m3.toFixed(2)} m³` : '-';
+                        amount = item.gross_sum ? `${item.gross_sum.toFixed(2)} zł` : '-';
+                    } else if (medium === 'gas') {
+                        usage = item.usage_kwh ? `${item.usage_kwh.toFixed(2)} kWh` : '-';
+                        amount = item.total_gross_sum ? `${item.total_gross_sum.toFixed(2)} zł` : '-';
+                    } else if (medium === 'electricity') {
+                        usage = item.usage_kwh ? `${item.usage_kwh.toFixed(2)} kWh` : '-';
+                        amount = item.total_gross_sum ? `${item.total_gross_sum.toFixed(2)} zł` : '-';
+                    }
+                    
+                    const billId = item.id;
+
+                    html += `
+                        <tr>
+                            <td>${period}</td>
+                            <td>${local}</td>
+                            <td>${usage}</td>
+                            <td><strong>${amount}</strong></td>
+                            <td>
+                                ${billId && medium !== 'electricity' ? `<a href="/api/${medium}/bills/download/${billId}" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;">📥 Pobierz</a>` : billId && item.pdf_path ? `<a href="/static/${item.pdf_path.replace(/^bills\\//, '')}" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.85rem;">📥 Pobierz</a>` : '-'}
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+                detailsContent.innerHTML = html;
+
+            } catch (error) {
+                detailsContent.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚠️</div>
+                        <p>Błąd podczas ładowania danych: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Inicjalizacja
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+        });
+    </script>
+</body>
+</html>
+

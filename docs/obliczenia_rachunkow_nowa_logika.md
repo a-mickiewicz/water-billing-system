@@ -1,0 +1,2 @@
+# Obliczenia Rachunków - Nowa Logika
+

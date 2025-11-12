@@ -60,10 +60,13 @@ config/
 !bills/.gitkeep
 
 # Validation reports
-prad_walidacja_faktur.md
+prad_walidacja_faktur*.md
 
 # Invoice analysis files (contain sensitive data)
 invoices_raw/**/analysis/
 invoices_raw/**/*.txt
 invoices_raw/**/parsed/
+
+# Documentation with sensitive data (invoice numbers, dates, financial details)
+docs/BILL_CALCULATION_LOGIC.md
 

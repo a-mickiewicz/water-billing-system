@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 from pydantic import BaseModel
 
@@ -23,6 +23,7 @@ from app.models.electricity_invoice import (
 from app.models.water import Local
 from app.services.electricity.manager import ElectricityBillingManager
 from app.services.electricity.calculator import calculate_all_usage, get_previous_reading
+from app.services.electricity.cost_calculator import calculate_kwh_cost, calculate_kwh_cost_for_blankiet
 from app.services.electricity.invoice_reader import (
     extract_text_from_pdf,
     parse_invoice_data,
@@ -36,6 +37,7 @@ router = APIRouter(prefix="/api/electricity", tags=["electricity"])
 class ElectricityReadingCreate(BaseModel):
     """Model dla tworzenia odczytu prądu."""
     data: str
+    data_odczytu_licznika: Optional[str] = None  # Format: 'YYYY-MM-DD'
     is_main_meter_single_tariff: bool = False
     main_reading: Optional[float] = None
     main_reading_t1: Optional[float] = None
@@ -113,6 +115,7 @@ def get_readings(
         result.append({
             "id": r.id,
             "data": r.data,
+            "data_odczytu_licznika": r.data_odczytu_licznika.isoformat() if r.data_odczytu_licznika else None,
             "is_main_meter_single_tariff": bool(r.licznik_dom_jednotaryfowy),
             "main_reading": main_reading,
             "main_reading_t1": main_reading_t1,
@@ -163,6 +166,7 @@ def get_reading(
     return {
         "id": reading.id,
         "data": reading.data,
+        "data_odczytu_licznika": reading.data_odczytu_licznika.isoformat() if reading.data_odczytu_licznika else None,
         "is_main_meter_single_tariff": bool(reading.licznik_dom_jednotaryfowy),
         "main_reading": float(reading.odczyt_dom) if reading.odczyt_dom is not None else None,
         "main_reading_t1": float(reading.odczyt_dom_I) if reading.odczyt_dom_I is not None else None,
@@ -225,6 +229,14 @@ def update_reading(
         if odczyt_dol is not None:
             raise HTTPException(status_code=400, detail="Nie można podać odczytu_dol dla licznika dwutaryfowego")
     
+    # Konwersja data_odczytu_licznika z stringa na date
+    data_odczytu_licznika = None
+    if reading_data.data_odczytu_licznika:
+        try:
+            data_odczytu_licznika = datetime.strptime(reading_data.data_odczytu_licznika, '%Y-%m-%d').date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Nieprawidłowy format daty odczytu licznika. Oczekiwany format: YYYY-MM-DD")
+    
     # Aktualizuj odczyt
     reading.licznik_dom_jednotaryfowy = licznik_dom_jednotaryfowy
     reading.odczyt_dom = odczyt_dom
@@ -235,6 +247,7 @@ def update_reading(
     reading.odczyt_dol_I = odczyt_dol_I
     reading.odczyt_dol_II = odczyt_dol_II
     reading.odczyt_gabinet = odczyt_gabinet
+    reading.data_odczytu_licznika = data_odczytu_licznika
     
     db.commit()
     db.refresh(reading)
@@ -243,6 +256,7 @@ def update_reading(
     return {
         "id": reading.id,
         "data": reading.data,
+        "data_odczytu_licznika": reading.data_odczytu_licznika.isoformat() if reading.data_odczytu_licznika else None,
         "is_main_meter_single_tariff": bool(reading.licznik_dom_jednotaryfowy),
         "main_reading": float(reading.odczyt_dom) if reading.odczyt_dom is not None else None,
         "main_reading_t1": float(reading.odczyt_dom_I) if reading.odczyt_dom_I is not None else None,
@@ -324,6 +338,14 @@ def create_reading(
     
     odczyt_gabinet = reading_data.gabinet_reading or 0.0
     
+    # Konwersja data_odczytu_licznika z stringa na date
+    data_odczytu_licznika = None
+    if reading_data.data_odczytu_licznika:
+        try:
+            data_odczytu_licznika = datetime.strptime(reading_data.data_odczytu_licznika, '%Y-%m-%d').date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Nieprawidłowy format daty odczytu licznika. Oczekiwany format: YYYY-MM-DD")
+    
     # Sprawdź czy odczyt już istnieje
     existing = db.query(ElectricityReading).filter(
         ElectricityReading.data == data
@@ -358,6 +380,7 @@ def create_reading(
     # Utwórz odczyt
     reading = ElectricityReading(
         data=data,
+        data_odczytu_licznika=data_odczytu_licznika,
         licznik_dom_jednotaryfowy=licznik_dom_jednotaryfowy,
         odczyt_dom=odczyt_dom,
         odczyt_dom_I=odczyt_dom_I,
@@ -580,7 +603,7 @@ def get_bills(
     local: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Pobiera listę rachunków za prąd."""
+    """Pobiera listę rachunków za prąd z kosztem 1 kWh."""
     query = db.query(ElectricityBill)
     
     if data:
@@ -589,7 +612,64 @@ def get_bills(
         query = query.filter(ElectricityBill.local == local)
     
     bills = query.offset(skip).limit(limit).all()
-    return bills
+    
+    # Dodaj koszt 1 kWh dla każdego rachunku
+    result = []
+    for bill in bills:
+        bill_dict = {
+            "id": bill.id,
+            "data": bill.data,
+            "local": bill.local,
+            "reading_id": bill.reading_id,
+            "invoice_id": bill.invoice_id,
+            "local_id": bill.local_id,
+            "usage_kwh": bill.usage_kwh,
+            "usage_kwh_dzienna": bill.usage_kwh_dzienna,
+            "usage_kwh_nocna": bill.usage_kwh_nocna,
+            "energy_cost_gross": bill.energy_cost_gross,
+            "distribution_cost_gross": bill.distribution_cost_gross,
+            "total_net_sum": bill.total_net_sum,
+            "total_gross_sum": bill.total_gross_sum,
+            "pdf_path": bill.pdf_path,
+        }
+        
+        # Oblicz koszt 1 kWh dla faktury
+        if bill.invoice_id:
+            koszty_kwh = calculate_kwh_cost(bill.invoice_id, db)
+            
+            # Znajdź blankiet dla okresu rachunku
+            from app.services.electricity.manager import ElectricityBillingManager
+            manager = ElectricityBillingManager()
+            blankiet = manager.find_blankiet_for_period(db, bill.invoice_id, bill.data)
+            
+            # Pobierz fakturę, aby sprawdzić typ taryfy
+            invoice = db.query(ElectricityInvoice).filter(ElectricityInvoice.id == bill.invoice_id).first()
+            
+            if invoice:
+                if invoice.typ_taryfy == "DWUTARYFOWA":
+                    bill_dict["koszt_1kwh_dzienna"] = round(koszty_kwh.get("DZIENNA", {}).get("suma", 0), 4) if "DZIENNA" in koszty_kwh else None
+                    bill_dict["koszt_1kwh_nocna"] = round(koszty_kwh.get("NOCNA", {}).get("suma", 0), 4) if "NOCNA" in koszty_kwh else None
+                    bill_dict["koszt_1kwh_calodobowa"] = None
+                elif invoice.typ_taryfy == "CAŁODOBOWA":
+                    bill_dict["koszt_1kwh_dzienna"] = None
+                    bill_dict["koszt_1kwh_nocna"] = None
+                    bill_dict["koszt_1kwh_calodobowa"] = round(koszty_kwh.get("CAŁODOBOWA", {}).get("suma", 0), 4) if "CAŁODOBOWA" in koszty_kwh else None
+                
+                # Dodaj informacje o fakturze i blankiecie
+                bill_dict["numer_faktury"] = invoice.numer_faktury
+                # Okres rozliczeniowy jako daty początku i końca faktury
+                if invoice.data_poczatku_okresu and invoice.data_konca_okresu:
+                    bill_dict["okres_rozliczeniowy"] = f"{invoice.data_poczatku_okresu.strftime('%d.%m.%Y')} - {invoice.data_konca_okresu.strftime('%d.%m.%Y')}"
+                else:
+                    bill_dict["okres_rozliczeniowy"] = bill.data
+                if blankiet:
+                    bill_dict["blankiet_numer"] = blankiet.numer_blankietu
+                    bill_dict["blankiet_poczatek"] = blankiet.poczatek_podokresu.isoformat() if blankiet.poczatek_podokresu else None
+                    bill_dict["blankiet_koniec"] = blankiet.koniec_podokresu.isoformat() if blankiet.koniec_podokresu else None
+        
+        result.append(bill_dict)
+    
+    return result
 
 
 @router.post("/generate-bills")
@@ -604,10 +684,140 @@ def generate_bills(
         bills = manager.generate_bills_for_period(db, data)
         return {
             "message": f"Wygenerowano {len(bills)} rachunków dla okresu {data}",
-            "bills": bills
+            "bills_count": len(bills)
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/bills/{bill_id}")
+def get_bill(bill_id: int, db: Session = Depends(get_db)):
+    """Pobiera rachunek po ID."""
+    bill = db.query(ElectricityBill).filter(ElectricityBill.id == bill_id).first()
+    
+    if not bill:
+        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+    
+    bill_dict = {
+        "id": bill.id,
+        "data": bill.data,
+        "local": bill.local,
+        "reading_id": bill.reading_id,
+        "invoice_id": bill.invoice_id,
+        "local_id": bill.local_id,
+        "usage_kwh": bill.usage_kwh,
+        "usage_kwh_dzienna": bill.usage_kwh_dzienna,
+        "usage_kwh_nocna": bill.usage_kwh_nocna,
+        "energy_cost_gross": bill.energy_cost_gross,
+        "distribution_cost_gross": bill.distribution_cost_gross,
+        "total_net_sum": bill.total_net_sum,
+        "total_gross_sum": bill.total_gross_sum,
+        "pdf_path": bill.pdf_path,
+    }
+    
+    # Dodaj informacje o fakturze
+    if bill.invoice_id:
+        invoice = db.query(ElectricityInvoice).filter(ElectricityInvoice.id == bill.invoice_id).first()
+        if invoice:
+            bill_dict["numer_faktury"] = invoice.numer_faktury
+            bill_dict["typ_taryfy"] = invoice.typ_taryfy
+    
+    return bill_dict
+
+
+@router.put("/bills/{bill_id}")
+def update_bill(
+    bill_id: int,
+    bill_data: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    """Aktualizuje rachunek po ID."""
+    bill = db.query(ElectricityBill).filter(ElectricityBill.id == bill_id).first()
+    
+    if not bill:
+        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+    
+    # Aktualizuj pola
+    updatable_fields = [
+        'usage_kwh', 'usage_kwh_dzienna', 'usage_kwh_nocna',
+        'energy_cost_gross', 'distribution_cost_gross',
+        'total_net_sum', 'total_gross_sum', 'pdf_path'
+    ]
+    
+    for key, value in bill_data.items():
+        if key in updatable_fields and hasattr(bill, key):
+            if isinstance(value, (int, float)) and value is not None:
+                value = round(float(value), 4)
+            setattr(bill, key, value)
+    
+    db.commit()
+    db.refresh(bill)
+    
+    return {
+        "message": "Rachunek zaktualizowany",
+        "id": bill.id,
+        "data": bill.data,
+        "local": bill.local
+    }
+
+
+@router.delete("/bills/{bill_id}")
+def delete_bill(bill_id: int, db: Session = Depends(get_db)):
+    """Usuwa pojedynczy rachunek po ID."""
+    from pathlib import Path
+    
+    bill = db.query(ElectricityBill).filter(ElectricityBill.id == bill_id).first()
+    
+    if not bill:
+        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+    
+    # Usuń plik PDF jeśli istnieje
+    if bill.pdf_path and Path(bill.pdf_path).exists():
+        try:
+            Path(bill.pdf_path).unlink()
+        except Exception:
+            pass  # Ignoruj błędy usuwania pliku
+    
+    period = bill.data
+    local = bill.local
+    
+    db.delete(bill)
+    db.commit()
+    
+    return {
+        "message": "Rachunek usunięty",
+        "id": bill_id,
+        "period": period,
+        "local": local
+    }
+
+
+@router.delete("/bills")
+def delete_all_bills(db: Session = Depends(get_db)):
+    """Usuwa wszystkie rachunki prądu."""
+    from pathlib import Path
+    
+    bills = db.query(ElectricityBill).all()
+    deleted_count = len(bills)
+    
+    # Usuń pliki PDF jeśli istnieją
+    for bill in bills:
+        if bill.pdf_path and Path(bill.pdf_path).exists():
+            try:
+                Path(bill.pdf_path).unlink()
+            except Exception:
+                pass  # Ignoruj błędy usuwania pliku
+    
+    # Usuń wszystkie rachunki z bazy
+    for bill in bills:
+        db.delete(bill)
+    
+    db.commit()
+    
+    return {
+        "message": f"Usunięto {deleted_count} rachunków",
+        "deleted_count": deleted_count
+    }
 
 
 @router.get("/stats")
@@ -639,6 +849,79 @@ def get_electricity_stats(db: Session = Depends(get_db)):
     return stats
 
 
+@router.get("/available-periods")
+def get_available_periods(db: Session = Depends(get_db)):
+    """
+    Zwraca okresy dostępne do generowania rachunków (mające zarówno faktury jak i odczyty).
+    """
+    from datetime import datetime, date
+    
+    # Pobierz okresy z odczytów
+    reading_periods = set()
+    readings = db.query(ElectricityReading.data).distinct().all()
+    for r in readings:
+        reading_periods.add(r.data)
+    
+    # Pobierz wszystkie miesiące z okresów faktur i sprawdź czy mają odczyty
+    available_periods = set()
+    invoices = db.query(ElectricityInvoice).all()
+    
+    for invoice in invoices:
+        # Dla każdego miesiąca w okresie faktury
+        start = invoice.data_poczatku_okresu
+        end = invoice.data_konca_okresu
+        
+        # Upewnij się, że start jest pierwszym dniem miesiąca
+        period_start = start.replace(day=1) if start.day != 1 else start
+        
+        # Iteruj przez wszystkie miesiące w okresie faktury
+        current = period_start
+        while current <= end:
+            period_str = current.strftime('%Y-%m')
+            
+            # Sprawdź czy dla tego okresu jest odczyt
+            if period_str in reading_periods:
+                available_periods.add(period_str)
+            
+            # Przejdź do następnego miesiąca
+            if current.month == 12:
+                current = current.replace(year=current.year + 1, month=1, day=1)
+            else:
+                current = current.replace(month=current.month + 1, day=1)
+    
+    # Okresy dostępne to te, które mają zarówno odczyty jak i faktury
+    available = sorted(available_periods, reverse=True)
+    
+    # Pobierz wszystkie okresy z faktur (dla debugowania)
+    all_invoice_periods = set()
+    for invoice in invoices:
+        start = invoice.data_poczatku_okresu.replace(day=1) if invoice.data_poczatku_okresu.day != 1 else invoice.data_poczatku_okresu
+        end = invoice.data_konca_okresu
+        current = start
+        while current <= end:
+            all_invoice_periods.add(current.strftime('%Y-%m'))
+            if current.month == 12:
+                current = current.replace(year=current.year + 1, month=1, day=1)
+            else:
+                current = current.replace(month=current.month + 1, day=1)
+    
+    # Okresy z faktur, ale bez odczytów (dla diagnostyki)
+    periods_without_readings = sorted(all_invoice_periods - reading_periods, reverse=True)
+    
+    return {
+        "available_periods": available,
+        "all_reading_periods": sorted(reading_periods, reverse=True),
+        "all_invoice_periods": sorted(all_invoice_periods, reverse=True),
+        "periods_without_readings": periods_without_readings,
+        "diagnostics": {
+            "total_invoices": len(invoices),
+            "total_readings": len(readings),
+            "available_count": len(available),
+            "missing_readings_count": len(periods_without_readings)
+        }
+    }
+
+
 # ============================================================================
 # NOWE ENDPOINTY DLA SZCZEGÓŁOWYCH FAKTUR (zgodnie ze schematem)
 # ============================================================================
@@ -660,6 +943,34 @@ def get_invoices_detailed(
     
     result = []
     for inv in invoices:
+        # Oblicz koszt 1 kWh dla tej faktury
+        koszty_kwh = calculate_kwh_cost(inv.id, db)
+        
+        # Określ główny koszt (dzienna dla dwutaryfowej, całodobowa dla całodobowej)
+        glowny_koszt = None
+        if inv.typ_taryfy == "DWUTARYFOWA":
+            if "DZIENNA" in koszty_kwh:
+                glowny_koszt = koszty_kwh["DZIENNA"]["suma"]
+        elif inv.typ_taryfy == "CAŁODOBOWA":
+            if "CAŁODOBOWA" in koszty_kwh:
+                glowny_koszt = koszty_kwh["CAŁODOBOWA"]["suma"]
+        
+        # Jeśli nie ma głównego kosztu, użyj pierwszej dostępnej strefy
+        if glowny_koszt is None and koszty_kwh:
+            glowny_koszt = list(koszty_kwh.values())[0]["suma"]
+        
+        # Przygotuj koszty dla wyświetlenia
+        koszt_dzienna = None
+        koszt_nocna = None
+        koszt_calodobowa = None
+        
+        if "DZIENNA" in koszty_kwh:
+            koszt_dzienna = round(koszty_kwh["DZIENNA"]["suma"], 4)
+        if "NOCNA" in koszty_kwh:
+            koszt_nocna = round(koszty_kwh["NOCNA"]["suma"], 4)
+        if "CAŁODOBOWA" in koszty_kwh:
+            koszt_calodobowa = round(koszty_kwh["CAŁODOBOWA"]["suma"], 4)
+        
         result.append({
             "id": inv.id,
             "rok": inv.rok,
@@ -676,6 +987,10 @@ def get_invoices_detailed(
             "grupa_taryfowa": inv.grupa_taryfowa,
             "typ_taryfy": inv.typ_taryfy,
             "do_zaplaty": float(inv.do_zaplaty),
+            "koszt_1kwh_dzienna": koszt_dzienna,
+            "koszt_1kwh_nocna": koszt_nocna,
+            "koszt_1kwh_calodobowa": koszt_calodobowa,
+            "koszty_kwh_szczegolowe": koszty_kwh,
         })
     
     return result
@@ -981,7 +1296,32 @@ def verify_and_save_invoice_detailed(
             """Parsuje wartość całkowitą z formatu polskiego."""
             if key in data_dict and data_dict[key] is not None and data_dict[key] != '':
                 try:
-                    value_str = str(data_dict[key]).replace('.', '').replace(',', '.')
+                    # Jeśli wartość jest już liczbą, zwróć ją jako int
+                    if isinstance(data_dict[key], (int, float)):
+                        return int(data_dict[key])
+                    
+                    value_str = str(data_dict[key]).strip()
+                    
+                    # Jeśli wartość zawiera kropki, sprawdź czy są to separatory tysięcy
+                    if '.' in value_str:
+                        # Jeśli jest też przecinek, to kropki są separatorami tysięcy
+                        if ',' in value_str:
+                            # Format: "24.320,50" -> usuń kropki -> "24320,50" -> zamień przecinek -> "24320.50"
+                            value_str = value_str.replace('.', '').replace(',', '.')
+                        else:
+                            # Tylko kropki - sprawdź czy to separatory tysięcy
+                            # W formacie polskim separatory tysięcy to kropki, a każda grupa ma 3 cyfry
+                            # Format: "24.320" lub "1.234.567" -> wszystkie kropki to separatory tysięcy
+                            parts = value_str.split('.')
+                            # Jeśli wszystkie części po pierwszej mają 3 cyfry, to są to separatory tysięcy
+                            if len(parts) > 1 and all(len(part) == 3 for part in parts[1:]):
+                                # Format: "24.320" lub "1.234.567" -> usuń wszystkie kropki
+                                value_str = value_str.replace('.', '')
+                            # W przeciwnym razie kropka jest separatorem dziesiętnym (zostaw)
+                    elif ',' in value_str:
+                        # Tylko przecinek - zamień na kropkę (separator dziesiętny)
+                        value_str = value_str.replace(',', '.')
+                    
                     return int(float(value_str))
                 except (ValueError, AttributeError, TypeError):
                     pass
@@ -1098,10 +1438,10 @@ def verify_and_save_invoice_detailed(
                     strefa = None
                 
                 # Sprawdź czy już przetworzyliśmy ten odczyt w ramach tej faktury (deduplikacja)
-                # Używamy tylko typ_energii i strefa, bo invoice_id jest zawsze takie samo dla tej faktury
-                odczyt_key = (typ_energii, strefa)
+                # Używamy typ_energii, strefa i data_odczytu, aby umożliwić wiele okresów dla tej samej strefy
+                odczyt_key = (typ_energii, strefa, data_odczytu)
                 if odczyt_key in seen_odczyty:
-                    # Pomiń duplikat - już mamy odczyt z tym typem energii i strefą dla tej faktury
+                    # Pomiń duplikat - już mamy odczyt z tym typem energii, strefą i datą dla tej faktury
                     continue
                 seen_odczyty.add(odczyt_key)
                 
@@ -1403,11 +1743,37 @@ def update_invoice_detailed(
         return default
     
     def parse_int_value(data_dict, key, default=0):
-        if key in data_dict:
+        """Parsuje wartość całkowitą z formatu polskiego."""
+        if key in data_dict and data_dict[key] is not None and data_dict[key] != '':
             try:
-                value_str = str(data_dict[key]).replace('.', '').replace(',', '.')
+                # Jeśli wartość jest już liczbą, zwróć ją jako int
+                if isinstance(data_dict[key], (int, float)):
+                    return int(data_dict[key])
+                
+                value_str = str(data_dict[key]).strip()
+                
+                # Jeśli wartość zawiera kropki, sprawdź czy są to separatory tysięcy
+                if '.' in value_str:
+                    # Jeśli jest też przecinek, to kropki są separatorami tysięcy
+                    if ',' in value_str:
+                        # Format: "24.320,50" -> usuń kropki -> "24320,50" -> zamień przecinek -> "24320.50"
+                        value_str = value_str.replace('.', '').replace(',', '.')
+                    else:
+                        # Tylko kropki - sprawdź czy to separatory tysięcy
+                        # W formacie polskim separatory tysięcy to kropki, a każda grupa ma 3 cyfry
+                        # Format: "24.320" lub "1.234.567" -> wszystkie kropki to separatory tysięcy
+                        parts = value_str.split('.')
+                        # Jeśli wszystkie części po pierwszej mają 3 cyfry, to są to separatory tysięcy
+                        if len(parts) > 1 and all(len(part) == 3 for part in parts[1:]):
+                            # Format: "24.320" lub "1.234.567" -> usuń wszystkie kropki
+                            value_str = value_str.replace('.', '')
+                        # W przeciwnym razie kropka jest separatorem dziesiętnym (zostaw)
+                elif ',' in value_str:
+                    # Tylko przecinek - zamień na kropkę (separator dziesiętny)
+                    value_str = value_str.replace(',', '.')
+                
                 return int(float(value_str))
-            except (ValueError, AttributeError):
+            except (ValueError, AttributeError, TypeError):
                 pass
         return default
     

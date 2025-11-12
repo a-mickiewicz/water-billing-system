@@ -15,15 +15,19 @@ class ElectricityReading(Base):
     
     Obsługuje:
     - Licznik główny DOM: dwutaryfowy (I, II) lub jednotaryfowy
-    - Podlicznik DÓŁ: dwutaryfowy (I, II) lub jednotaryfowy
-    - Podlicznik GABINET: zawsze jednotaryfowy
-    - GÓRA: obliczane (DOM - DÓŁ - GABINET)
+    - Podlicznik DÓŁ: dwutaryfowy (I, II) lub jednotaryfowy (zawiera GABINET)
+    - Podlicznik GABINET: zawsze jednotaryfowy (podlicznik DÓŁ - zagnieżdżony)
+    - GÓRA: obliczane (DOM - DÓŁ)
+    
+    Struktura hierarchiczna:
+    DOM → DÓŁ → GABINET
     """
     __tablename__ = "electricity_readings"
     
     # ID i organizacja
     id = Column(Integer, primary_key=True, autoincrement=True)
     data = Column(String(7), unique=True, nullable=False)  # Format: 'YYYY-MM' (np. '2025-01')
+    data_odczytu_licznika = Column(Date, nullable=True)  # Data faktycznego odczytu licznika
     
     # ============================================
     # LICZNIK GŁÓWNY DOM
@@ -78,9 +82,9 @@ class ElectricityBill(Base):
     Wygenerowane rachunki prądu dla lokali.
     
     Rozdzielenie kosztów na podstawie zużycia:
-    - "gora": obliczane (DOM - DÓŁ - GABINET)
-    - "dol": z podlicznika
-    - "gabinet": z podlicznika
+    - "gora": obliczane (DOM - DÓŁ)
+    - "dol": z podlicznika (zawiera GABINET)
+    - "gabinet": z podlicznika (podlicznik DÓŁ)
     """
     __tablename__ = "electricity_bills"
     
@@ -98,7 +102,9 @@ class ElectricityBill(Base):
     local_obj = relationship("Local", back_populates="electricity_bills")
     
     # Zużycie (kWh)
-    usage_kwh = Column(Float, nullable=False)  # Zużycie dla lokalu
+    usage_kwh = Column(Float, nullable=False)  # Zużycie dla lokalu (łącznie)
+    usage_kwh_dzienna = Column(Float, nullable=True)  # Zużycie dzienne (taryfa I) - NULL dla całodobowej
+    usage_kwh_nocna = Column(Float, nullable=True)  # Zużycie nocne (taryfa II) - NULL dla całodobowej
     
     # Koszty rozdzielone proporcjonalnie z faktury (brutto)
     energy_cost_gross = Column(Float, nullable=False)

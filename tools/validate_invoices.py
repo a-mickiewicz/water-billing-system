@@ -824,9 +824,16 @@ def generate_markdown_report(result: ValidationResult) -> str:
     return "\n".join(lines)
 
 
-def main():
-    """Główna funkcja walidacji."""
-    print("Rozpoczynam walidacje faktur...")
+def main(rok: int = None):
+    """Główna funkcja walidacji.
+    
+    Args:
+        rok: Opcjonalny rok do filtrowania faktur prądu. Jeśli None, waliduje wszystkie faktury.
+    """
+    if rok:
+        print(f"Rozpoczynam walidacje faktur prądu za rok {rok}...")
+    else:
+        print("Rozpoczynam walidacje faktur...")
     print("")
     
     db = SessionLocal()
@@ -834,25 +841,30 @@ def main():
     
     try:
         # Waliduj faktury prądu
-        print("Walidacja faktur pradu...")
-        electricity_invoices = db.query(ElectricityInvoice).all()
+        if rok:
+            print(f"Walidacja faktur pradu za rok {rok}...")
+            electricity_invoices = db.query(ElectricityInvoice).filter(ElectricityInvoice.rok == rok).all()
+        else:
+            print("Walidacja faktur pradu...")
+            electricity_invoices = db.query(ElectricityInvoice).all()
         print(f"   Znaleziono {len(electricity_invoices)} faktur pradu")
         for invoice in electricity_invoices:
             validate_electricity_invoice(invoice, db, result)
         
-        # Waliduj faktury wody
-        print("Walidacja faktur wody...")
-        water_invoices = db.query(WaterInvoice).all()
-        print(f"   Znaleziono {len(water_invoices)} faktur wody")
-        for invoice in water_invoices:
-            validate_water_invoice(invoice, result)
-        
-        # Waliduj faktury gazu
-        print("Walidacja faktur gazu...")
-        gas_invoices = db.query(GasInvoice).all()
-        print(f"   Znaleziono {len(gas_invoices)} faktur gazu")
-        for invoice in gas_invoices:
-            validate_gas_invoice(invoice, result)
+        # Waliduj faktury wody (tylko jeśli nie filtrujemy po roku)
+        if not rok:
+            print("Walidacja faktur wody...")
+            water_invoices = db.query(WaterInvoice).all()
+            print(f"   Znaleziono {len(water_invoices)} faktur wody")
+            for invoice in water_invoices:
+                validate_water_invoice(invoice, result)
+            
+            # Waliduj faktury gazu
+            print("Walidacja faktur gazu...")
+            gas_invoices = db.query(GasInvoice).all()
+            print(f"   Znaleziono {len(gas_invoices)} faktur gazu")
+            for invoice in gas_invoices:
+                validate_gas_invoice(invoice, result)
         
         print("")
         print("Walidacja zakonczona!")
@@ -865,7 +877,10 @@ def main():
         
         # Generuj raport
         report = generate_markdown_report(result)
-        report_path = project_root / "prad_walidacja_faktur.md"
+        if rok:
+            report_path = project_root / f"prad_walidacja_faktur_{rok}.md"
+        else:
+            report_path = project_root / "prad_walidacja_faktur.md"
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(report)
         
@@ -876,5 +891,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description='Walidacja faktur')
+    parser.add_argument('--rok', type=int, help='Rok do filtrowania faktur prądu (np. 2025)')
+    args = parser.parse_args()
+    main(rok=args.rok)
 

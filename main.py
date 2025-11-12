@@ -88,6 +88,15 @@ def dashboard():
     return "<h1>Dashboard nie znaleziony. Sprawdź folder static/</h1>"
 
 
+@app.get("/dashboard-alt", response_class=HTMLResponse)
+def dashboard_alt():
+    """Alternatywny dashboard aplikacji."""
+    dashboard_path = static_dir / "dashboard_alt.html"
+    if dashboard_path.exists():
+        return dashboard_path.read_text(encoding="utf-8")
+    return "<h1>Alternatywny dashboard nie znaleziony. Sprawdź folder static/</h1>"
+
+
 @app.post("/load_sample_data")
 def load_sample_data(db: Session = Depends(get_db)):
     """Ładuje przykładowe dane do bazy."""
@@ -96,10 +105,11 @@ def load_sample_data(db: Session = Depends(get_db)):
         return {"message": "Dane już istnieją w bazie"}
     
     # Dodaj lokale
+    # UWAGA: Przykładowe dane - nie są to rzeczywiste osoby
     locals_data = [
         Local(water_meter_name="water_meter_5", tenant="Jan Kowalski", local="gora"),
-        Local(water_meter_name="water_meter_5b", tenant="Mikołaj", local="dol"),
-        Local(water_meter_name="water_meter_5a", tenant="Bartek", local="gabinet"),
+        Local(water_meter_name="water_meter_5b", tenant="Mikiołaj", local="dol"),
+        Local(water_meter_name="water_meter_5a", tenant="Bartosz", local="gabinet"),
     ]
     
     for local in locals_data:

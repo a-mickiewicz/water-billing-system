@@ -131,7 +131,7 @@ class ElectricityInvoiceOdczyt(Base):
     __table_args__ = (
         Index('idx_invoice_id', 'invoice_id'),
         Index('idx_rok', 'rok'),
-        UniqueConstraint('invoice_id', 'typ_energii', 'strefa', name='uq_invoice_energy_type_zone'),
+        UniqueConstraint('invoice_id', 'typ_energii', 'strefa', 'data_odczytu', name='uq_invoice_energy_type_zone_date'),
     )
 
 

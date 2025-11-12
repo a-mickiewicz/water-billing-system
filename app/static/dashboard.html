@@ -533,6 +533,43 @@
             background: var(--card-bg);
             color: var(--text-primary);
         }
+        
+        .period-selector input[type="month"] {
+            padding: 10px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1em;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            transition: all 0.3s;
+        }
+        
+        .period-selector input[type="month"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(74, 85, 104, 0.1);
+        }
+        
+        .period-selector input[type="month"].invalid {
+            border-color: #dc3545;
+            background-color: #ffe6e6;
+        }
+        
+        #electricity-periods-buttons button {
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        #electricity-periods-buttons button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        #electricity-periods-buttons button.btn-selected {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+            font-weight: 600;
+        }
 
         /* Styl dla input file */
         input[type="file"] {
@@ -1337,6 +1374,10 @@
                             <input type="text" name="data" placeholder="2025-02" pattern="\d{4}-\d{2}" required>
                         </div>
                         <div class="form-group">
+                            <label>Data odczytu licznika</label>
+                            <input type="date" name="data_odczytu_licznika">
+                        </div>
+                        <div class="form-group">
                             <label>Licznik DOM - Jednotaryfowy?</label>
                             <select name="licznik_dom_jednotaryfowy" onchange="toggleDomMeterType()">
                                 <option value="true">Tak (jednotaryfowy)</option>
@@ -1402,7 +1443,10 @@
                             <input type="file" id="electricity-invoice-file" accept=".pdf" onchange="updateFileName('electricity-invoice-file', 'electricity-invoice-file-name')">
                             <span id="electricity-invoice-file-name" class="file-name-display"></span>
                         </div>
-                        <button class="btn btn-success" onclick="uploadElectricityInvoice()" style="text-transform: uppercase; margin-top: 10px;">WCZYTAJ PDF</button>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button class="btn btn-success" onclick="uploadElectricityInvoice()" style="text-transform: uppercase;">WCZYTAJ PDF</button>
+                            <button id="electricity-verify-btn-top" class="btn btn-success" onclick="verifyAndSaveElectricityInvoice()" style="text-transform: uppercase; display: none;">ZATWIERDŹ I ZAPISZ</button>
+                        </div>
                     </div>
 
                     <!-- Formularz weryfikacji faktury (ukryty do momentu parsowania) -->
@@ -1645,14 +1689,19 @@
                 <!-- Sekcja Rachunki prądu -->
                 <div id="electricity-tab-bills" class="tab-content">
                     <h2>Rachunki prądu</h2>
+                    <div id="electricity-periods-info" style="margin-bottom: 15px; padding: 10px; background: var(--hover-bg); border-radius: 5px; font-size: 0.9em;">
+                        <span id="electricity-periods-status">Ładowanie dostępnych okresów...</span>
+                    </div>
+                    <div id="electricity-periods-calendar" style="margin-bottom: 20px; display: none;">
+                        <div id="electricity-periods-buttons" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;"></div>
+                    </div>
                     <div class="period-selector">
-                        <label>Okres (YYYY-MM):</label>
-                        <input type="text" id="electricity-bill-period" placeholder="2025-02" pattern="\d{4}-\d{2}" list="available-electricity-periods">
-                        <datalist id="available-electricity-periods"></datalist>
+                        <input type="hidden" id="electricity-bill-period">
                         <button class="btn btn-success" onclick="generateElectricityBills()" style="text-transform: uppercase;">GENERUJ RACHUNKI</button>
+                        <button class="btn btn-danger" onclick="deleteAllElectricityBills()" style="text-transform: uppercase; margin-left: 10px;">USUŃ WSZYSTKIE RACHUNKI</button>
                     </div>
                     <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9em;">
-                        💡 Podaj okres w formacie YYYY-MM. System automatycznie wygeneruje rachunki dla wszystkich lokali na podstawie faktur i odczytów.
+                        💡 Wybierz okres z dostępnych powyżej. Pokazane są tylko okresy, dla których istnieją zarówno faktury jak i odczyty.
                     </p>
                     
                     <div id="electricity-bills-list" class="loading">Ładowanie...</div>
@@ -3057,7 +3106,10 @@
             
             if (tabName === 'electricity-tab-readings') loadElectricityReadings();
             if (tabName === 'electricity-tab-invoices') loadElectricityInvoices();
-            if (tabName === 'electricity-tab-bills') loadElectricityBills();
+            if (tabName === 'electricity-tab-bills') {
+                loadElectricityBills();
+                loadAvailableElectricityPeriods();
+            }
         }
 
         // Funkcje pomocnicze dla formularza odczytów prądu
@@ -3515,7 +3567,7 @@
                     return;
                 }
 
-                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>DOM</th><th>DÓŁ</th><th>GABINET</th><th>Akcje</th></tr></thead><tbody>';
+                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Data odczytu</th><th>DOM</th><th>DÓŁ</th><th>GABINET</th><th>Akcje</th></tr></thead><tbody>';
                 readings.forEach(r => {
                     // Debug - sprawdź wartości
                     console.log('Reading data:', r);
@@ -3558,8 +3610,18 @@
                         gabinetStr = parseFloat(r.gabinet_reading).toFixed(2);
                     }
                     
+                    // Formatowanie daty odczytu licznika
+                    let dataOdczytuStr = '-';
+                    if (r.data_odczytu_licznika) {
+                        const dateObj = new Date(r.data_odczytu_licznika);
+                        if (!isNaN(dateObj.getTime())) {
+                            dataOdczytuStr = dateObj.toLocaleDateString('pl-PL');
+                        }
+                    }
+                    
                     html += `<tr data-reading-data="${r.data}">
                         <td>${r.data}</td>
+                        <td>${dataOdczytuStr}</td>
                         <td>${domStr}</td>
                         <td>${dolStr}</td>
                         <td>${gabinetStr}</td>
@@ -3583,6 +3645,7 @@
             
             // Konwersja wartości
             data['data'] = formData.get('data');
+            data['data_odczytu_licznika'] = formData.get('data_odczytu_licznika') || null;
             data['is_main_meter_single_tariff'] = formData.get('licznik_dom_jednotaryfowy') === 'true';
             data['is_dol_meter_single_tariff'] = formData.get('licznik_dol_jednotaryfowy') === 'true';
             data['gabinet_reading'] = parseFloat(formData.get('odczyt_gabinet')) || 0;
@@ -3646,6 +3709,10 @@
                                     <input type="text" name="data" value="${reading.data}" readonly>
                                 </div>
                                 <div class="form-group">
+                                    <label>Data odczytu licznika</label>
+                                    <input type="date" name="data_odczytu_licznika" value="${reading.data_odczytu_licznika || ''}">
+                                </div>
+                                <div class="form-group">
                                     <label>Licznik DOM - Jednotaryfowy?</label>
                                     <select name="licznik_dom_jednotaryfowy" id="edit-dom-meter-type-${data}" onchange="toggleEditDomMeterType('${data}')">
                                         <option value="true" ${reading.is_main_meter_single_tariff ? 'selected' : ''}>Tak (jednotaryfowy)</option>
@@ -3699,12 +3766,12 @@
                         if (existingForm) {
                             existingForm.parentElement.remove();
                         } else {
-                            readingRow.insertAdjacentHTML('afterend', `<tr><td colspan="5">${formHtml}</td></tr>`);
+                            readingRow.insertAdjacentHTML('afterend', `<tr><td colspan="6">${formHtml}</td></tr>`);
                         }
                     } else {
                         // Jeśli nie ma wiersza, dodaj na końcu listy
                         const listEl = document.getElementById('electricity-readings-list');
-                        listEl.insertAdjacentHTML('beforeend', `<tr><td colspan="5">${formHtml}</td></tr>`);
+                        listEl.insertAdjacentHTML('beforeend', `<tr><td colspan="6">${formHtml}</td></tr>`);
                     }
                 } else {
                     showAlert('Błąd pobierania odczytu', 'error');
@@ -3737,6 +3804,7 @@
             
             // Konwersja wartości
             readingData['data'] = formData.get('data');
+            readingData['data_odczytu_licznika'] = formData.get('data_odczytu_licznika') || null;
             readingData['is_main_meter_single_tariff'] = formData.get('licznik_dom_jednotaryfowy') === 'true';
             readingData['is_dol_meter_single_tariff'] = formData.get('licznik_dol_jednotaryfowy') === 'true';
             readingData['gabinet_reading'] = parseFloat(formData.get('odczyt_gabinet')) || 0;
@@ -3822,15 +3890,50 @@
                     return;
                 }
 
-                let html = '<table class="data-table"><thead><tr><th>Rok</th><th>Numer faktury</th><th>Okres</th><th>Zużycie (kWh)</th><th>Typ taryfy</th><th>Do zapłaty</th><th>Akcje</th></tr></thead><tbody>';
+                let html = '<table class="data-table"><thead><tr><th>Nr faktury</th><th>Okres Rozliczeniowy</th><th>Koszt za 1kWh</th><th>Zużycie (kWh)</th><th>Typ taryfy</th><th>Do zapłaty</th><th>Akcje</th></tr></thead><tbody>';
                 invoices.forEach(i => {
-                    const okres = i.data_poczatku_okresu ? 
-                        `${i.data_poczatku_okresu.substring(0, 7)}` : 
-                        `${i.rok}`;
+                    // Formatuj okres jako daty początku i końca: DD.MM.YYYY - DD.MM.YYYY
+                    let okres = '-';
+                    if (i.data_poczatku_okresu && i.data_konca_okresu) {
+                        const startDate = new Date(i.data_poczatku_okresu);
+                        const endDate = new Date(i.data_konca_okresu);
+                        const formatDate = (date) => {
+                            const day = String(date.getDate()).padStart(2, '0');
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const year = date.getFullYear();
+                            return `${day}.${month}.${year}`;
+                        };
+                        okres = `${formatDate(startDate)} - ${formatDate(endDate)}`;
+                    } else if (i.data_poczatku_okresu) {
+                        const startDate = new Date(i.data_poczatku_okresu);
+                        const formatDate = (date) => {
+                            const day = String(date.getDate()).padStart(2, '0');
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const year = date.getFullYear();
+                            return `${day}.${month}.${year}`;
+                        };
+                        okres = formatDate(startDate);
+                    } else if (i.rok) {
+                        okres = `${i.rok}`;
+                    }
+                    
+                    // Przygotuj koszt 1 kWh - dla dwutaryfowej pokaż dzienną i nocną, dla całodobowej tylko całodobową
+                    let koszt_kwh = '-';
+                    if (i.typ_taryfy === 'DWUTARYFOWA') {
+                        const dzienna = i.koszt_1kwh_dzienna !== null && i.koszt_1kwh_dzienna !== undefined ? 
+                            `${i.koszt_1kwh_dzienna.toFixed(4)}` : '-';
+                        const nocna = i.koszt_1kwh_nocna !== null && i.koszt_1kwh_nocna !== undefined ? 
+                            `${i.koszt_1kwh_nocna.toFixed(4)}` : '-';
+                        koszt_kwh = `D: ${dzienna} / N: ${nocna} zł/kWh`;
+                    } else if (i.typ_taryfy === 'CAŁODOBOWA') {
+                        koszt_kwh = i.koszt_1kwh_calodobowa !== null && i.koszt_1kwh_calodobowa !== undefined ? 
+                            `${i.koszt_1kwh_calodobowa.toFixed(4)} zł/kWh` : '-';
+                    }
+                    
                     html += `<tr class="clickable" onclick="showElectricityInvoiceDetails(${i.id})" data-invoice-id="${i.id}">
-                        <td>${i.rok}</td>
                         <td>${i.numer_faktury}</td>
                         <td>${okres}</td>
+                        <td>${koszt_kwh}</td>
                         <td>${(i.zuzycie_kwh || 0)}</td>
                         <td>${i.typ_taryfy || '-'}</td>
                         <td>${(i.do_zaplaty || 0).toFixed(2)} zł</td>
@@ -4082,6 +4185,7 @@
                     displayElectricityInvoiceDetails(result);
                     
                     document.getElementById('electricity-invoice-verification').style.display = 'block';
+                    document.getElementById('electricity-verify-btn-top').style.display = 'inline-block';
                     showAlert('Faktura sparsowana - zweryfikuj dane przed zapisem');
                 } else {
                     const error = await res.json();
@@ -4098,8 +4202,38 @@
             if (!value || value === '' || value === null || value === undefined) {
                 return isInt ? 0 : 0.0;
             }
-            // Usuń spacje i zamień przecinki na kropki
-            const cleaned = String(value).replace(/\s/g, '').replace(',', '.');
+            // Jeśli wartość jest już liczbą, zwróć ją bezpośrednio
+            if (typeof value === 'number') {
+                return isInt ? Math.floor(value) : value;
+            }
+            
+            let cleaned = String(value).replace(/\s/g, '');
+            
+            // Jeśli wartość zawiera kropki, sprawdź czy są to separatory tysięcy
+            // Format polski: "24.320" (kropka = separator tysięcy) lub "24.320,50" (kropka = separator tysięcy, przecinek = dziesiętny)
+            // Format angielski: "24.32" (kropka = separator dziesiętny)
+            if (cleaned.includes('.')) {
+                // Jeśli jest też przecinek, to kropki są separatorami tysięcy
+                if (cleaned.includes(',')) {
+                    // Format: "24.320,50" -> usuń kropki -> "24320,50" -> zamień przecinek -> "24320.50"
+                    cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+                } else {
+                    // Tylko kropki - sprawdź czy to separatory tysięcy
+                    // W formacie polskim separatory tysięcy to kropki, a każda grupa ma 3 cyfry
+                    // Format: "24.320" lub "1.234.567" -> wszystkie kropki to separatory tysięcy
+                    const parts = cleaned.split('.');
+                    // Jeśli wszystkie części po pierwszej mają 3 cyfry, to są to separatory tysięcy
+                    if (parts.length > 1 && parts.slice(1).every(part => part.length === 3)) {
+                        // Format: "24.320" lub "1.234.567" -> usuń wszystkie kropki
+                        cleaned = cleaned.replace(/\./g, '');
+                    }
+                    // W przeciwnym razie kropka jest separatorem dziesiętnym (zostaw)
+                }
+            } else if (cleaned.includes(',')) {
+                // Tylko przecinek - zamień na kropkę (separator dziesiętny)
+                cleaned = cleaned.replace(',', '.');
+            }
+            
             const parsed = isInt ? parseInt(cleaned) : parseFloat(cleaned);
             return isNaN(parsed) ? (isInt ? 0 : 0.0) : parsed;
         }
@@ -4338,6 +4472,7 @@
                     showAlert('Faktura prądu zapisana pomyślnie ze wszystkimi szczegółami!');
                     form.reset();
                     document.getElementById('electricity-invoice-verification').style.display = 'none';
+                    document.getElementById('electricity-verify-btn-top').style.display = 'none';
                     document.getElementById('electricity-invoice-file').value = '';
                     document.getElementById('electricity-invoice-file-name').textContent = '';
                     
@@ -4374,6 +4509,7 @@
 
         function cancelElectricityInvoiceVerification() {
             document.getElementById('electricity-invoice-verification').style.display = 'none';
+            document.getElementById('electricity-verify-btn-top').style.display = 'none';
             document.getElementById('form-electricity-invoice-verify').reset();
             document.getElementById('electricity-invoice-file').value = '';
             document.getElementById('electricity-invoice-file-name').textContent = '';
@@ -4387,6 +4523,13 @@
             if (saveBtn) {
                 saveBtn.textContent = 'Zatwierdź i zapisz';
                 saveBtn.onclick = verifyAndSaveElectricityInvoice;
+            }
+            
+            // Przywróć przycisk na górze
+            const topBtn = document.getElementById('electricity-verify-btn-top');
+            if (topBtn) {
+                topBtn.textContent = 'ZATWIERDŹ I ZAPISZ';
+                topBtn.onclick = verifyAndSaveElectricityInvoice;
             }
             
             // Ukryj sekcje szczegółowe
@@ -4900,12 +5043,20 @@
                 
                 // Pokaż formularz weryfikacji
                 document.getElementById('electricity-invoice-verification').style.display = 'block';
+                document.getElementById('electricity-verify-btn-top').style.display = 'inline-block';
                 
                 // Zmień przycisk zapisu na "Zaktualizuj"
                 const saveBtn = document.querySelector('#electricity-invoice-verification .btn-success');
                 if (saveBtn) {
                     saveBtn.textContent = 'Zaktualizuj fakturę';
                     saveBtn.onclick = () => updateElectricityInvoice(invoiceId);
+                }
+                
+                // Zmień również przycisk na górze
+                const topBtn = document.getElementById('electricity-verify-btn-top');
+                if (topBtn) {
+                    topBtn.textContent = 'ZAKTUALIZUJ FAKTURĘ';
+                    topBtn.onclick = () => updateElectricityInvoice(invoiceId);
                 }
                 
                 showAlert('Faktura załadowana do edycji');
@@ -4967,6 +5118,7 @@
                     showAlert('Faktura zaktualizowana pomyślnie!');
                     form.reset();
                     document.getElementById('electricity-invoice-verification').style.display = 'none';
+                    document.getElementById('electricity-verify-btn-top').style.display = 'none';
                     
                     // Wyczyść zmienną globalną
                     currentInvoiceDetails = null;
@@ -5392,17 +5544,44 @@
                     listEl.innerHTML = '<p>Brak rachunków prądu. Wygeneruj rachunki dla okresu z fakturą i odczytami.</p>';
                     return;
                 }
-
-                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Lokal</th><th>Zużycie (kWh)</th><th>Suma brutto</th><th>Akcje</th></tr></thead><tbody>';
+                
+                let html = '<table class="data-table"><thead><tr><th>Okres Rozliczeniowy</th><th>Nr faktury</th><th>Lokal</th><th>Koszt za 1kWh</th><th>Zużycie (kWh)</th><th>Do zapłaty</th><th>Akcje</th></tr></thead><tbody>';
                 bills.forEach(b => {
+                    // Przygotuj nazwę lokalu (DOM to cały dom)
+                    let localName = b.local || '-';
+                    if (localName === 'dom') {
+                        localName = '<strong>DOM (cały dom)</strong>';
+                    } else {
+                        localName = localName.toUpperCase();
+                    }
+                    
+                    // Przygotuj koszt 1 kWh
+                    let koszt_kwh = '-';
+                    if (b.koszt_1kwh_dzienna !== null && b.koszt_1kwh_dzienna !== undefined) {
+                        const dzienna = b.koszt_1kwh_dzienna.toFixed(4);
+                        const nocna = b.koszt_1kwh_nocna !== null && b.koszt_1kwh_nocna !== undefined ? 
+                            b.koszt_1kwh_nocna.toFixed(4) : '-';
+                        koszt_kwh = `D: ${dzienna} / N: ${nocna} zł/kWh`;
+                    } else if (b.koszt_1kwh_calodobowa !== null && b.koszt_1kwh_calodobowa !== undefined) {
+                        koszt_kwh = `${b.koszt_1kwh_calodobowa.toFixed(4)} zł/kWh`;
+                    }
+                    
                     html += `<tr>
-                        <td>${b.data}</td>
-                        <td>${b.local || '-'}</td>
-                        <td>${(b.usage_kwh || 0).toFixed(2)}</td>
-                        <td>${(b.total_gross_sum || 0).toFixed(2)} zł</td>
+                        <td>${b.okres_rozliczeniowy || b.data}</td>
+                        <td>${b.numer_faktury || '-'}</td>
+                        <td>${localName}</td>
+                        <td>${koszt_kwh}</td>
+                        <td>
+                            ${b.usage_kwh_dzienna !== null && b.usage_kwh_dzienna !== undefined && b.usage_kwh_nocna !== null && b.usage_kwh_nocna !== undefined
+                                ? `D: ${b.usage_kwh_dzienna.toFixed(4)} / N: ${b.usage_kwh_nocna.toFixed(4)} kWh`
+                                : `${(b.usage_kwh || 0).toFixed(4)} kWh`
+                            }
+                        </td>
+                        <td>${(b.total_gross_sum || 0).toFixed(4)} zł</td>
                         <td class="actions">
-                            <button class="btn btn-edit btn-small" onclick="editElectricityBill(${b.id})" title="Edytuj rachunek">✏️</button>
-                            <button class="btn btn-danger btn-small" onclick="deleteElectricityBill(${b.id})" title="Usuń rachunek">🗑️</button>
+                            ${b.pdf_path ? `<a href="${b.pdf_path}" target="_blank" class="btn btn-small">📄 PDF</a>` : ''}
+                            <button class="btn btn-small btn-primary" onclick="editElectricityBill(${b.id})" style="margin-left: 5px;">✏️ Edytuj</button>
+                            <button class="btn btn-small btn-danger" onclick="deleteElectricityBill(${b.id})" style="margin-left: 5px;">🗑️ Usuń</button>
                         </td>
                     </tr>`;
                 });
@@ -5413,15 +5592,89 @@
             }
         }
 
+        let availableElectricityPeriods = [];
+        
+        async function loadAvailableElectricityPeriods() {
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/available-periods`);
+                const data = await res.json();
+                availableElectricityPeriods = data.available_periods || [];
+                
+                const statusEl = document.getElementById('electricity-periods-status');
+                const calendarEl = document.getElementById('electricity-periods-calendar');
+                const buttonsEl = document.getElementById('electricity-periods-buttons');
+                
+                if (availableElectricityPeriods.length > 0) {
+                    const diagnostics = data.diagnostics || {};
+                    const missingCount = data.periods_without_readings?.length || 0;
+                    
+                    let statusText = `✅ Dostępne okresy: <strong>${availableElectricityPeriods.length}</strong> - wybierz jeden z poniższych:`;
+                    if (missingCount > 0) {
+                        statusText += `<br><span style="color: #dc3545; font-size: 0.9em;">⚠️ Uwaga: ${missingCount} okresów ma faktury, ale brakuje odczytów. Wprowadź odczyty, aby móc generować rachunki.</span>`;
+                    }
+                    statusEl.innerHTML = statusText;
+                    
+                    // Utwórz przyciski TYLKO dla dostępnych okresów
+                    buttonsEl.innerHTML = '';
+                    availableElectricityPeriods.forEach(period => {
+                        const btn = document.createElement('button');
+                        btn.className = 'btn btn-primary';
+                        btn.style.cssText = 'padding: 10px 20px; margin: 5px; text-transform: none; font-size: 1em;';
+                        btn.textContent = period;
+                        btn.onclick = () => {
+                            // Ustaw wartość w ukrytym input
+                            document.getElementById('electricity-bill-period').value = period;
+                            
+                            // Podświetl wybrany przycisk
+                            buttonsEl.querySelectorAll('button').forEach(b => {
+                                b.classList.remove('btn-selected');
+                                b.style.opacity = '1';
+                                b.style.transform = 'scale(1)';
+                                b.style.background = '';
+                            });
+                            btn.classList.add('btn-selected');
+                            btn.style.opacity = '0.9';
+                            btn.style.transform = 'scale(0.98)';
+                            btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                        };
+                        buttonsEl.appendChild(btn);
+                    });
+                    
+                    calendarEl.style.display = 'block';
+                } else {
+                    const diagnostics = data.diagnostics || {};
+                    const missingCount = data.periods_without_readings?.length || 0;
+                    
+                    let statusText = '⚠️ Brak dostępnych okresów (wymagane są zarówno faktury jak i odczyty)';
+                    if (missingCount > 0) {
+                        statusText += `<br><span style="color: #dc3545; font-size: 0.9em;">Brakuje odczytów dla ${missingCount} okresów, które mają faktury. Wprowadź odczyty w zakładce "Odczyty", aby móc generować rachunki.</span>`;
+                    }
+                    statusEl.innerHTML = statusText;
+                    calendarEl.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Błąd ładowania dostępnych okresów:', error);
+                document.getElementById('electricity-periods-status').innerHTML = '⚠️ Błąd ładowania dostępnych okresów';
+            }
+        }
+        
         async function generateElectricityBills() {
-            const period = document.getElementById('electricity-bill-period').value.trim();
-            if (!period || !period.match(/^\d{4}-\d{2}$/)) {
-                showAlert('Podaj prawidłowy okres (YYYY-MM)', 'error');
+            const periodInput = document.getElementById('electricity-bill-period');
+            const period = periodInput.value;
+            
+            if (!period) {
+                showAlert('Wybierz okres z dostępnych poniżej', 'error');
+                return;
+            }
+            
+            // Sprawdź czy okres jest dostępny (powinien być, bo pokazujemy tylko dostępne)
+            if (!availableElectricityPeriods.includes(period)) {
+                showAlert(`Okres ${period} nie jest dostępny. Wybierz okres z dostępnych okresów.`, 'error');
                 return;
             }
 
             try {
-                const res = await fetch(`${API_BASE}/api/electricity/bills/generate/${period}`, { method: 'POST' });
+                const res = await fetch(`${API_BASE}/api/electricity/generate-bills?data=${period}`, { method: 'POST' });
                 const result = await res.json();
                 if (res.ok) {
                     showAlert(`Wygenerowano ${result.bills_count || 0} rachunków prądu dla okresu ${period}`);
@@ -5429,6 +5682,162 @@
                     loadElectricityStats();
                 } else {
                     showAlert(result.detail || 'Błąd generowania rachunków', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+        
+        async function editElectricityBill(billId) {
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/bills/${billId}`);
+                const bill = await res.json();
+                
+                if (!res.ok) {
+                    showAlert(bill.detail || 'Błąd ładowania rachunku', 'error');
+                    return;
+                }
+                
+                // Utwórz formularz edycji
+                const formHtml = `
+                    <div style="max-width: 600px; margin: 20px auto; padding: 20px; background: var(--card-bg); border-radius: 10px;">
+                        <h3>Edytuj rachunek - ${bill.local.toUpperCase()}</h3>
+                        <form id="edit-electricity-bill-form" onsubmit="saveElectricityBill(${billId}); return false;">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Okres</label>
+                                    <input type="text" value="${bill.data}" disabled style="background: var(--hover-bg);">
+                                </div>
+                                <div class="form-group">
+                                    <label>Lokal</label>
+                                    <input type="text" value="${bill.local}" disabled style="background: var(--hover-bg);">
+                                </div>
+                                <div class="form-group">
+                                    <label>Zużycie łącznie (kWh)</label>
+                                    <input type="number" step="0.01" name="usage_kwh" value="${bill.usage_kwh || 0}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Zużycie dzienne (kWh)</label>
+                                    <input type="number" step="0.01" name="usage_kwh_dzienna" value="${bill.usage_kwh_dzienna || ''}" placeholder="Brak">
+                                </div>
+                                <div class="form-group">
+                                    <label>Zużycie nocne (kWh)</label>
+                                    <input type="number" step="0.01" name="usage_kwh_nocna" value="${bill.usage_kwh_nocna || ''}" placeholder="Brak">
+                                </div>
+                                <div class="form-group">
+                                    <label>Koszt energii brutto (zł)</label>
+                                    <input type="number" step="0.01" name="energy_cost_gross" value="${bill.energy_cost_gross || 0}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Koszt dystrybucji brutto (zł)</label>
+                                    <input type="number" step="0.01" name="distribution_cost_gross" value="${bill.distribution_cost_gross || 0}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Suma netto (zł)</label>
+                                    <input type="number" step="0.01" name="total_net_sum" value="${bill.total_net_sum || 0}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Suma brutto (zł)</label>
+                                    <input type="number" step="0.01" name="total_gross_sum" value="${bill.total_gross_sum || 0}" required>
+                                </div>
+                            </div>
+                            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                                <button type="submit" class="btn btn-success">Zapisz</button>
+                                <button type="button" class="btn btn-secondary" onclick="closeEditElectricityBillForm()">Anuluj</button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+                
+                // Pokaż formularz w modalnym oknie
+                const formContainer = document.createElement('div');
+                formContainer.id = 'edit-electricity-bill-container';
+                formContainer.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; overflow-y: auto; padding: 20px;';
+                formContainer.innerHTML = formHtml;
+                document.body.appendChild(formContainer);
+            } catch (error) {
+                showAlert('Błąd ładowania rachunku', 'error');
+            }
+        }
+        
+        function closeEditElectricityBillForm() {
+            const container = document.getElementById('edit-electricity-bill-container');
+            if (container) {
+                container.remove();
+            }
+        }
+        
+        async function saveElectricityBill(billId) {
+            const form = document.getElementById('edit-electricity-bill-form');
+            const formData = new FormData(form);
+            
+            const billData = {
+                usage_kwh: parseFloat(formData.get('usage_kwh')) || 0,
+                usage_kwh_dzienna: formData.get('usage_kwh_dzienna') ? parseFloat(formData.get('usage_kwh_dzienna')) : null,
+                usage_kwh_nocna: formData.get('usage_kwh_nocna') ? parseFloat(formData.get('usage_kwh_nocna')) : null,
+                energy_cost_gross: parseFloat(formData.get('energy_cost_gross')) || 0,
+                distribution_cost_gross: parseFloat(formData.get('distribution_cost_gross')) || 0,
+                total_net_sum: parseFloat(formData.get('total_net_sum')) || 0,
+                total_gross_sum: parseFloat(formData.get('total_gross_sum')) || 0
+            };
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/bills/${billId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(billData)
+                });
+                
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert('Rachunek zaktualizowany');
+                    closeEditElectricityBillForm();
+                    loadElectricityBills();
+                    loadElectricityStats();
+                } else {
+                    showAlert(result.detail || 'Błąd aktualizacji rachunku', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+        
+        async function deleteElectricityBill(billId) {
+            if (!confirm('Czy na pewno chcesz usunąć ten rachunek?')) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/bills/${billId}`, { method: 'DELETE' });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert('Rachunek usunięty');
+                    loadElectricityBills();
+                    loadElectricityStats();
+                } else {
+                    showAlert(result.detail || 'Błąd usuwania rachunku', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+
+        async function deleteAllElectricityBills() {
+            if (!confirm('Czy na pewno chcesz usunąć WSZYSTKIE rachunki prądu? Ta operacja jest nieodwracalna!')) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/electricity/bills`, { method: 'DELETE' });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert(`Usunięto ${result.deleted_count} rachunków`);
+                    loadElectricityBills();
+                    loadElectricityStats();
+                } else {
+                    showAlert(result.detail || 'Błąd usuwania rachunków', 'error');
                 }
             } catch (error) {
                 showAlert('Błąd połączenia', 'error');
