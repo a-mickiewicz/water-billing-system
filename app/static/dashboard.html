@@ -447,6 +447,11 @@
             font-size: 1em;
         }
 
+        .details-item .value.error-value {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
         .btn-edit {
             background: transparent;
             color: var(--edit-color);
@@ -832,18 +837,47 @@
                         <input type="text" name="data" placeholder="2025-02" pattern="\d{4}-\d{2}" required>
                     </div>
                     <div class="form-group">
-                        <label>Licznik główny</label>
+                        <label>Licznik główny (DOM)</label>
                         <input type="number" step="0.01" name="water_meter_main" required>
                     </div>
                     <div class="form-group">
-                        <label>Licznik 5</label>
+                        <label>Licznik 5 (gora)</label>
                         <input type="number" step="0.01" name="water_meter_5" required>
                     </div>
                     <div class="form-group">
-                        <label>Licznik 5b</label>
-                        <input type="number" step="0.01" name="water_meter_5b" required>
+                        <label>Licznik 5a (gabinet)</label>
+                        <input type="number" step="0.01" name="water_meter_5a" required>
+                    </div>
+                    <div class="form-group" style="background: #f0f0f0; padding: 10px; border-radius: 4px;">
+                        <label>Licznik 5b (dol) - obliczany</label>
+                        <input type="text" id="calculated_dol" readonly style="background: #e0e0e0;">
+                        <small style="display: block; margin-top: 5px; color: #666;">Wartość obliczana automatycznie: główny - gora - gabinet</small>
                     </div>
                 </form>
+                <script>
+                    // Calculate dol value in real-time
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const form = document.getElementById('form-reading');
+                        if (form) {
+                            const mainInput = form.querySelector('[name="water_meter_main"]');
+                            const goraInput = form.querySelector('[name="water_meter_5"]');
+                            const gabinetInput = form.querySelector('[name="water_meter_5a"]');
+                            const calculatedInput = document.getElementById('calculated_dol');
+                            
+                            function updateCalculatedDol() {
+                                const main = parseFloat(mainInput.value) || 0;
+                                const gora = parseFloat(goraInput.value) || 0;
+                                const gabinet = parseFloat(gabinetInput.value) || 0;
+                                const dol = main - gora - gabinet;
+                                calculatedInput.value = dol.toFixed(2);
+                            }
+                            
+                            [mainInput, goraInput, gabinetInput].forEach(input => {
+                                if (input) input.addEventListener('input', updateCalculatedDol);
+                            });
+                        }
+                    });
+                </script>
                 <button class="btn btn-success" onclick="addReading()" style="text-transform: uppercase;">DODAJ ODCZYT</button>
                 
                 <div id="readings-list" class="loading">Ładowanie...</div>
@@ -1834,10 +1868,16 @@
                     loadWaterStats();
                 } else {
                     const error = await res.json();
-                    showAlert(error.detail || 'Błąd dodawania lokalu', 'error');
+                    const errorMsg = error.detail || 'Błąd dodawania lokalu';
+                    // Jeśli lokal już istnieje, pokaż bardziej szczegółowy komunikat
+                    if (errorMsg.includes('już istnieje')) {
+                        showAlert(errorMsg + ' Użyj opcji edycji aby zaktualizować.', 'error');
+                    } else {
+                        showAlert(errorMsg, 'error');
+                    }
                 }
             } catch (error) {
-                showAlert('Błąd połączenia', 'error');
+                showAlert('Błąd połączenia: ' + error.message, 'error');
             }
         }
 
@@ -1853,26 +1893,29 @@
                     return;
                 }
 
-                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Licznik główny</th><th>Licznik 5 (gora)</th><th>Licznik 5b (dol)</th><th>Akcje</th></tr></thead><tbody>';
+                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Licznik główny</th><th>Licznik 5 (gora)</th><th>Licznik 5a (gabinet)</th><th>Licznik 5b (dol)<br><small>obliczany</small></th><th>Akcje</th></tr></thead><tbody>';
                 readings.forEach(r => {
+                    // Calculate dol (5b) as: main - gora - gabinet
+                    const dol_calculated = (r.water_meter_main - r.water_meter_5 - (r.water_meter_5a || 0)).toFixed(2);
                     html += `<tr class="clickable" onclick="toggleReadingDetails('${r.data}')" data-reading-period="${r.data}">
                         <td>${r.data}</td>
                         <td>${r.water_meter_main}</td>
                         <td>${r.water_meter_5}</td>
-                        <td>${r.water_meter_5b}</td>
+                        <td>${r.water_meter_5a || 0}</td>
+                        <td>${dol_calculated}</td>
                         <td class="actions" onclick="event.stopPropagation()">
                             <button class="btn btn-edit btn-small" onclick="editReading('${r.data}')" title="Edytuj odczyt">✏️</button>
                             <button class="btn btn-danger btn-small" onclick="deleteReading('${r.data}')" title="Usuń odczyt i rachunki dla tego okresu">🗑️</button>
                         </td>
                     </tr>
                     <tr class="details-row" id="reading-details-${r.data}" data-reading-period="${r.data}">
-                        <td colspan="5" class="details-cell">
+                        <td colspan="6" class="details-cell">
                             <div class="details-grid">
                                 <div class="details-item"><label>Okres:</label><span class="value">${r.data}</span></div>
-                                <div class="details-item"><label>Licznik główny:</label><span class="value">${r.water_meter_main}</span></div>
+                                <div class="details-item"><label>Licznik główny (DOM):</label><span class="value">${r.water_meter_main}</span></div>
                                 <div class="details-item"><label>Licznik 5 (gora):</label><span class="value">${r.water_meter_5}</span></div>
-                                <div class="details-item"><label>Licznik 5b (dol):</label><span class="value">${r.water_meter_5b}</span></div>
-                                <div class="details-item"><label>Licznik 5a (gabinet):</label><span class="value">${(r.water_meter_main - r.water_meter_5 - r.water_meter_5b).toFixed(2)}</span></div>
+                                <div class="details-item"><label>Licznik 5a (gabinet):</label><span class="value">${r.water_meter_5a || 0}</span></div>
+                                <div class="details-item"><label>Licznik 5b (dol):</label><span class="value ${dol_calculated < 0 ? 'error-value' : ''}">${dol_calculated} <small>(obliczany: główny - gora - gabinet)</small></span>${dol_calculated < 0 ? '<span class="warning-text" style="color: #dc2626; font-size: 0.85em; margin-left: 8px;">⚠️ Ujemna wartość: suma podliczników (${(r.water_meter_5 + (r.water_meter_5a || 0)).toFixed(2)}) > licznik główny (${r.water_meter_main.toFixed(2)})</span>' : ''}</div>
                             </div>
                         </td>
                     </tr>`;
@@ -1888,15 +1931,18 @@
             const form = document.getElementById('form-reading');
             const formData = new FormData(form);
             const params = new URLSearchParams();
-            for (const [key, value] of formData.entries()) {
-                params.append(key, value);
-            }
+            // Only send main, gora (5), and gabinet (5a) - dol (5b) is calculated on server
+            params.append('data', formData.get('data'));
+            params.append('water_meter_main', formData.get('water_meter_main'));
+            params.append('water_meter_5', formData.get('water_meter_5'));
+            params.append('water_meter_5a', formData.get('water_meter_5a'));
 
             try {
                 const res = await fetch(`${API_BASE}/api/water/readings/?${params}`, { method: 'POST' });
                 if (res.ok) {
                     showAlert('Odczyt dodany pomyślnie!');
                     form.reset();
+                    document.getElementById('calculated_dol').value = '';
                     loadReadings();
                     loadWaterStats();
                 } else {
@@ -2269,7 +2315,7 @@
                                     <input type="text" name="data" value="${reading.data}" readonly>
                                 </div>
                                 <div class="form-group">
-                                    <label>Licznik główny</label>
+                                    <label>Licznik główny (DOM)</label>
                                     <input type="number" step="0.01" name="water_meter_main" value="${reading.water_meter_main}" required>
                                 </div>
                                 <div class="form-group">
@@ -2277,8 +2323,13 @@
                                     <input type="number" name="water_meter_5" value="${reading.water_meter_5}" required>
                                 </div>
                                 <div class="form-group">
-                                    <label>Licznik 5b (dol)</label>
-                                    <input type="number" name="water_meter_5b" value="${reading.water_meter_5b}" required>
+                                    <label>Licznik 5a (gabinet)</label>
+                                    <input type="number" name="water_meter_5a" value="${reading.water_meter_5a || 0}" required>
+                                </div>
+                                <div class="form-group" style="background: #f0f0f0; padding: 10px; border-radius: 4px;">
+                                    <label>Licznik 5b (dol) - obliczany</label>
+                                    <input type="text" id="calculated_dol_edit_${period}" readonly style="background: #e0e0e0;">
+                                    <small style="display: block; margin-top: 5px; color: #666;">Wartość obliczana automatycznie: główny - gora - gabinet</small>
                                 </div>
                             </form>
                             <button class="btn btn-success" onclick="updateReading('${period}')">Zapisz zmiany</button>
@@ -2296,6 +2347,8 @@
                             } else {
                                 detailsCell.insertAdjacentHTML('beforeend', formHtml);
                                 detailsRow.classList.add('expanded');
+                                // Initialize calculation after form is inserted
+                                initDolCalculation(period);
                             }
                         }
                     } else {
@@ -2306,8 +2359,10 @@
                             newRow.className = 'details-row expanded';
                             newRow.id = `reading-details-${period}`;
                             newRow.setAttribute('data-reading-period', period);
-                            newRow.innerHTML = `<td colspan="5" class="details-cell">${formHtml}</td>`;
+                            newRow.innerHTML = `<td colspan="6" class="details-cell">${formHtml}</td>`;
                             readingRow.parentElement.insertBefore(newRow, readingRow.nextSibling);
+                            // Initialize calculation after form is inserted
+                            initDolCalculation(period);
                         }
                     }
                     // Scroll do formularza
@@ -2324,11 +2379,10 @@
             const form = document.getElementById(`form-reading-edit-${period}`);
             const formData = new FormData(form);
             const params = new URLSearchParams();
-            for (const [key, value] of formData.entries()) {
-                if (key !== 'data') {  // Nie wysyłaj okresu jako parametru
-                    params.append(key, value);
-                }
-            }
+            // Only send main, gora (5), and gabinet (5a) - dol (5b) is calculated on server
+            params.append('water_meter_main', formData.get('water_meter_main'));
+            params.append('water_meter_5', formData.get('water_meter_5'));
+            params.append('water_meter_5a', formData.get('water_meter_5a'));
 
             try {
                 const res = await fetch(`${API_BASE}/api/water/readings/${period}?${params}`, {
@@ -2346,6 +2400,34 @@
             } catch (error) {
                 showAlert('Błąd połączenia', 'error');
             }
+        }
+
+        function initDolCalculation(period) {
+            // Calculate dol value in real-time for edit form
+            setTimeout(function() {
+                const form = document.getElementById(`form-reading-edit-${period}`);
+                if (form) {
+                    const mainInput = form.querySelector('[name="water_meter_main"]');
+                    const goraInput = form.querySelector('[name="water_meter_5"]');
+                    const gabinetInput = form.querySelector('[name="water_meter_5a"]');
+                    const calculatedInput = document.getElementById(`calculated_dol_edit_${period}`);
+                    
+                    function updateCalculatedDol() {
+                        const main = parseFloat(mainInput?.value) || 0;
+                        const gora = parseFloat(goraInput?.value) || 0;
+                        const gabinet = parseFloat(gabinetInput?.value) || 0;
+                        const dol = main - gora - gabinet;
+                        if (calculatedInput) calculatedInput.value = dol.toFixed(2);
+                    }
+                    
+                    // Initial calculation
+                    updateCalculatedDol();
+                    
+                    [mainInput, goraInput, gabinetInput].forEach(input => {
+                        if (input) input.addEventListener('input', updateCalculatedDol);
+                    });
+                }
+            }, 100);
         }
 
         function cancelReadingEdit(period) {

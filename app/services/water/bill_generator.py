@@ -1,7 +1,7 @@
 
 """
-Moduł generowania rachunków PDF dla lokali.
-Tworzy pliki PDF z rachunkami w folderze bills/.
+PDF bill generation module for units.
+Creates PDF files with bills in bills/ folder.
 """
 
 import os
@@ -19,49 +19,49 @@ from app.models.water import Bill, Local
 
 
 def format_money(value: float) -> str:
-    """Formatuje kwotę do wyświetlenia."""
+    """Formats amount for display."""
     return f"{value:.2f} zł"
 
 
 def format_usage(value: float) -> str:
-    """Formatuje zużycie do wyświetlenia."""
+    """Formats consumption for display."""
     return f"{value:.2f} m³"
 
 
 def generate_bill_pdf(db: Session, bill: Bill) -> str:
     """
-    Generuje plik PDF z rachunkiem.
+    Generates PDF file with bill.
     
     Args:
-        db: Sesja bazy danych
-        bill: Rachunek do wygenerowania
+        db: Database session
+        bill: Bill to generate
     
     Returns:
-        Ścieżka do wygenerowanego pliku PDF
+        Path to generated PDF file
     """
-    # Ustal ścieżkę pliku
+    # Determine file path
     bills_folder = Path("bills/woda")
     bills_folder.mkdir(parents=True, exist_ok=True)
     
-    # Nazwa pliku: bill_2025_02_local_gora.pdf
+    # Filename: bill_2025_02_local_gora.pdf
     filename = f"bill_{bill.data}_local_{bill.local}.pdf"
     filepath = bills_folder / filename
     
-    # Sprawdź czy font Arial jest dostępny (dla polskich znaków)
+    # Check if Arial font is available (for Polish characters)
     try:
         from reportlab.pdfbase.ttfonts import TTFont  # type: ignore
         import platform
         
         font_registered = False
         if platform.system() == 'Windows':
-            # W Windows, sprawdź standardowe lokalizacje Arial
+            # On Windows, check standard Arial locations
             font_paths = [
                 'C:/Windows/Fonts/arial.ttf',
                 'C:/Windows/Fonts/Arial.ttf',
-                Path('C:/Windows/Fonts/arial.ttf'),  # Spróbuj też jako Path
+                Path('C:/Windows/Fonts/arial.ttf'),  # Try also as Path
             ]
         else:
-            # Na innych systemach spróbuj standardowe lokalizacje
+            # On other systems try standard locations
             font_paths = [
                 '/usr/share/fonts/truetype/msttcorefonts/arial.ttf',
                 '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
@@ -72,21 +72,21 @@ def generate_bill_pdf(db: Session, bill: Bill) -> str:
                 font_path_str = str(font_path)
                 if Path(font_path_str).exists():
                     pdfmetrics.registerFont(TTFont('Arial', font_path_str))
-                    # Sprawdź czy font został zarejestrowany
+                    # Check if font was registered
                     if 'Arial' in pdfmetrics.getRegisteredFontNames():
                         font_registered = True
-                        print(f"[OK] Zarejestrowano czcionkę Arial z: {font_path_str}")
+                        print(f"[OK] Registered Arial font from: {font_path_str}")
                         break
             except Exception as e:
-                print(f"[DEBUG] Nie udało się zarejestrować czcionki z {font_path}: {e}")
+                print(f"[DEBUG] Failed to register font from {font_path}: {e}")
                 continue
         
         if not font_registered:
-            print("[WARNING] Nie znaleziono czcionki Arial, używam Helvetica (może brakować polskich znaków)")
+            print("[WARNING] Arial font not found, using Helvetica (may lack Polish characters)")
         default_font = 'Arial' if font_registered else 'Helvetica'
     except Exception as e:
-        # Jeśli font nie jest dostępny, użyj domyślnego Helvetica
-        print(f"[WARNING] Błąd rejestracji czcionki: {e}, używam Helvetica")
+        # If font is not available, use default Helvetica
+        print(f"[WARNING] Font registration error: {e}, using Helvetica")
         default_font = 'Helvetica'
     
     # Funkcja do tworzenia CustomDocTemplate z nagłówkiem
@@ -191,9 +191,11 @@ def generate_bill_pdf(db: Session, bill: Bill) -> str:
     if bill.invoice:
         invoice = bill.invoice
         # Oblicz całkowitą kwotę abonamentu (łącznie dla wszystkich lokali)
-        # Abonament z faktury to: water_subscr_cost * nr_of_subscription (łącznie dla wszystkich lokali)
-        total_abonament_water = invoice.water_subscr_cost * invoice.nr_of_subscription
-        total_abonament_sewage = invoice.sewage_subscr_cost * invoice.nr_of_subscription
+        # IMPORTANT: water_subscr_cost and sewage_subscr_cost are already TOTAL sums from all positions
+        # (each position: quantity × price, then all positions are summed)
+        # We do NOT multiply by nr_of_subscription - it's already the total sum!
+        total_abonament_water = invoice.water_subscr_cost
+        total_abonament_sewage = invoice.sewage_subscr_cost
         
         costs_data = [
             ['', 'Zuzycie', 'Cena jednostkowa', 'Laczny koszt'],
@@ -315,8 +317,8 @@ def generate_all_possible_bills(db: Session) -> dict:
     Returns:
         Słownik ze statystykami generowania
     """
-    from models import Invoice, Reading
-    from meter_manager import generate_bills_for_period
+    from app.models.water import Invoice, Reading
+    from app.services.water.meter_manager import generate_bills_for_period
     from sqlalchemy import distinct
     
     # Pobierz wszystkie okresy z faktur

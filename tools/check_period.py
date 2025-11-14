@@ -55,35 +55,36 @@ def check_period(period: str):
         print(f"   Dol: {usage_dol:.2f} m3")
         print(f"   RAZEM: {usage_gora + usage_gabinet + usage_dol:.2f} m3")
         
-        if usage_dol < 0:
-            print(f"\n[PROBLEM] Lokal 'dol' ma ujemne zuzycie!")
+        if usage_gabinet < 0:
+            print(f"\n[PROBLEM] Lokal 'gabinet' ma ujemne zuzycie!")
             print(f"   Analiza:")
             
             if previous_reading:
                 diff_main = current_reading.water_meter_main - previous_reading.water_meter_main
                 diff_gora = current_reading.water_meter_5 - previous_reading.water_meter_5
-                diff_gabinet = current_reading.water_meter_5b - previous_reading.water_meter_5b
+                diff_dol = current_reading.water_meter_5b - previous_reading.water_meter_5b
+                diff_gabinet = diff_main - (diff_gora + diff_dol)
                 
                 print(f"     Roznica main: {diff_main:.2f} m3")
                 print(f"     Roznica gora: {diff_gora:.2f} m3")
-                print(f"     Roznica gabinet: {diff_gabinet:.2f} m3")
-                print(f"     Roznica dol (main - gora - gabinet): {diff_main - (diff_gora + diff_gabinet):.2f} m3")
+                print(f"     Roznica dol: {diff_dol:.2f} m3")
+                print(f"     Roznica gabinet (main - gora - dol): {diff_gabinet:.2f} m3")
                 
-                # Sprawdź czy suma gora + gabinet nie przekracza main
+                # Sprawdź czy suma gora + dol nie przekracza main
                 current_sum_sub = current_reading.water_meter_5 + current_reading.water_meter_5b
                 previous_sum_sub = previous_reading.water_meter_5 + previous_reading.water_meter_5b
                 
                 print(f"\n     Sprawdzenie spójności:")
                 print(f"       Obecny main: {current_reading.water_meter_main:.2f} m3")
-                print(f"       Obecny gora+gabinet: {current_sum_sub:.2f} m3")
-                print(f"       Roznica (main - gora - gabinet): {current_reading.water_meter_main - current_sum_sub:.2f} m3")
+                print(f"       Obecny gora+dol: {current_sum_sub:.2f} m3")
+                print(f"       Roznica (main - gora - dol): {current_reading.water_meter_main - current_sum_sub:.2f} m3")
                 
                 if current_sum_sub > current_reading.water_meter_main:
-                    print(f"     [BLAD] Suma gora+gabinet ({current_sum_sub:.2f}) > main ({current_reading.water_meter_main:.2f})!")
+                    print(f"     [BLAD] Suma gora+dol ({current_sum_sub:.2f}) > main ({current_reading.water_meter_main:.2f})!")
                     print(f"        To jest fizycznie niemożliwe - podliczniki nie mogą sumować się do więcej niż licznik główny!")
                 
                 if previous_sum_sub > previous_reading.water_meter_main:
-                    print(f"     [BLAD] Poprzednia suma gora+gabinet ({previous_sum_sub:.2f}) > poprzedni main ({previous_reading.water_meter_main:.2f})!")
+                    print(f"     [BLAD] Poprzednia suma gora+dol ({previous_sum_sub:.2f}) > poprzedni main ({previous_reading.water_meter_main:.2f})!")
         
         # Sprawdź faktury
         invoices = db.query(Invoice).filter(Invoice.data == period).all()

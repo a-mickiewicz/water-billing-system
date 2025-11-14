@@ -1,12 +1,13 @@
 """
-API endpoints dla wody.
-Wszystkie endpointy mają prefix /api/water/
+API endpoints for water billing.
+All endpoints have prefix /api/water/
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 from datetime import datetime
@@ -32,47 +33,161 @@ from app.integrations.google_sheets import (
 router = APIRouter(prefix="/api/water", tags=["water"])
 
 
-# ========== ENDPOINTY LOKALI ==========
+# ========== UNIT ENDPOINTS ==========
 
 @router.get("/locals/", response_model=List[dict])
 def get_locals(db: Session = Depends(get_db)):
-    """Pobiera listę wszystkich lokali."""
+    """Gets list of all units."""
     locals_list = db.query(Local).all()
-    return [{"id": l.id, "water_meter_name": l.water_meter_name, "tenant": l.tenant, "local": l.local} 
-            for l in locals_list]
+    return [{
+        "id": l.id,
+        "water_meter_name": l.water_meter_name,
+        "gas_meter_name": l.gas_meter_name,
+        "tenant": l.tenant,
+        "local": l.local
+    } for l in locals_list]
 
 
 @router.post("/locals/")
-def create_local(water_meter_name: str, tenant: str, local: str, db: Session = Depends(get_db)):
-    """Tworzy nowy lokal."""
-    new_local = Local(
-        water_meter_name=water_meter_name,
-        tenant=tenant,
-        local=local
-    )
-    db.add(new_local)
-    db.commit()
-    db.refresh(new_local)
-    return {"id": new_local.id, "message": "Lokal utworzony"}
+def create_local(water_meter_name: str, tenant: str, local: str, gas_meter_name: Optional[str] = None, db: Session = Depends(get_db)):
+    """Creates a new unit."""
+    # Check if unit with the same water_meter_name already exists
+    if water_meter_name:
+        existing = db.query(Local).filter(Local.water_meter_name == water_meter_name).first()
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unit with water meter '{water_meter_name}' already exists (ID: {existing.id}, unit: {existing.local}, tenant: {existing.tenant}). Use PUT /api/water/locals/{existing.id} to update."
+            )
+    
+    # Check if unit with the same gas_meter_name already exists
+    if gas_meter_name:
+        existing_gas = db.query(Local).filter(Local.gas_meter_name == gas_meter_name).first()
+        if existing_gas:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unit with gas meter '{gas_meter_name}' already exists (ID: {existing_gas.id}, unit: {existing_gas.local}, tenant: {existing_gas.tenant}). Use PUT /api/water/locals/{existing_gas.id} to update."
+            )
+    
+    try:
+        new_local = Local(
+            water_meter_name=water_meter_name,
+            gas_meter_name=gas_meter_name,
+            tenant=tenant,
+            local=local
+        )
+        db.add(new_local)
+        db.commit()
+        db.refresh(new_local)
+        return {"id": new_local.id, "message": "Unit created"}
+    except IntegrityError as e:
+        db.rollback()
+        # Check if error relates to water_meter_name
+        if "water_meter_name" in str(e.orig):
+            existing = db.query(Local).filter(Local.water_meter_name == water_meter_name).first()
+            if existing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unit with water meter '{water_meter_name}' already exists (ID: {existing.id}, unit: {existing.local}, tenant: {existing.tenant}). Use PUT /api/water/locals/{existing.id} to update."
+                )
+        # Check if error relates to gas_meter_name
+        elif gas_meter_name and "gas_meter_name" in str(e.orig):
+            existing = db.query(Local).filter(Local.gas_meter_name == gas_meter_name).first()
+            if existing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unit with gas meter '{gas_meter_name}' already exists (ID: {existing.id}, unit: {existing.local}, tenant: {existing.tenant}). Use PUT /api/water/locals/{existing.id} to update."
+                )
+        # Other uniqueness error
+        raise HTTPException(
+            status_code=400,
+            detail=f"Uniqueness error: {str(e.orig)}. Unit with this data already exists in database."
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error creating unit: {str(e)}")
+
+
+@router.put("/locals/{local_id}")
+def update_local(
+    local_id: int,
+    water_meter_name: Optional[str] = None,
+    gas_meter_name: Optional[str] = None,
+    tenant: Optional[str] = None,
+    local: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Updates an existing unit."""
+    existing_local = db.query(Local).filter(Local.id == local_id).first()
+    
+    if not existing_local:
+        raise HTTPException(status_code=404, detail="Unit not found")
+    
+    # Check if new water_meter_name is not already used by another unit
+    if water_meter_name and water_meter_name != existing_local.water_meter_name:
+        duplicate = db.query(Local).filter(
+            Local.water_meter_name == water_meter_name,
+            Local.id != local_id
+        ).first()
+        if duplicate:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Water meter '{water_meter_name}' is already used by another unit (ID: {duplicate.id})"
+            )
+        existing_local.water_meter_name = water_meter_name
+    
+    # Check if new gas_meter_name is not already used by another unit
+    if gas_meter_name is not None and gas_meter_name != existing_local.gas_meter_name:
+        duplicate_gas = db.query(Local).filter(
+            Local.gas_meter_name == gas_meter_name,
+            Local.id != local_id
+        ).first()
+        if duplicate_gas:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Gas meter '{gas_meter_name}' is already used by another unit (ID: {duplicate_gas.id})"
+            )
+        existing_local.gas_meter_name = gas_meter_name
+    
+    # Update remaining fields if provided
+    if tenant is not None:
+        existing_local.tenant = tenant
+    if local is not None:
+        existing_local.local = local
+    
+    try:
+        db.commit()
+        db.refresh(existing_local)
+        return {
+            "id": existing_local.id,
+            "message": "Lokal zaktualizowany",
+            "water_meter_name": existing_local.water_meter_name,
+            "gas_meter_name": existing_local.gas_meter_name,
+            "tenant": existing_local.tenant,
+            "local": existing_local.local
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating unit: {str(e)}")
 
 
 @router.delete("/locals/{local_id}")
 def delete_local(local_id: int, db: Session = Depends(get_db)):
-    """Usuwa lokal po ID. Usuwa również wszystkie powiązane rachunki."""
+    """Deletes unit by ID. Also deletes all related bills."""
     local = db.query(Local).filter(Local.id == local_id).first()
     
     if not local:
-        raise HTTPException(status_code=404, detail="Lokal nie znaleziony")
+        raise HTTPException(status_code=404, detail="Unit not found")
     
-    # Usuń wszystkie rachunki powiązane z tym lokalem
+    # Delete all bills related to this unit
     bills = db.query(Bill).filter(Bill.local_id == local_id).all()
     for bill in bills:
-        # Usuń plik PDF jeśli istnieje
+        # Delete PDF file if exists
         if bill.pdf_path and Path(bill.pdf_path).exists():
             Path(bill.pdf_path).unlink()
         db.delete(bill)
     
-    # Usuń również rachunki gazu
+    # Also delete gas bills
     gas_bills = db.query(GasBill).filter(GasBill.local_id == local_id).all()
     for gas_bill in gas_bills:
         if gas_bill.pdf_path and Path(gas_bill.pdf_path).exists():
@@ -90,33 +205,35 @@ def delete_local(local_id: int, db: Session = Depends(get_db)):
     }
 
 
-# ========== ENDPOINTY ODCZYTÓW ==========
+# ========== READING ENDPOINTS ==========
 
 @router.get("/readings/", response_model=List[dict])
 def get_readings(db: Session = Depends(get_db)):
-    """Pobiera listę wszystkich odczytów."""
+    """Gets list of all readings."""
     readings = db.query(Reading).order_by(desc(Reading.data)).all()
     return [{
         "data": r.data,
         "water_meter_main": r.water_meter_main,
         "water_meter_5": r.water_meter_5,
-        "water_meter_5b": r.water_meter_5b
+        "water_meter_5a": r.water_meter_5a,
+        "water_meter_5b": r.water_meter_main - (r.water_meter_5 + r.water_meter_5a)  # Calculated: dol
     } for r in readings]
 
 
 @router.get("/readings/{period}")
 def get_reading(period: str, db: Session = Depends(get_db)):
-    """Pobiera pojedynczy odczyt po okresie."""
+    """Gets single reading by period."""
     reading = db.query(Reading).filter(Reading.data == period).first()
     
     if not reading:
-        raise HTTPException(status_code=404, detail="Odczyt nie znaleziony")
+        raise HTTPException(status_code=404, detail="Reading not found")
     
     return {
         "data": reading.data,
         "water_meter_main": reading.water_meter_main,
         "water_meter_5": reading.water_meter_5,
-        "water_meter_5b": reading.water_meter_5b
+        "water_meter_5a": reading.water_meter_5a,
+        "water_meter_5b": reading.water_meter_main - (reading.water_meter_5 + reading.water_meter_5a)  # Calculated: dol
     }
 
 
@@ -125,24 +242,27 @@ def update_reading(
     period: str,
     water_meter_main: float,
     water_meter_5: int,
-    water_meter_5b: int,
+    water_meter_5a: int,
     db: Session = Depends(get_db)
 ):
-    """Aktualizuje odczyt po okresie."""
+    """Updates reading by period.
+    Note: water_meter_5b (dol) is calculated as main - 5 - 5a, so it's not updated directly.
+    """
     reading = db.query(Reading).filter(Reading.data == period).first()
     
     if not reading:
-        raise HTTPException(status_code=404, detail="Odczyt nie znaleziony")
+        raise HTTPException(status_code=404, detail="Reading not found")
     
     reading.water_meter_main = round(float(water_meter_main), 2)
     reading.water_meter_5 = int(water_meter_5)
-    reading.water_meter_5b = int(water_meter_5b)
+    reading.water_meter_5a = int(water_meter_5a)
+    # water_meter_5b is calculated, not stored
     
     db.commit()
     db.refresh(reading)
     
     return {
-        "message": "Odczyt zaktualizowany",
+        "message": "Reading updated",
         "data": reading.data
     }
 
@@ -152,40 +272,42 @@ def create_reading(
     data: str,
     water_meter_main: float,
     water_meter_5: int,
-    water_meter_5b: int,
+    water_meter_5a: int,
     db: Session = Depends(get_db)
 ):
-    """Tworzy nowy odczyt liczników."""
+    """Creates a new meter reading.
+    Note: water_meter_5b (dol) is calculated as main - 5 - 5a, so it's not provided directly.
+    """
     existing = db.query(Reading).filter(Reading.data == data).first()
     if existing:
-        raise HTTPException(status_code=400, detail=f"Odczyt dla okresu {data} już istnieje")
+        raise HTTPException(status_code=400, detail=f"Reading for period {data} already exists")
     
-    # Zaokrąglij water_meter_main do 2 miejsc po przecinku
+    # Round water_meter_main to 2 decimal places
     new_reading = Reading(
         data=data,
         water_meter_main=round(float(water_meter_main), 2),
         water_meter_5=water_meter_5,
-        water_meter_5b=water_meter_5b
+        water_meter_5a=water_meter_5a
     )
     db.add(new_reading)
     db.commit()
     db.refresh(new_reading)
-    return {"message": "Odczyt utworzony", "data": data}
+    return {"message": "Reading created", "data": data}
 
 
 @router.delete("/readings/{period}")
 def delete_reading(period: str, db: Session = Depends(get_db)):
-    """Usuwa odczyt dla danego okresu. Usuwa również wszystkie rachunki dla tego okresu."""
+    """Deletes reading for given period. Also deletes all bills for this period."""
     reading = db.query(Reading).filter(Reading.data == period).first()
     
     if not reading:
-        raise HTTPException(status_code=404, detail=f"Odczyt dla okresu {period} nie znaleziony")
+        raise HTTPException(status_code=404, detail=f"Reading for period {period} not found")
     
-    # Usuń wszystkie rachunki dla tego okresu
+    # Delete all bills for this period
     bills = db.query(Bill).filter(Bill.reading_id == period).all()
     deleted_bills_count = 0
     for bill in bills:
-        # Usuń plik PDF jeśli istnieje
+        # Delete PDF file if exists
         if bill.pdf_path and Path(bill.pdf_path).exists():
             Path(bill.pdf_path).unlink()
         db.delete(bill)
@@ -201,11 +323,11 @@ def delete_reading(period: str, db: Session = Depends(get_db)):
     }
 
 
-# ========== ENDPOINTY FAKTUR ==========
+# ========== INVOICE ENDPOINTS ==========
 
 @router.get("/invoices/", response_model=List[dict])
 def get_invoices(db: Session = Depends(get_db)):
-    """Pobiera listę wszystkich faktur."""
+    """Gets list of all invoices."""
     invoices = db.query(Invoice).order_by(desc(Invoice.data)).all()
     return [{
         "id": i.id,
@@ -221,10 +343,10 @@ def get_invoices(db: Session = Depends(get_db)):
 @router.post("/invoices/parse")
 async def parse_invoice(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """
-    Parsuje fakturę PDF i zwraca dane do weryfikacji.
-    NIE zapisuje do bazy danych!
+    Parses invoice PDF and returns data for verification.
+    Does NOT save to database!
     """
-    # Zapisuj plik tymczasowo
+    # Save file temporarily
     upload_folder = Path("invoices_raw")
     upload_folder.mkdir(exist_ok=True)
     
@@ -234,40 +356,40 @@ async def parse_invoice(file: UploadFile = File(...), db: Session = Depends(get_
         content = await file.read()
         f.write(content)
     
-    # Wczytaj tekst z PDF
+    # Extract text from PDF
     text = extract_text_from_pdf(str(file_path))
     if not text:
-        raise HTTPException(status_code=400, detail="Nie udało się wczytać tekstu z pliku PDF")
+        raise HTTPException(status_code=400, detail="Failed to extract text from PDF file")
     
-    # Parsuj dane z faktury
+    # Parse invoice data
     invoice_data = parse_invoice_data(text)
     
     if not invoice_data:
-        raise HTTPException(status_code=400, detail="Nie udało się sparsować danych z faktury")
+        raise HTTPException(status_code=400, detail="Failed to parse invoice data")
     
-    # Określ okres rozliczeniowy
+    # Determine billing period
     period = None
     if '_extracted_period' in invoice_data:
         period = invoice_data['_extracted_period']
     else:
-        # Próbuj wyciągnąć z nazwy pliku
+        # Try to extract from filename
         period = parse_period_from_filename(os.path.basename(file_path))
         if not period and 'period_start' in invoice_data:
             period_start = invoice_data['period_start']
             if isinstance(period_start, datetime):
                 period = f"{period_start.year}-{period_start.month:02d}"
     
-    # Dodaj okres do danych
+    # Add period to data
     if period:
         invoice_data['data'] = period
     
-    # Konwertuj daty na stringi (dla JSON)
+    # Convert dates to strings (for JSON)
     if 'period_start' in invoice_data and isinstance(invoice_data['period_start'], datetime):
         invoice_data['period_start'] = invoice_data['period_start'].strftime('%Y-%m-%d')
     if 'period_stop' in invoice_data and isinstance(invoice_data['period_stop'], datetime):
         invoice_data['period_stop'] = invoice_data['period_stop'].strftime('%Y-%m-%d')
     
-    # Usuń pomocnicze pola które nie są potrzebne w formularzu
+    # Remove helper fields that are not needed in the form
     invoice_data.pop('_extracted_period', None)
     invoice_data.pop('meter_readings', None)
     
@@ -276,8 +398,8 @@ async def parse_invoice(file: UploadFile = File(...), db: Session = Depends(get_
 
 @router.post("/invoices/upload")
 async def upload_invoice(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Wczytuje fakturę PDF z pliku (DEPRECATED - użyj /invoices/parse + /invoices/verify)."""
-    # Zapisuj plik tymczasowo
+    """Loads invoice PDF from file (DEPRECATED - use /invoices/parse + /invoices/verify)."""
+    # Save file temporarily
     upload_folder = Path("invoices_raw")
     upload_folder.mkdir(exist_ok=True)
     
@@ -287,13 +409,13 @@ async def upload_invoice(file: UploadFile = File(...), db: Session = Depends(get
         content = await file.read()
         f.write(content)
     
-    # Wczytaj fakturę
+    # Load invoice
     invoice = load_invoice_from_pdf(db, str(file_path))
     
     if not invoice:
-        raise HTTPException(status_code=400, detail="Nie udało się wczytać faktury")
+        raise HTTPException(status_code=400, detail="Failed to load invoice")
     
-    return {"message": "Faktura wczytana", "invoice_number": invoice.invoice_number}
+    return {"message": "Invoice loaded", "invoice_number": invoice.invoice_number}
 
 
 @router.post("/invoices/verify")
@@ -302,26 +424,26 @@ def verify_and_save_invoice(
     db: Session = Depends(get_db)
 ):
     """
-    Zapisuje fakturę po weryfikacji przez użytkownika.
-    Wywoływane z dashboardu po zatwierdzeniu.
+    Saves invoice after user verification.
+    Called from dashboard after confirmation.
     """
-    # Walidacja wymaganych pól
+    # Validate required fields
     required_fields = ['data', 'usage', 'water_cost_m3', 'sewage_cost_m3', 
                       'nr_of_subscription', 'water_subscr_cost', 'sewage_subscr_cost',
                       'vat', 'period_start', 'period_stop', 'invoice_number', 'gross_sum']
     
     missing_fields = [field for field in required_fields if field not in invoice_data]
     if missing_fields:
-        raise HTTPException(status_code=400, detail=f"Brakuje wymaganych pól: {', '.join(missing_fields)}")
+        raise HTTPException(status_code=400, detail=f"Missing required fields: {', '.join(missing_fields)}")
     
-    # Konwertuj daty
+    # Convert dates
     try:
         period_start_date = datetime.strptime(invoice_data['period_start'], "%Y-%m-%d").date()
         period_stop_date = datetime.strptime(invoice_data['period_stop'], "%Y-%m-%d").date()
     except (ValueError, TypeError) as e:
-        raise HTTPException(status_code=400, detail=f"Nieprawidłowy format daty: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid date format: {e}")
     
-    # Zaokrąglij wszystkie wartości Float do 2 miejsc po przecinku
+    # Round all Float values to 2 decimal places
     new_invoice = Invoice(
         data=invoice_data['data'],
         usage=round(float(invoice_data['usage']), 2),
@@ -365,18 +487,18 @@ def create_invoice(
     gross_sum: float,
     db: Session = Depends(get_db)
 ):
-    """Dodaje fakturę ręcznie do bazy danych.
-    Może być wiele faktur dla tego samego okresu (data) w przypadku podwyżki kosztów."""
+    """Adds invoice manually to database.
+    Multiple invoices for the same period (data) are possible in case of cost increases."""
     
-    # Konwertuj daty
+    # Convert dates
     try:
         period_start_date = datetime.strptime(period_start, "%Y-%m-%d").date()
         period_stop_date = datetime.strptime(period_stop, "%Y-%m-%d").date()
     except ValueError:
-        raise HTTPException(status_code=400, detail="Nieprawidłowy format daty. Użyj YYYY-MM-DD")
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     
-    # Zaokrąglij wszystkie wartości Float do 2 miejsc po przecinku
-    # Stwórz nową fakturę
+    # Round all Float values to 2 decimal places
+    # Create new invoice
     new_invoice = Invoice(
         data=data,
         usage=round(float(usage), 2),
@@ -406,11 +528,11 @@ def create_invoice(
 
 @router.get("/invoices/{invoice_id}")
 def get_invoice(invoice_id: int, db: Session = Depends(get_db)):
-    """Pobiera pojedynczą fakturę po ID."""
+    """Gets single invoice by ID."""
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     
     if not invoice:
-        raise HTTPException(status_code=404, detail="Faktura nie znaleziona")
+        raise HTTPException(status_code=404, detail="Invoice not found")
     
     return {
         "id": invoice.id,
@@ -435,26 +557,26 @@ def update_invoice(
     invoice_data: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db)
 ):
-    """Aktualizuje fakturę po ID."""
+    """Updates invoice by ID."""
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     
     if not invoice:
-        raise HTTPException(status_code=404, detail="Faktura nie znaleziona")
+        raise HTTPException(status_code=404, detail="Invoice not found")
     
-    # Konwertuj daty jeśli są podane
+    # Convert dates if provided
     if 'period_start' in invoice_data:
         try:
             invoice_data['period_start'] = datetime.strptime(invoice_data['period_start'], "%Y-%m-%d").date()
         except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="Nieprawidłowy format daty period_start")
+            raise HTTPException(status_code=400, detail="Invalid date format for period_start")
     
     if 'period_stop' in invoice_data:
         try:
             invoice_data['period_stop'] = datetime.strptime(invoice_data['period_stop'], "%Y-%m-%d").date()
         except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="Nieprawidłowy format daty period_stop")
+            raise HTTPException(status_code=400, detail="Invalid date format for period_stop")
     
-    # Aktualizuj pola
+    # Update fields
     for key, value in invoice_data.items():
         if hasattr(invoice, key):
             if isinstance(value, float):
@@ -474,16 +596,16 @@ def update_invoice(
 
 @router.delete("/invoices/{invoice_id}")
 def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
-    """Usuwa fakturę po ID. Usuwa również wszystkie rachunki dla okresu tej faktury."""
+    """Deletes invoice by ID. Also deletes all bills for this invoice's period."""
     invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
     
     if not invoice:
-        raise HTTPException(status_code=404, detail="Faktura nie znaleziona")
+        raise HTTPException(status_code=404, detail="Invoice not found")
     
     period = invoice.data
     
-    # Usuń wszystkie rachunki dla tego okresu (może być wiele faktur dla tego samego okresu)
-    # Sprawdź czy są jeszcze inne faktury dla tego okresu
+    # Delete all bills for this period (may be multiple invoices for the same period)
+    # Check if there are other invoices for this period
     other_invoices = db.query(Invoice).filter(
         Invoice.data == period,
         Invoice.id != invoice_id
@@ -491,10 +613,10 @@ def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
     
     deleted_bills_count = 0
     if other_invoices == 0:
-        # Jeśli to ostatnia faktura dla tego okresu, usuń wszystkie rachunki
+        # If this is the last invoice for this period, delete all bills
         bills = db.query(Bill).filter(Bill.data == period).all()
         for bill in bills:
-            # Usuń plik PDF jeśli istnieje
+            # Delete PDF file if exists
             if bill.pdf_path and Path(bill.pdf_path).exists():
                 Path(bill.pdf_path).unlink()
             db.delete(bill)
@@ -512,11 +634,11 @@ def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
     }
 
 
-# ========== ENDPOINTY RACHUNKÓW ==========
+# ========== BILL ENDPOINTS ==========
 
 @router.get("/bills/", response_model=List[dict])
 def get_bills(db: Session = Depends(get_db)):
-    """Pobiera listę wszystkich rachunków."""
+    """Gets list of all bills."""
     bills = db.query(Bill).order_by(desc(Bill.data)).all()
     return [{
         "id": b.id,
@@ -538,7 +660,7 @@ def get_bills(db: Session = Depends(get_db)):
 
 @router.get("/bills/period/{period}", response_model=List[dict])
 def get_bills_for_period(period: str, db: Session = Depends(get_db)):
-    """Pobiera rachunki dla danego okresu."""
+    """Gets bills for given period."""
     bills = db.query(Bill).filter(Bill.data == period).all()
     return [{
         "id": b.id,
@@ -552,23 +674,23 @@ def get_bills_for_period(period: str, db: Session = Depends(get_db)):
 @router.post("/bills/generate/{period}")
 def generate_bills(period: str, db: Session = Depends(get_db)):
     """
-    Generuje rachunki dla danego okresu.
-    Wymaga obecności faktury i odczytów dla tego okresu.
+    Generates bills for given period.
+    Requires invoice and readings for this period.
     """
     try:
-        # Sprawdź czy rachunki już istnieją
+        # Check if bills already exist
         existing = db.query(Bill).filter(Bill.data == period).first()
         if existing:
-            return {"message": f"Rachunki dla okresu {period} już istnieją. Użyj /bills/regenerate/{period}"}
+            return {"message": f"Bills for period {period} already exist. Use /bills/regenerate/{period}"}
         
-        # Wygeneruj rachunki
+        # Generate bills
         bills = generate_bills_for_period(db, period)
         
-        # Wygeneruj pliki PDF
+        # Generate PDF files
         pdf_files = bill_generator.generate_all_bills_for_period(db, period)
         
         return {
-            "message": "Rachunki wygenerowane",
+            "message": "Bills generated",
             "period": period,
             "bills_count": len(bills),
             "pdf_files": pdf_files
@@ -579,25 +701,25 @@ def generate_bills(period: str, db: Session = Depends(get_db)):
 
 @router.post("/bills/regenerate/{period}")
 def regenerate_bills(period: str, db: Session = Depends(get_db)):
-    """Ponownie generuje rachunki i pliki PDF dla danego okresu."""
-    # Usuń stare rachunki
+    """Regenerates bills and PDF files for given period."""
+    # Delete old bills
     bills = db.query(Bill).filter(Bill.data == period).all()
     for bill in bills:
-        # Usuń plik PDF jeśli istnieje
+        # Delete PDF file if exists
         if bill.pdf_path and Path(bill.pdf_path).exists():
             Path(bill.pdf_path).unlink()
         db.delete(bill)
     db.commit()
     
     try:
-        # Wygeneruj nowe rachunki
+        # Generate new bills
         bills = generate_bills_for_period(db, period)
         
-        # Wygeneruj pliki PDF
+        # Generate PDF files
         pdf_files = bill_generator.generate_all_bills_for_period(db, period)
         
         return {
-            "message": "Rachunki ponownie wygenerowane",
+            "message": "Bills regenerated",
             "period": period,
             "bills_count": len(bills),
             "pdf_files": pdf_files
@@ -609,54 +731,54 @@ def regenerate_bills(period: str, db: Session = Depends(get_db)):
 @router.post("/bills/generate-all")
 def generate_all_bills(db: Session = Depends(get_db)):
     """
-    Generuje wszystkie możliwe rachunki dla wszystkich okresów,
-    które mają faktury i odczyty.
-    Generuje TYLKO brakujące rachunki (nie usuwa istniejących).
+    Generates all possible bills for all periods
+    that have invoices and readings.
+    Generates ONLY missing bills (does not delete existing ones).
     """
     try:
         result = bill_generator.generate_all_possible_bills(db)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Błąd generowania rachunków: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating bills: {str(e)}")
 
 
 @router.post("/bills/regenerate-all")
 def regenerate_all_bills(db: Session = Depends(get_db)):
     """
-    Regeneruje WSZYSTKIE rachunki - usuwa istniejące i generuje na nowo.
-    Użyj tego endpointu po zmianach w logice obliczeń (np. poprawkach błędów).
+    Regenerates ALL bills - deletes existing and generates anew.
+    Use this endpoint after changes in calculation logic (e.g., bug fixes).
     
-    Wykonuje:
-    1. Usuwa wszystkie istniejące rachunki z bazy danych
-    2. Usuwa wszystkie pliki PDF rachunków
-    3. Generuje wszystkie możliwe rachunki dla okresów z fakturami i odczytami
-    4. Generuje pliki PDF dla wszystkich wygenerowanych rachunków
+    Performs:
+    1. Deletes all existing bills from database
+    2. Deletes all bill PDF files
+    3. Generates all possible bills for periods with invoices and readings
+    4. Generates PDF files for all generated bills
     """
     try:
-        # 1. Usuń wszystkie istniejące rachunki
+        # 1. Delete all existing bills
         all_bills = db.query(Bill).all()
         deleted_count = 0
         
         for bill in all_bills:
-            # Usuń plik PDF jeśli istnieje
+            # Delete PDF file if exists
             if bill.pdf_path and Path(bill.pdf_path).exists():
                 try:
                     Path(bill.pdf_path).unlink()
                 except Exception as e:
-                    print(f"[WARNING] Nie udalo sie usunac pliku {bill.pdf_path}: {e}")
+                    print(f"[WARNING] Failed to delete file {bill.pdf_path}: {e}")
             db.delete(bill)
             deleted_count += 1
         
         db.commit()
         
         if deleted_count > 0:
-            print(f"[INFO] Usunieto {deleted_count} istniejących rachunków")
+            print(f"[INFO] Deleted {deleted_count} existing bills")
         
-        # 2. Wygeneruj wszystkie rachunki na nowo
+        # 2. Generate all bills anew
         result = bill_generator.generate_all_possible_bills(db)
         
         return {
-            "message": "Wszystkie rachunki zregenerowane",
+            "message": "All bills regenerated",
             "deleted_bills": deleted_count,
             "regenerated_periods": result.get("periods_processed", 0),
             "bills_generated": result.get("bills_generated", 0),
@@ -666,16 +788,16 @@ def regenerate_all_bills(db: Session = Depends(get_db)):
         }
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Błąd regenerowania rachunków: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error regenerating bills: {str(e)}")
 
 
 @router.get("/bills/{bill_id}")
 def get_bill(bill_id: int, db: Session = Depends(get_db)):
-    """Pobiera pojedynczy rachunek po ID."""
+    """Gets single bill by ID."""
     bill = db.query(Bill).filter(Bill.id == bill_id).first()
     
     if not bill:
-        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+        raise HTTPException(status_code=404, detail="Bill not found")
     
     return {
         "id": bill.id,
@@ -701,13 +823,13 @@ def update_bill(
     bill_data: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db)
 ):
-    """Aktualizuje rachunek po ID."""
+    """Updates bill by ID."""
     bill = db.query(Bill).filter(Bill.id == bill_id).first()
     
     if not bill:
-        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+        raise HTTPException(status_code=404, detail="Bill not found")
     
-    # Aktualizuj pola
+    # Update fields
     for key, value in bill_data.items():
         if hasattr(bill, key):
             if isinstance(value, float):
@@ -727,14 +849,14 @@ def update_bill(
 
 @router.get("/bills/download/{bill_id}")
 def download_bill(bill_id: int, db: Session = Depends(get_db)):
-    """Pobiera plik PDF rachunku."""
+    """Downloads bill PDF file."""
     bill = db.query(Bill).filter(Bill.id == bill_id).first()
     
     if not bill:
-        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+        raise HTTPException(status_code=404, detail="Bill not found")
     
     if not bill.pdf_path or not Path(bill.pdf_path).exists():
-        # Wygeneruj plik jeśli nie istnieje
+        # Generate file if it doesn't exist
         bill.pdf_path = bill_generator.generate_bill_pdf(db, bill)
         db.commit()
     
@@ -743,13 +865,13 @@ def download_bill(bill_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/bills/{bill_id}")
 def delete_bill(bill_id: int, db: Session = Depends(get_db)):
-    """Usuwa pojedynczy rachunek po ID."""
+    """Deletes single bill by ID."""
     bill = db.query(Bill).filter(Bill.id == bill_id).first()
     
     if not bill:
-        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+        raise HTTPException(status_code=404, detail="Bill not found")
     
-    # Usuń plik PDF jeśli istnieje
+    # Delete PDF file if exists
     if bill.pdf_path and Path(bill.pdf_path).exists():
         Path(bill.pdf_path).unlink()
     
@@ -766,15 +888,15 @@ def delete_bill(bill_id: int, db: Session = Depends(get_db)):
 
 @router.delete("/bills/period/{period}")
 def delete_bills_for_period(period: str, db: Session = Depends(get_db)):
-    """Usuwa wszystkie rachunki dla danego okresu."""
+    """Deletes all bills for given period."""
     bills = db.query(Bill).filter(Bill.data == period).all()
     
     if not bills:
-        return {"message": f"Brak rachunków dla okresu {period}", "deleted_count": 0}
+        return {"message": f"No bills for period {period}", "deleted_count": 0}
     
     deleted_ids = []
     for bill in bills:
-        # Usuń plik PDF jeśli istnieje
+        # Delete PDF file if exists
         if bill.pdf_path and Path(bill.pdf_path).exists():
             Path(bill.pdf_path).unlink()
         
@@ -793,15 +915,15 @@ def delete_bills_for_period(period: str, db: Session = Depends(get_db)):
 
 @router.delete("/bills/")
 def delete_all_bills(db: Session = Depends(get_db)):
-    """Usuwa wszystkie rachunki z bazy danych."""
+    """Deletes all bills from database."""
     bills = db.query(Bill).all()
     
     if not bills:
-        return {"message": "Brak rachunków w bazie", "deleted_count": 0}
+        return {"message": "No bills in database", "deleted_count": 0}
     
     deleted_count = 0
     for bill in bills:
-        # Usuń plik PDF jeśli istnieje
+        # Delete PDF file if exists
         if bill.pdf_path and Path(bill.pdf_path).exists():
             Path(bill.pdf_path).unlink()
         
@@ -811,12 +933,12 @@ def delete_all_bills(db: Session = Depends(get_db)):
     db.commit()
     
     return {
-        "message": f"Usunięto wszystkie rachunki ({deleted_count})",
+        "message": f"All bills deleted ({deleted_count})",
         "deleted_count": deleted_count
     }
 
 
-# ========== ENDPOINTY GOOGLE SHEETS ==========
+# ========== GOOGLE SHEETS ENDPOINTS ==========
 
 @router.post("/import/readings")
 def import_readings(
@@ -826,12 +948,12 @@ def import_readings(
     db: Session = Depends(get_db)
 ):
     """
-    Importuje odczyty liczników z Google Sheets.
+    Imports meter readings from Google Sheets.
     
-    Wymaga:
-    - credentials_path: Ścieżka do pliku JSON z poświadczeniami Google Service Account
-    - spreadsheet_id: ID arkusza (z URL: https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit)
-    - sheet_name: Nazwa arkusza (domyślnie "Odczyty")
+    Requires:
+    - credentials_path: Path to JSON file with Google Service Account credentials
+    - spreadsheet_id: Spreadsheet ID (from URL: https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit)
+    - sheet_name: Sheet name (default: "Odczyty")
     """
     try:
         result = import_readings_from_sheets(
@@ -848,7 +970,7 @@ def import_readings(
             "total": result["total"]
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Błąd importu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Import error: {str(e)}")
 
 
 @router.post("/import/locals")
@@ -859,12 +981,12 @@ def import_locals(
     db: Session = Depends(get_db)
 ):
     """
-    Importuje lokale z Google Sheets.
+    Imports units from Google Sheets.
     
-    Wymaga:
-    - credentials_path: Ścieżka do pliku JSON z poświadczeniami Google Service Account
-    - spreadsheet_id: ID arkusza
-    - sheet_name: Nazwa arkusza (domyślnie "Lokale")
+    Requires:
+    - credentials_path: Path to JSON file with Google Service Account credentials
+    - spreadsheet_id: Spreadsheet ID
+    - sheet_name: Sheet name (default: "Lokale")
     """
     try:
         result = import_locals_from_sheets(
@@ -881,7 +1003,7 @@ def import_locals(
             "total": result["total"]
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Błąd importu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Import error: {str(e)}")
 
 
 @router.post("/import/invoices")
@@ -892,12 +1014,12 @@ def import_invoices(
     db: Session = Depends(get_db)
 ):
     """
-    Importuje faktury z Google Sheets.
+    Imports invoices from Google Sheets.
     
-    Wymaga:
-    - credentials_path: Ścieżka do pliku JSON z poświadczeniami Google Service Account
-    - spreadsheet_id: ID arkusza
-    - sheet_name: Nazwa arkusza (domyślnie "Faktury")
+    Requires:
+    - credentials_path: Path to JSON file with Google Service Account credentials
+    - spreadsheet_id: Spreadsheet ID
+    - sheet_name: Sheet name (default: "Faktury")
     """
     try:
         result = import_invoices_from_sheets(
@@ -914,14 +1036,14 @@ def import_invoices(
             "total": result["total"]
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Błąd importu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Import error: {str(e)}")
 
 
-# ========== ENDPOINTY STATYSTYK ==========
+# ========== STATISTICS ENDPOINTS ==========
 
 @router.get("/stats")
 def get_stats(db: Session = Depends(get_db)):
-    """Zwraca statystyki dla dashboardu."""
+    """Returns statistics for dashboard."""
     stats = {
         "locals_count": db.query(Local).count(),
         "readings_count": db.query(Reading).count(),
@@ -933,21 +1055,21 @@ def get_stats(db: Session = Depends(get_db)):
         "available_periods": []
     }
     
-    # Najnowszy okres
+    # Latest period
     latest_reading = db.query(Reading).order_by(desc(Reading.data)).first()
     if latest_reading:
         stats["latest_period"] = latest_reading.data
     
-    # Suma brutto wszystkich rachunków
+    # Total gross sum of all bills
     total_sum = db.query(func.sum(Bill.gross_sum)).scalar()
     if total_sum:
         stats["total_gross_sum"] = float(total_sum)
     
-    # Okresy z rachunkami
+    # Periods with bills
     periods = db.query(Bill.data).distinct().order_by(desc(Bill.data)).all()
-    stats["periods_with_bills"] = [p[0] for p in periods[:10]]  # Ostatnie 10
+    stats["periods_with_bills"] = [p[0] for p in periods[:10]]  # Last 10
     
-    # Dostępne okresy (mające zarówno faktury jak i odczyty)
+    # Available periods (having both invoices and readings)
     reading_periods = set(r.data for r in db.query(Reading.data).distinct().all())
     invoice_periods = set(i.data for i in db.query(Invoice.data).distinct().all())
     stats["available_periods"] = sorted(reading_periods & invoice_periods, reverse=True)

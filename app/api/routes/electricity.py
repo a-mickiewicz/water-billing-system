@@ -1,5 +1,5 @@
 """
-Endpointy API dla prądu.
+API endpoints for electricity billing.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
@@ -35,7 +35,7 @@ router = APIRouter(prefix="/api/electricity", tags=["electricity"])
 
 
 class ElectricityReadingCreate(BaseModel):
-    """Model dla tworzenia odczytu prądu."""
+    """Model for creating electricity reading."""
     data: str
     data_odczytu_licznika: Optional[str] = None  # Format: 'YYYY-MM-DD'
     is_main_meter_single_tariff: bool = False
@@ -56,13 +56,13 @@ def get_readings(
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    """Pobiera listę odczytów liczników prądu."""
+    """Gets list of electricity meter readings."""
     readings = db.query(ElectricityReading).order_by(desc(ElectricityReading.data)).offset(skip).limit(limit).all()
     
-    # Mapowanie nazw pól z bazy na format oczekiwany przez dashboard
+    # Map field names from database to format expected by dashboard
     result = []
     for r in readings:
-        # Bezpieczna konwersja wartości
+        # Safe value conversion
         main_reading = None
         if r.odczyt_dom is not None:
             try:
@@ -135,13 +135,13 @@ def get_usage(
     data: str,
     db: Session = Depends(get_db)
 ):
-    """Pobiera obliczone zużycie dla danego okresu."""
+    """Gets calculated consumption for given period."""
     reading = db.query(ElectricityReading).filter(
         ElectricityReading.data == data
     ).first()
     
     if not reading:
-        raise HTTPException(status_code=404, detail=f"Brak odczytu dla okresu {data}")
+        raise HTTPException(status_code=404, detail=f"No reading for period {data}")
     
     previous = get_previous_reading(db, data)
     usage = calculate_all_usage(reading, previous)
@@ -154,15 +154,15 @@ def get_reading(
     data: str,
     db: Session = Depends(get_db)
 ):
-    """Pobiera odczyt dla konkretnego okresu."""
+    """Gets reading for specific period."""
     reading = db.query(ElectricityReading).filter(
         ElectricityReading.data == data
     ).first()
     
     if not reading:
-        raise HTTPException(status_code=404, detail=f"Brak odczytu dla okresu {data}")
+        raise HTTPException(status_code=404, detail=f"No reading for period {data}")
     
-    # Mapowanie nazw pól z bazy na format oczekiwany przez dashboard
+    # Map field names from database to format expected by dashboard
     return {
         "id": reading.id,
         "data": reading.data,
@@ -185,15 +185,15 @@ def update_reading(
     reading_data: ElectricityReadingCreate,
     db: Session = Depends(get_db)
 ):
-    """Aktualizuje odczyt dla danego okresu."""
+    """Updates reading for given period."""
     reading = db.query(ElectricityReading).filter(
         ElectricityReading.data == data
     ).first()
     
     if not reading:
-        raise HTTPException(status_code=404, detail=f"Brak odczytu dla okresu {data}")
+        raise HTTPException(status_code=404, detail=f"No reading for period {data}")
     
-    # Mapowanie nazw pól z dashboard na nazwy w bazie
+    # Map field names from dashboard to database names
     licznik_dom_jednotaryfowy = reading_data.is_main_meter_single_tariff
     odczyt_dom = reading_data.main_reading
     odczyt_dom_I = reading_data.main_reading_t1
@@ -206,7 +206,7 @@ def update_reading(
     
     odczyt_gabinet = reading_data.gabinet_reading or 0.0
     
-    # Walidacja danych
+    # Validate data
     if licznik_dom_jednotaryfowy:
         if odczyt_dom is None:
             raise HTTPException(status_code=400, detail="Brak odczytu_dom dla licznika jednotaryfowego")
@@ -229,7 +229,7 @@ def update_reading(
         if odczyt_dol is not None:
             raise HTTPException(status_code=400, detail="Nie można podać odczytu_dol dla licznika dwutaryfowego")
     
-    # Konwersja data_odczytu_licznika z stringa na date
+    # Convert data_odczytu_licznika from string to date
     data_odczytu_licznika = None
     if reading_data.data_odczytu_licznika:
         try:
@@ -237,7 +237,7 @@ def update_reading(
         except ValueError:
             raise HTTPException(status_code=400, detail="Nieprawidłowy format daty odczytu licznika. Oczekiwany format: YYYY-MM-DD")
     
-    # Aktualizuj odczyt
+    # Update reading
     reading.licznik_dom_jednotaryfowy = licznik_dom_jednotaryfowy
     reading.odczyt_dom = odczyt_dom
     reading.odczyt_dom_I = odczyt_dom_I
@@ -252,7 +252,7 @@ def update_reading(
     db.commit()
     db.refresh(reading)
     
-    # Zwróć zaktualizowany odczyt w formacie oczekiwanym przez dashboard
+    # Return updated reading in format expected by dashboard
     return {
         "id": reading.id,
         "data": reading.data,
@@ -287,7 +287,7 @@ def delete_reading(
     deleted_bills_count = len(bills)
     
     for bill in bills:
-        # Usuń plik PDF jeśli istnieje
+        # Delete PDF file if exists
         if hasattr(bill, 'pdf_path') and bill.pdf_path:
             from pathlib import Path
             if Path(bill.pdf_path).exists():
@@ -323,7 +323,7 @@ def create_reading(
     - dol_reading_t2 (odczyt_dol_II): Odczyt podlicznika DÓŁ - taryfa II (dwutaryfowy)
     - gabinet_reading (odczyt_gabinet): Odczyt podlicznika GABINET (zawsze jednotaryfowy)
     """
-    # Mapowanie nazw pól z dashboard na nazwy w bazie
+    # Map field names from dashboard to database names
     data = reading_data.data
     
     licznik_dom_jednotaryfowy = reading_data.is_main_meter_single_tariff
@@ -338,7 +338,7 @@ def create_reading(
     
     odczyt_gabinet = reading_data.gabinet_reading or 0.0
     
-    # Konwersja data_odczytu_licznika z stringa na date
+    # Convert data_odczytu_licznika from string to date
     data_odczytu_licznika = None
     if reading_data.data_odczytu_licznika:
         try:
@@ -346,7 +346,7 @@ def create_reading(
         except ValueError:
             raise HTTPException(status_code=400, detail="Nieprawidłowy format daty odczytu licznika. Oczekiwany format: YYYY-MM-DD")
     
-    # Sprawdź czy odczyt już istnieje
+    # Check if reading already exists
     existing = db.query(ElectricityReading).filter(
         ElectricityReading.data == data
     ).first()
@@ -354,7 +354,7 @@ def create_reading(
     if existing:
         raise HTTPException(status_code=400, detail=f"Odczyt dla okresu {data} już istnieje")
     
-    # Walidacja danych
+    # Validate data
     if licznik_dom_jednotaryfowy:
         if odczyt_dom is None:
             raise HTTPException(status_code=400, detail="Brak odczytu_dom dla licznika jednotaryfowego")
@@ -377,7 +377,7 @@ def create_reading(
         if odczyt_dol is not None:
             raise HTTPException(status_code=400, detail="Nie można podać odczytu_dol dla licznika dwutaryfowego")
     
-    # Utwórz odczyt
+    # Create reading
     reading = ElectricityReading(
         data=data,
         data_odczytu_licznika=data_odczytu_licznika,
@@ -405,7 +405,7 @@ def get_invoices(
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    """Pobiera listę faktur za prąd."""
+    """Gets list of electricity invoices."""
     invoices = db.query(ElectricityInvoice).offset(skip).limit(limit).all()
     return invoices
 
@@ -415,7 +415,7 @@ def get_invoice(
     data: str,
     db: Session = Depends(get_db)
 ):
-    """Pobiera fakturę dla konkretnego okresu."""
+    """Gets invoice for specific period."""
     invoice = db.query(ElectricityInvoice).filter(
         ElectricityInvoice.data == data
     ).first()
@@ -448,8 +448,8 @@ def create_invoice(
     payment_due_date: str = "",
     db: Session = Depends(get_db)
 ):
-    """Tworzy nową fakturę za prąd."""
-    # Sprawdź czy faktura już istnieje
+    """Creates new electricity invoice."""
+    # Check if invoice already exists
     existing = db.query(ElectricityInvoice).filter(
         ElectricityInvoice.data == data,
         ElectricityInvoice.invoice_number == invoice_number
@@ -526,7 +526,7 @@ async def parse_invoice(file: UploadFile = File(...), db: Session = Depends(get_
     if 'payment_due_date' in invoice_data and isinstance(invoice_data['payment_due_date'], datetime):
         invoice_data['payment_due_date'] = invoice_data['payment_due_date'].strftime('%Y-%m-%d')
     
-    # Usuń pomocnicze pola które nie są potrzebne w formularzu
+    # Remove helper fields that are not needed in the form
     invoice_data.pop('_raw_data', None)
     invoice_data.pop('_file_path', None)
     invoice_data.pop('_file_name', None)
@@ -583,7 +583,7 @@ def verify_and_save_invoice(
         'payment_due_date': payment_due_date
     }
     
-    # Zapisuj fakturę
+    # Save invoice
     try:
         invoice = save_invoice_after_verification(db, invoice_dict)
         return {
@@ -637,12 +637,12 @@ def get_bills(
         if bill.invoice_id:
             koszty_kwh = calculate_kwh_cost(bill.invoice_id, db)
             
-            # Znajdź blankiet dla okresu rachunku
+            # Find blankiet for bill period
             from app.services.electricity.manager import ElectricityBillingManager
             manager = ElectricityBillingManager()
             blankiet = manager.find_blankiet_for_period(db, bill.invoice_id, bill.data)
             
-            # Pobierz fakturę, aby sprawdzić typ taryfy
+            # Get invoice to check tariff type
             invoice = db.query(ElectricityInvoice).filter(ElectricityInvoice.id == bill.invoice_id).first()
             
             if invoice:
@@ -655,9 +655,9 @@ def get_bills(
                     bill_dict["koszt_1kwh_nocna"] = None
                     bill_dict["koszt_1kwh_calodobowa"] = round(koszty_kwh.get("CAŁODOBOWA", {}).get("suma", 0), 4) if "CAŁODOBOWA" in koszty_kwh else None
                 
-                # Dodaj informacje o fakturze i blankiecie
+                # Add invoice and blankiet information
                 bill_dict["numer_faktury"] = invoice.numer_faktury
-                # Okres rozliczeniowy jako daty początku i końca faktury
+                # Billing period as invoice start and end dates
                 if invoice.data_poczatku_okresu and invoice.data_konca_okresu:
                     bill_dict["okres_rozliczeniowy"] = f"{invoice.data_poczatku_okresu.strftime('%d.%m.%Y')} - {invoice.data_konca_okresu.strftime('%d.%m.%Y')}"
                 else:
@@ -737,7 +737,7 @@ def update_bill(
     if not bill:
         raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
     
-    # Aktualizuj pola
+    # Update fields
     updatable_fields = [
         'usage_kwh', 'usage_kwh_dzienna', 'usage_kwh_nocna',
         'energy_cost_gross', 'distribution_cost_gross',
@@ -771,12 +771,12 @@ def delete_bill(bill_id: int, db: Session = Depends(get_db)):
     if not bill:
         raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
     
-    # Usuń plik PDF jeśli istnieje
+    # Delete PDF file if exists
     if bill.pdf_path and Path(bill.pdf_path).exists():
         try:
             Path(bill.pdf_path).unlink()
         except Exception:
-            pass  # Ignoruj błędy usuwania pliku
+            pass  # Ignore file deletion errors
     
     period = bill.data
     local = bill.local
@@ -806,7 +806,7 @@ def delete_all_bills(db: Session = Depends(get_db)):
             try:
                 Path(bill.pdf_path).unlink()
             except Exception:
-                pass  # Ignoruj błędy usuwania pliku
+                pass  # Ignore file deletion errors
     
     # Usuń wszystkie rachunki z bazy
     for bill in bills:
@@ -822,7 +822,7 @@ def delete_all_bills(db: Session = Depends(get_db)):
 
 @router.get("/stats")
 def get_electricity_stats(db: Session = Depends(get_db)):
-    """Zwraca statystyki dla dashboardu prądu."""
+    """Returns statistics for electricity dashboard."""
     stats = {
         "readings_count": db.query(ElectricityReading).count(),
         "invoices_count": db.query(ElectricityInvoice).count(),
@@ -832,19 +832,19 @@ def get_electricity_stats(db: Session = Depends(get_db)):
         "available_periods": []
     }
     
-    # Najnowszy okres z odczytów
+    # Latest period from readings
     latest_reading = db.query(ElectricityReading).order_by(desc(ElectricityReading.data)).first()
     if latest_reading:
         stats["latest_period"] = latest_reading.data
     
-    # Suma brutto wszystkich rachunków
+    # Total gross sum of all bills
     total_sum = db.query(func.sum(ElectricityBill.total_gross_sum)).scalar()
     if total_sum:
         stats["total_gross_sum"] = float(total_sum)
     
-    # Okresy z rachunkami
+    # Periods with bills
     periods = db.query(ElectricityBill.data).distinct().order_by(desc(ElectricityBill.data)).all()
-    stats["available_periods"] = [p[0] for p in periods[:10]]  # Ostatnie 10
+    stats["available_periods"] = [p[0] for p in periods[:10]]  # Last 10
     
     return stats
 
@@ -852,47 +852,47 @@ def get_electricity_stats(db: Session = Depends(get_db)):
 @router.get("/available-periods")
 def get_available_periods(db: Session = Depends(get_db)):
     """
-    Zwraca okresy dostępne do generowania rachunków (mające zarówno faktury jak i odczyty).
+    Returns periods available for bill generation (having both invoices and readings).
     """
     from datetime import datetime, date
     
-    # Pobierz okresy z odczytów
+    # Get periods from readings
     reading_periods = set()
     readings = db.query(ElectricityReading.data).distinct().all()
     for r in readings:
         reading_periods.add(r.data)
     
-    # Pobierz wszystkie miesiące z okresów faktur i sprawdź czy mają odczyty
+    # Get all months from invoice periods and check if they have readings
     available_periods = set()
     invoices = db.query(ElectricityInvoice).all()
     
     for invoice in invoices:
-        # Dla każdego miesiąca w okresie faktury
+        # For each month in invoice period
         start = invoice.data_poczatku_okresu
         end = invoice.data_konca_okresu
         
-        # Upewnij się, że start jest pierwszym dniem miesiąca
+        # Ensure start is the first day of the month
         period_start = start.replace(day=1) if start.day != 1 else start
         
-        # Iteruj przez wszystkie miesiące w okresie faktury
+        # Iterate through all months in invoice period
         current = period_start
         while current <= end:
             period_str = current.strftime('%Y-%m')
             
-            # Sprawdź czy dla tego okresu jest odczyt
+            # Check if there is a reading for this period
             if period_str in reading_periods:
                 available_periods.add(period_str)
             
-            # Przejdź do następnego miesiąca
+            # Move to next month
             if current.month == 12:
                 current = current.replace(year=current.year + 1, month=1, day=1)
             else:
                 current = current.replace(month=current.month + 1, day=1)
     
-    # Okresy dostępne to te, które mają zarówno odczyty jak i faktury
+    # Available periods are those that have both readings and invoices
     available = sorted(available_periods, reverse=True)
     
-    # Pobierz wszystkie okresy z faktur (dla debugowania)
+    # Get all periods from invoices (for debugging)
     all_invoice_periods = set()
     for invoice in invoices:
         start = invoice.data_poczatku_okresu.replace(day=1) if invoice.data_poczatku_okresu.day != 1 else invoice.data_poczatku_okresu
@@ -905,7 +905,7 @@ def get_available_periods(db: Session = Depends(get_db)):
             else:
                 current = current.replace(month=current.month + 1, day=1)
     
-    # Okresy z faktur, ale bez odczytów (dla diagnostyki)
+    # Periods from invoices but without readings (for diagnostics)
     periods_without_readings = sorted(all_invoice_periods - reading_periods, reverse=True)
     
     return {
@@ -1007,7 +1007,7 @@ def get_invoice_detailed(
     if not invoice:
         raise HTTPException(status_code=404, detail=f"Faktura o ID {invoice_id} nie istnieje")
     
-    # Pobierz wszystkie powiązane dane
+    # Get all related data
     blankiety = db.query(ElectricityInvoiceBlankiet).filter(
         ElectricityInvoiceBlankiet.invoice_id == invoice_id
     ).all()
@@ -1657,7 +1657,7 @@ def update_invoice_detailed(
     """
     Aktualizuje szczegółową fakturę.
     """
-    # Znajdź fakturę
+    # Find invoice
     invoice = db.query(ElectricityInvoice).filter(ElectricityInvoice.id == invoice_id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Faktura nie znaleziona")
@@ -1689,7 +1689,7 @@ def update_invoice_detailed(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Błędny format daty: {e}")
     
-    # Aktualizuj główne pola faktury
+    # Update main invoice fields
     invoice.rok = int(invoice_data.get('rok', invoice.rok))
     invoice.numer_faktury = invoice_data.get('numer_faktury', invoice.numer_faktury)
     invoice.data_wystawienia = data_wystawienia
@@ -2118,7 +2118,7 @@ def update_blankiet(
     if blankiet_data.get('termin_platnosci'):
         blankiet.termin_platnosci = datetime.strptime(blankiet_data['termin_platnosci'], "%Y-%m-%d").date()
     
-    # Aktualizuj pola
+    # Update fields
     if 'numer_blankietu' in blankiet_data:
         blankiet.numer_blankietu = blankiet_data['numer_blankietu']
     if 'ilosc_dzienna_kwh' in blankiet_data:

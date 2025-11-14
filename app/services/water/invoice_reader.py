@@ -1,6 +1,6 @@
 """
-Moduł wczytywania i parsowania faktur PDF od dostawcy mediów.
-Wczytuje dane z plików PDF w folderze invoices_raw/.
+PDF invoice loading and parsing module for utility provider.
+Loads data from PDF files in invoices_raw/ folder.
 """
 
 import os
@@ -15,14 +15,14 @@ from app.models.water import Invoice, Reading
 
 def parse_period_from_filename(filename: str) -> Optional[str]:
     """
-    Wyciąga okres rozliczeniowy z nazwy pliku.
+    Extracts billing period from filename.
     Format: invoice__2025_02.pdf -> '2025-02'
     
     Args:
-        filename: Nazwa pliku
+        filename: Filename
     
     Returns:
-        Okres w formacie 'YYYY-MM' lub None
+        Period in 'YYYY-MM' format or None
     """
     match = re.search(r'(\d{4})[_-](\d{2})', filename)
     if match:
@@ -33,34 +33,34 @@ def parse_period_from_filename(filename: str) -> Optional[str]:
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     """
-    Wyciąga tekst z pliku PDF - wszystkie strony i wszystkie znaki.
-    Używa dodatkowych opcji, aby wyciągnąć także tekst z tabel i innych elementów.
+    Extracts text from PDF file - all pages and all characters.
+    Uses additional options to extract text from tables and other elements.
     
     Args:
-        pdf_path: Ścieżka do pliku PDF
+        pdf_path: Path to PDF file
     
     Returns:
-        Wszystki tekst z pliku PDF
+        All text from PDF file
     """
     text = ""
     try:
         with pdfplumber.open(pdf_path) as pdf:
             for i, page in enumerate(pdf.pages, 1):
-                # Wyciągnij tekst podstawowy
+                # Extract basic text
                 page_text = page.extract_text() or ""
                 
-                # Spróbuj też wyciągnąć tabele (mogą zawierać dane o odczytach liczników)
+                # Try to extract tables (may contain meter reading data)
                 try:
                     tables = page.extract_tables()
                     if tables:
-                        # Dodaj dane z tabel do tekstu
+                        # Add table data to text
                         for table in tables:
                             for row in table:
                                 if row:
                                     row_text = " ".join([str(cell) if cell else "" for cell in row])
                                     page_text += " " + row_text
                 except Exception:
-                    pass  # Jeśli nie da się wyciągnąć tabel, kontynuuj
+                    pass  # If tables cannot be extracted, continue
                 
                 text += page_text + "\n"
         
@@ -71,82 +71,90 @@ def extract_text_from_pdf(pdf_path: str) -> str:
 
 def parse_invoice_data(text: str) -> Optional[Dict]:
     """
-    Parsuje dane z faktury na podstawie tekstu PDF.
-    To jest przykładowa implementacja - może wymagać dostosowania do konkretnego formatu faktur.
+    Parses invoice data from PDF text.
+    This is a sample implementation - may require adjustment for specific invoice format.
     
     Args:
-        text: Tekst z pliku PDF
+        text: Text from PDF file
     
     Returns:
-        Słownik z danymi faktury lub None
+        Dictionary with invoice data or None
     """
     data = {}
     
-    # Wyszukaj numer faktury (format: R14/08/002163, RP18/07/003594, FRP19/08/028241, FRP/22/04/018327)
+    # Search for invoice number (format: R14/08/002163, RP18/07/003594, FRP19/08/028241, FRP/22/04/018327)
     invoice_match = re.search(r'(?:FRP|RP|R)/?\d{2}/\d{2}/\d{6}', text, re.IGNORECASE)
     if invoice_match:
         data['invoice_number'] = invoice_match.group(0)
     else:
-        # Szukaj z prefiksem tekstowym (Nr:, numer:, faktury:, etc.)
+        # Search with text prefix (Nr:, numer:, faktury:, etc.)
         invoice_match = re.search(r'(?:FRP|RP|Nr|numer|faktury|invoice)[\s:]*((?:FRP|RP|R)/?\d{2}/\d{2}/\d{6})', text, re.IGNORECASE)
         if invoice_match:
             data['invoice_number'] = invoice_match.group(1)
         else:
-            # Szukaj różnych wzorców (fallback)
+            # Search various patterns (fallback)
             invoice_match = re.search(r'(?:Faktura|Invoice)\s+(?:nr\s+)?([A-Z0-9/-]+)', text, re.IGNORECASE)
             if invoice_match:
                 data['invoice_number'] = invoice_match.group(1)
     
-    # Wyszukaj pozycje wody - szukaj w tabeli z pozycjami faktury
-    # Format w tabeli: "Woda m3 [zużycie] [cena_za_m3] [wartość_netto] [vat%]"
-    # Problem: może być wiele dopasowań, więc szukamy w kontekście tabeli
+    # Search for water items - search in invoice items table
+    # Format in table: "Woda m3 [consumption] [price_per_m3] [net_value] [vat%]"
+    # Problem: there may be multiple matches, so we search in table context
     
-    # Najpierw znajdź sekcję z pozycjami faktury (przed tabelą VAT)
-    items_section = re.search(r'(?:Pozycje|Pozycja|Woda|Ścieki).*?(?:Wartość\s+Netto|Razem|Suma|VAT)', text, re.IGNORECASE | re.DOTALL)
-    search_text = items_section.group(0) if items_section else text
+    # First find invoice items section (before VAT table)
+    # Szukaj pierwszej sekcji z pozycjami (aby uniknąć duplikatów z różnych stron)
+    # Format faktury: "Usługa Jedn. miary Ilość Cena Netto Wartość Netto Stawka VAT" ... pozycje ... "Abonament"
+    # Szukamy sekcji od "Usługa" do "Abonament" (lub do końca jeśli nie ma abonamentu)
+    # Uwaga: znak "ł" może być zniekształcony w PDF (np. "Usuga" zamiast "Usługa")
+    # Wzorzec: "Us" + opcjonalny znak (może być zniekształcony "ł") + "uga"
+    # Szukamy sekcji od "Usługa" do końca pozycji abonamentu (przed tabelą VAT)
+    # Tabela VAT zaczyna się od "Wartość Netto Stawka VAT" PO pozycjach abonamentu
+    items_section = re.search(r'Us[^\s]?uga.*?Jedn\.\s+miary.*?Abonament.*?(?=Wartość\s+Netto\s+Stawka\s+VAT|Szczeg|Suma|Razem|$)', text, re.IGNORECASE | re.DOTALL)
+    if items_section:
+        search_text = items_section.group(0)
+    else:
+        # Fallback: znajdź "Us" + opcjonalny znak + "uga" i weź następne 2000 znaków
+        usluga_match = re.search(r'Us[^\s]?uga', text, re.IGNORECASE)
+        if usluga_match:
+            usluga_pos = usluga_match.start()
+            search_text = text[usluga_pos:usluga_pos+2000]
+        else:
+            # Jeśli nie znaleziono sekcji, użyj pierwszych 3000 znaków (gdzie zwykle są pozycje)
+            search_text = text[:3000]
     
-    # Wyszukaj wszystkie pozycje wody - bardziej precyzyjny wzorzec
-    # Format: "Woda m3 29,00 4,70 136,30 8%" (bez spacji przed liczbami w niektórych fakturach)
+    # Search all water items - more precise pattern
+    # Format: "Woda m3 29,00 4,70 136,30 8%" (without spaces before numbers in some invoices)
     water_pattern = r'Woda\s+m3\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)\s+\d+%?'
     water_matches = re.findall(water_pattern, search_text, re.IGNORECASE)
     
     if water_matches:
-        # Jeśli jest wiele dopasowań, użyj tylko pierwszego (lub największego zużycia jako głównego)
-        # Często pierwsze dopasowanie to właściwa pozycja
-        if len(water_matches) > 1:
-            # Wybierz dopasowanie z największym zużyciem (zazwyczaj to główna pozycja)
-            water_matches = sorted(water_matches, key=lambda x: float(x[0].replace(',', '.')), reverse=True)
+        # Usuń duplikaty - grupowanie po wartości netto (unikalne kombinacje: zużycie, cena, wartość)
+        unique_water_items = {}
+        for match in water_matches:
+            usage = float(match[0].replace(',', '.'))
+            price = float(match[1].replace(',', '.'))
+            value = float(match[2].replace(',', '.'))
+            # Użyj wartości netto jako klucza (unikalna kombinacja)
+            key = (usage, price, value)
+            if key not in unique_water_items:
+                unique_water_items[key] = (usage, price, value)
         
-        # Użyj pierwszego (największego) dopasowania
-        match = water_matches[0]
-        usage = float(match[0].replace(',', '.'))
-        price = float(match[1].replace(',', '.'))
-        value = float(match[2].replace(',', '.'))
+        # Sumuj zużycie i oblicz średnią ważoną cenę (obsługa zmiany taryfy w jednej fakturze)
+        # Format: "Woda m3 [zużycie] [cena/m³] [wartość netto] [VAT%]"
+        total_water_usage = 0.0
+        total_water_value = 0.0
         
-        # Jeśli są inne dopasowania, sumuj tylko jeśli są sensowne (nie za duże)
-        # Często duplikaty to błędy parsowania
-        if len(water_matches) > 1:
-            # Sprawdź czy inne dopasowania są podobne (może być kilka pozycji z różnymi stawkami)
-            for other_match in water_matches[1:]:
-                other_usage = float(other_match[0].replace(',', '.'))
-                # Jeśli zużycie jest rozsądne (nie jest 4x większe niż pierwsze), dodaj
-                if other_usage < usage * 4:  # Heurystyka: unikaj błędnych dopasowań
-                    usage += other_usage
-                    value += float(other_match[2].replace(',', '.'))
+        for usage, price, value in unique_water_items.values():
+            total_water_usage += usage
+            total_water_value += value
         
-        # Oblicz cenę za m³ (jeśli zużycie > 0, użyj wartości/zużycie, inaczej cenę z faktury)
-        if usage > 0:
-            calculated_price = value / usage
-            # Użyj ceny z faktury jeśli jest bardzo podobna, inaczej obliczoną
-            if abs(calculated_price - price) < 0.1:
-                avg_price = price
-            else:
-                avg_price = calculated_price
-        else:
-            avg_price = price
+        # Średnia ważona cena (całkowita wartość / całkowite zużycie)
+        # To obsługuje sytuację, gdy w jednej fakturze są 2x pozycje wody z różnymi cenami
+        # (np. zmiana taryfy w trakcie okresu rozliczeniowego)
+        avg_water_price = total_water_value / total_water_usage if total_water_usage > 0 else 0.0
         
-        data['usage'] = usage
-        data['water_cost_m3'] = avg_price
+        data['usage'] = total_water_usage
+        data['water_cost_m3'] = avg_water_price
     else:
         # Fallback - stary sposób szukania
         usage_match = re.search(r'(?:zużycie|usage|Zużycie|Ilość\s+do\s+rozliczenia)\s*:?\s*(\d+[.,]\d+)\s*m[³3]', text, re.IGNORECASE)
@@ -161,17 +169,25 @@ def parse_invoice_data(text: str) -> Optional[Dict]:
     
     # Wyszukaj wszystkie pozycje ścieków (format: "Ścieki m3 8,10 4,70 38,07 8%")
     sewage_pattern = r'Ścieki\s+m3\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)\s+\d+%?'
-    sewage_matches = re.findall(sewage_pattern, text, re.IGNORECASE)
+    sewage_matches = re.findall(sewage_pattern, search_text, re.IGNORECASE)
     
     if sewage_matches:
-        # Sumuj zużycie i oblicz średnią ważoną cenę
-        total_sewage_usage = 0.0
-        total_sewage_value = 0.0
-        
+        # Usuń duplikaty - grupowanie po wartości netto (unikalne kombinacje: zużycie, cena, wartość)
+        unique_sewage_items = {}
         for match in sewage_matches:
             usage = float(match[0].replace(',', '.'))
             price = float(match[1].replace(',', '.'))
             value = float(match[2].replace(',', '.'))
+            # Użyj wartości netto jako klucza (unikalna kombinacja)
+            key = (usage, price, value)
+            if key not in unique_sewage_items:
+                unique_sewage_items[key] = (usage, price, value)
+        
+        # Sumuj zużycie i oblicz średnią ważoną cenę
+        total_sewage_usage = 0.0
+        total_sewage_value = 0.0
+        
+        for usage, price, value in unique_sewage_items.values():
             total_sewage_usage += usage
             total_sewage_value += value
         
@@ -240,79 +256,208 @@ def parse_invoice_data(text: str) -> Optional[Dict]:
         # Używamy specjalnego klucza który zostanie usunięty przed utworzeniem Invoice
         data['_extracted_period'] = extracted_period
     
-    # Wyszukaj abonament
-    abonament_match = re.search(r'(\d+)\s*(?:miesięcy|months)', text, re.IGNORECASE)
-    if abonament_match:
-        data['nr_of_subscription'] = int(abonament_match.group(1))
-    else:
-        # Próba wyliczenia z dat
-        if 'period_start' in data and 'period_stop' in data:
-            delta = data['period_stop'] - data['period_start']
-            data['nr_of_subscription'] = max(1, int(delta.days / 30))
-        else:
-            data['nr_of_subscription'] = 2  # Domyślnie 2 miesiące
-    
-    # Wyszukaj koszty abonamentów - szukaj w sekcji z pozycjami faktury
+    # Wyszukaj koszty abonamentów - szukaj WSZYSTKICH pozycji abonamentu w fakturze
     # Format: "Abonament za wodę" lub "Abonament woda" + wartość
-    # Użyj tej samej sekcji co dla wody (search_text jest już zdefiniowany powyżej)
-    search_text_abonament = search_text
+    # Użyj większej sekcji - od "Usługa" do końca pozycji (włącznie z abonamentem)
+    # Abonament jest po pozycjach wody/ścieków, więc musimy szukać dalej
+    # Szukamy sekcji od "Usługa" do końca pozycji abonamentu (przed tabelą VAT)
+    # Tabela VAT zaczyna się od "Wartość Netto Stawka VAT" PO pozycjach abonamentu
+    # Uwaga: znak "ł" może być zniekształcony w PDF
+    abonament_section = re.search(r'Us[^\s]?uga.*?Jedn\.\s+miary.*?Abonament.*?(?=Wartość\s+Netto\s+Stawka\s+VAT|Szczeg|Suma|Razem|$)', text, re.IGNORECASE | re.DOTALL)
+    if abonament_section:
+        search_text_abonament = abonament_section.group(0)
+    else:
+        # Fallback: użyj search_text + następne 500 znaków (gdzie może być abonament)
+        usluga_match = re.search(r'Us[^\s]?uga', text, re.IGNORECASE)
+        if usluga_match:
+            usluga_pos = usluga_match.start()
+            search_text_abonament = text[usluga_pos:usluga_pos+2500]
+        else:
+            search_text_abonament = search_text
     
-    # Szukaj abonamentu wody - bardziej precyzyjny wzorzec
+    # Szukaj WSZYSTKICH pozycji abonamentu wody - użyj findall zamiast search
     # Format w tabeli może być różny:
-    # - "Abonament za wodę [liczba miesięcy] [cena za miesiąc] [wartość] [vat%]"
-    # - "Abonament Woda szt. [liczba miesięcy] [cena za miesiąc] [wartość] [vat%]"
-    # - "Abonament woda [liczba miesięcy] [cena za miesiąc] [wartość] [vat%]"
+    # - "Abonament Woda szt. [ilość] [cena] [wartość] [vat%]" - Format: "Abonament Woda szt. 1,00 12,83 12,83"
+    # - "Abonament za wodę [ilość] [cena] [wartość] [vat%]" - Format: "Abonament za wodę 1 12,83 12,83"
+    # - "Abonament za wodę [ilość] [cena] [wartość] [vat%]" - Format: "Abonament za wodę 2 45,00 90,00"
     abonament_water_patterns = [
-        r'Abonament\s+Woda\s+szt\.\s+\d+[.,]\d+\s+(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format: "Abonament Woda szt. 1,00 13,37 13,37"
-        r'Abonament\s+(?:za\s+)?wod[ęy]\s+(?:\d+\s+)?(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format: "Abonament za wodę 2 45,00 90,00"
-        r'Abonament\s+wodny\s+(?:\d+\s+)?(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format: "Abonament wodny 2 45,00 90,00"
-        r'abonament.*?woda.*?m[iesiącyec]+.*?(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format z liczbą miesięcy
+        r'Abonament\s+Woda\s+szt\.\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)',  # Format: "Abonament Woda szt. 1,00 12,83 12,83"
+        r'Abonament\s+(?:za\s+)?wod[ęy]\s+(\d+)\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)',  # Format: "Abonament za wodę 1 12,83 12,83"
+        r'Abonament\s+wodny\s+(\d+)\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)',  # Format: "Abonament wodny 1 12,83 12,83"
     ]
     
-    water_subscr_found = False
+    total_water_subscr_cost = 0.0
+    total_water_subscr_quantity = 0
+    
     for pattern in abonament_water_patterns:
-        abonament_water_match = re.search(pattern, search_text_abonament, re.IGNORECASE)
-        if abonament_water_match:
-            # Cena za miesiąc to pierwsza wartość w dopasowaniu
-            data['water_subscr_cost'] = float(abonament_water_match.group(1).replace(',', '.'))
-            water_subscr_found = True
+        water_matches = re.findall(pattern, search_text_abonament, re.IGNORECASE)
+        if water_matches:
+            # Usuń duplikaty - grupowanie po ilości i cenie
+            unique_abonament_water = {}
+            for match in water_matches:
+                quantity = int(float(match[0].replace(',', '.')))  # Ilość (1,00 -> 1)
+                price = float(match[1].replace(',', '.'))  # Cena za jednostkę
+                value = float(match[2].replace(',', '.'))  # Wartość całkowita
+                # Użyj ilości i ceny jako klucza (unikalna kombinacja)
+                key = (quantity, price)
+                if key not in unique_abonament_water:
+                    unique_abonament_water[key] = (quantity, price, value)
+            
+            # Dla każdej unikalnej pozycji: ilość × cena = wartość
+            for quantity, price, value in unique_abonament_water.values():
+                # Sprawdź czy wartość się zgadza (ilość × cena = wartość)
+                calculated_value = quantity * price
+                if abs(calculated_value - value) > 0.01:
+                    print(f"  [WARNING] Abonament woda: ilość × cena ({calculated_value:.2f}) != wartość ({value:.2f})")
+                
+                # Sumuj: ilość × cena dla każdej pozycji
+                total_water_subscr_cost += quantity * price
+                total_water_subscr_quantity += quantity
+                print(f"  [INFO] Znaleziono pozycję abonamentu wody: ilość={quantity}, cena={price:.2f}, wartość={value:.2f}")
             break
     
-    if not water_subscr_found:
-        # Fallback - szukaj w całym tekście, ale bardziej precyzyjnie
-        # Format: "Abonament" + "woda" + liczba (cena za miesiąc)
+    # Dodatkowe wzorce dla formatu "x1, 13,37" lub "x1 13,37"
+    # UWAGA: Musimy być ostrożni, aby nie znaleźć pozycji wody/ścieków (np. "Woda m3 7,00")
+    if total_water_subscr_cost == 0.0:
+        # Szukaj w całym tekście formatu "woda x1, 13,37" lub "woda x1 13,37"
+        # Ale NIE szukaj w kontekście "m3" (to są pozycje zużycia, nie abonament)
+        x_format_patterns = [
+            r'(?:abonament|Abonament).*?wod[ęy].*?[x×]\s*(\d+)[,\s]+(\d+[.,]\d+)',  # Format: "Abonament woda x1, 13,37"
+            r'wod[ęy].*?(?:abonament|Abonament).*?[x×]\s*(\d+)[,\s]+(\d+[.,]\d+)',  # Format: "woda Abonament x1, 13,37"
+        ]
+        for pattern in x_format_patterns:
+            x_matches = re.findall(pattern, text, re.IGNORECASE)
+            if x_matches:
+                # Usuń duplikaty
+                unique_x_matches = {}
+                for match in x_matches:
+                    quantity = int(match[0])
+                    price = float(match[1].replace(',', '.'))
+                    key = (quantity, price)
+                    if key not in unique_x_matches:
+                        unique_x_matches[key] = (quantity, price)
+                
+                for quantity, price in unique_x_matches.values():
+                    total_water_subscr_cost += quantity * price
+                    total_water_subscr_quantity += quantity
+                    print(f"  [INFO] Znaleziono abonament wody (format x): ilość={quantity}, cena={price:.2f}")
+                break
+    
+    if total_water_subscr_cost > 0:
+        # water_subscr_cost to SUMA wartości wszystkich pozycji (ilość × cena dla każdej pozycji)
+        # Przykład: Pozycja 1: 1×15=15, Pozycja 2: 1×15=15 → water_subscr_cost = 30
+        # Przykład: Pozycja 1: 1×12=12, Pozycja 2: 1×14=14 → water_subscr_cost = 26
+        data['water_subscr_cost'] = total_water_subscr_cost
+        print(f"  [INFO] Suma abonamentu wody (ilość × cena dla wszystkich pozycji): {data['water_subscr_cost']:.2f} zł")
+        print(f"  [INFO] Całkowita ilość pozycji: {total_water_subscr_quantity}")
+    else:
+        # Fallback - szukaj w całym tekście
         abonament_fallback = re.search(r'abonament.*?wod[ęy].*?(?:za\s+m[iesiącyec]+)?[:\s]+(\d+[.,]\d+)', text, re.IGNORECASE)
         if abonament_fallback:
             data['water_subscr_cost'] = float(abonament_fallback.group(1).replace(',', '.'))
         else:
             data['water_subscr_cost'] = 0.0
     
-    # Szukaj abonamentu ścieków
+    # Szukaj WSZYSTKICH pozycji abonamentu ścieków - użyj findall zamiast search
     # Format w tabeli może być różny:
-    # - "Abonament za ścieki [liczba miesięcy] [cena za miesiąc] [wartość] [vat%]"
-    # - "Abonament Ścieki szt. [liczba miesięcy] [cena za miesiąc] [wartość] [vat%]"
+    # - "Abonament Ścieki szt. [ilość] [cena] [wartość] [vat%]" - Format: "Abonament Ścieki szt. 1,00 26,89 26,89"
+    # - "Abonament za ścieki [ilość] [cena] [wartość] [vat%]" - Format: "Abonament za ścieki 1 26,89 26,89"
     abonament_sewage_patterns = [
-        r'Abonament\s+[ŚS]cieki\s+szt\.\s+\d+[.,]\d+\s+(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format: "Abonament Ścieki szt. 1,00 33,93 33,93"
-        r'Abonament\s+(?:za\s+)?ścieki\s+(?:\d+\s+)?(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format: "Abonament za ścieki 2 35,00 70,00"
-        r'abonament.*?ścieki.*?m[iesiącyec]+.*?(\d+[.,]\d+)\s+\d+[.,]\d+',  # Format z liczbą miesięcy
+        r'Abonament\s*[^\s]*cieki\s+szt\.\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)',  # Format: "Abonament Ścieki szt." lub "Abonamentcieki szt." (obsługa zniekształconych znaków i braku spacji)
+        r'Abonament\s+(?:za\s+)?[śŚS]cieki\s+(\d+)\s+(\d+[.,]\d+)\s+(\d+[.,]\d+)',  # Format: "Abonament za ścieki 1 26,89 26,89"
     ]
     
-    sewage_subscr_found = False
+    total_sewage_subscr_cost = 0.0
+    total_sewage_subscr_quantity = 0
+    
     for pattern in abonament_sewage_patterns:
-        abonament_sewage_match = re.search(pattern, search_text_abonament, re.IGNORECASE)
-        if abonament_sewage_match:
-            # Cena za miesiąc to pierwsza wartość w dopasowaniu
-            data['sewage_subscr_cost'] = float(abonament_sewage_match.group(1).replace(',', '.'))
-            sewage_subscr_found = True
+        sewage_matches = re.findall(pattern, search_text_abonament, re.IGNORECASE)
+        if sewage_matches:
+            # Usuń duplikaty - grupowanie po ilości i cenie
+            unique_abonament_sewage = {}
+            for match in sewage_matches:
+                quantity = int(float(match[0].replace(',', '.')))  # Ilość (1,00 -> 1)
+                price = float(match[1].replace(',', '.'))  # Cena za jednostkę
+                value = float(match[2].replace(',', '.'))  # Wartość całkowita
+                # Użyj ilości i ceny jako klucza (unikalna kombinacja)
+                key = (quantity, price)
+                if key not in unique_abonament_sewage:
+                    unique_abonament_sewage[key] = (quantity, price, value)
+            
+            # Dla każdej unikalnej pozycji: ilość × cena = wartość
+            for quantity, price, value in unique_abonament_sewage.values():
+                # Sprawdź czy wartość się zgadza (ilość × cena = wartość)
+                calculated_value = quantity * price
+                if abs(calculated_value - value) > 0.01:
+                    print(f"  [WARNING] Abonament ścieki: ilość × cena ({calculated_value:.2f}) != wartość ({value:.2f})")
+                
+                # Sumuj: ilość × cena dla każdej pozycji
+                total_sewage_subscr_cost += quantity * price
+                total_sewage_subscr_quantity += quantity
+                print(f"  [INFO] Znaleziono pozycję abonamentu ścieków: ilość={quantity}, cena={price:.2f}, wartość={value:.2f}, suma={total_sewage_subscr_cost:.2f}")
             break
     
-    if not sewage_subscr_found:
+    # Dodatkowe wzorce dla formatu "x1, 33,93" lub "x1 33,93"
+    # UWAGA: Musimy być ostrożni, aby nie znaleźć pozycji wody/ścieków (np. "Ścieki m3 7,00")
+    if total_sewage_subscr_cost == 0.0:
+        # Szukaj w całym tekście formatu "ścieki x1, 33,93" lub "ścieki x1 33,93"
+        # Ale NIE szukaj w kontekście "m3" (to są pozycje zużycia, nie abonament)
+        x_format_patterns = [
+            r'(?:abonament|Abonament).*?ścieki.*?[x×]\s*(\d+)[,\s]+(\d+[.,]\d+)',  # Format: "Abonament ścieki x1, 33,93"
+            r'ścieki.*?(?:abonament|Abonament).*?[x×]\s*(\d+)[,\s]+(\d+[.,]\d+)',  # Format: "ścieki Abonament x1, 33,93"
+        ]
+        for pattern in x_format_patterns:
+            x_matches = re.findall(pattern, text, re.IGNORECASE)
+            if x_matches:
+                # Usuń duplikaty
+                unique_x_matches = {}
+                for match in x_matches:
+                    quantity = int(match[0])
+                    price = float(match[1].replace(',', '.'))
+                    key = (quantity, price)
+                    if key not in unique_x_matches:
+                        unique_x_matches[key] = (quantity, price)
+                
+                for quantity, price in unique_x_matches.values():
+                    total_sewage_subscr_cost += quantity * price
+                    total_sewage_subscr_quantity += quantity
+                    print(f"  [INFO] Znaleziono abonament ścieków (format x): ilość={quantity}, cena={price:.2f}")
+                break
+    
+    if total_sewage_subscr_cost > 0:
+        # sewage_subscr_cost to SUMA wartości wszystkich pozycji (ilość × cena dla każdej pozycji)
+        # Przykład: Pozycja 1: 1×20=20, Pozycja 2: 1×20=20 → sewage_subscr_cost = 40
+        # Przykład: Pozycja 1: 1×18=18, Pozycja 2: 1×22=22 → sewage_subscr_cost = 40
+        data['sewage_subscr_cost'] = total_sewage_subscr_cost
+        print(f"  [INFO] Suma abonamentu ścieków (ilość × cena dla wszystkich pozycji): {data['sewage_subscr_cost']:.2f} zł")
+        print(f"  [INFO] Całkowita ilość pozycji: {total_sewage_subscr_quantity}")
+    else:
         # Fallback - szukaj w całym tekście
         abonament_sewage_fallback = re.search(r'abonament.*?ścieki.*?(?:za\s+m[iesiącyec]+)?[:\s]+(\d+[.,]\d+)', text, re.IGNORECASE)
         if abonament_sewage_fallback:
             data['sewage_subscr_cost'] = float(abonament_sewage_fallback.group(1).replace(',', '.'))
         else:
             data['sewage_subscr_cost'] = 0.0
+    
+    # Oblicz całkowitą ilość subskrypcji (suma ilości ze wszystkich pozycji)
+    # nr_of_subscription oznacza liczbę okresów rozliczeniowych (miesięcy), nie sumę pozycji
+    # Jeśli jest 1 abonament za wodę (ilość=1) i 1 abonament za ścieki (ilość=1), to jest 1 okres
+    # Używamy maksimum z ilości wody i ścieków (powinny być równe, ale na wypadek różnic)
+    if total_water_subscr_quantity > 0 or total_sewage_subscr_quantity > 0:
+        # Użyj maksimum z ilości wody i ścieków (powinny być równe)
+        nr_of_subscription = max(total_water_subscr_quantity, total_sewage_subscr_quantity)
+        data['nr_of_subscription'] = nr_of_subscription
+        print(f"  [INFO] Liczba okresów abonamentu (miesięcy): {data['nr_of_subscription']}")
+    else:
+        # Fallback - spróbuj z tekstu "X miesięcy"
+        abonament_match = re.search(r'(\d+)\s*(?:miesięcy|months)', text, re.IGNORECASE)
+        if abonament_match:
+            data['nr_of_subscription'] = int(abonament_match.group(1))
+            print(f"  [INFO] Znaleziono ilość abonamentu z tekstu 'X miesięcy': {data['nr_of_subscription']}")
+        else:
+            data['nr_of_subscription'] = 0  # Jeśli nie znaleziono, ustaw 0 (nie wymyślamy!)
+            print(f"  [WARNING] Nie znaleziono ilości abonamentu w fakturze!")
+            print(f"  [WARNING] Ustawiono: {data['nr_of_subscription']} (sprawdź ręcznie fakturę!)")
     
     # Wyszukaj sumę brutto
     # Format 1: Tabela z nagłówkiem "Wartość Netto Stawka VAT Kwota VAT Wartość Brutto"
@@ -411,10 +556,12 @@ def parse_invoice_data(text: str) -> Optional[Dict]:
         'vat', 'period_start', 'period_stop', 'gross_sum'
     ]
     
-    if all(field in data for field in required_fields):
-        return data
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        print(f"  [WARNING] Brakujące wymagane pola: {missing_fields}")
+        return None
     
-    return None
+    return data
 
 
 def load_invoice_from_pdf(db: Session, pdf_path: str, period: Optional[str] = None) -> Optional[Invoice]:
@@ -608,7 +755,7 @@ def load_invoices_from_folder(db: Session, folder_path: str = "invoices_raw") ->
 
 if __name__ == "__main__":
     from db import SessionLocal, init_db
-    from models import Invoice
+    from app.models.water import Invoice
     
     init_db()
     

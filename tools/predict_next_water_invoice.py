@@ -126,9 +126,9 @@ def predict_next_invoice():
                 else:
                     # Oblicz zużycie dla każdego lokalu
                     usage_gora = latest_reading.water_meter_5 - invoice_period_reading.water_meter_5
-                    usage_gabinet = latest_reading.water_meter_5b - invoice_period_reading.water_meter_5b
+                    usage_dol = latest_reading.water_meter_5b - invoice_period_reading.water_meter_5b
                     usage_main = latest_reading.water_meter_main - invoice_period_reading.water_meter_main
-                    usage_dol = usage_main - (usage_gora + usage_gabinet)
+                    usage_gabinet = usage_main - (usage_gora + usage_dol)
                     
                     predicted_usage = usage_main
                     

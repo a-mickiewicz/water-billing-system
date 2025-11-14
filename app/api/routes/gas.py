@@ -1,6 +1,6 @@
 """
-API endpoints dla gazu.
-Wszystkie endpointy mają prefix /api/gas/
+API endpoints for gas billing.
+All endpoints have prefix /api/gas/
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
@@ -19,15 +19,15 @@ from app.services.gas.bill_generator import generate_all_bills_for_period
 
 router = APIRouter(prefix="/api/gas", tags=["gas"])
 
-# Instancja managera
+# Manager instance
 gas_manager = GasBillingManager()
 
 
-# ========== ENDPOINTY FAKTUR GAZU ==========
+# ========== GAS INVOICE ENDPOINTS ==========
 
 @router.get("/invoices/", response_model=List[dict])
 def get_gas_invoices(db: Session = Depends(get_db)):
-    """Pobiera listę wszystkich faktur gazu."""
+    """Gets list of all gas invoices."""
     invoices = db.query(GasInvoice).order_by(desc(GasInvoice.data)).all()
     return [{
         "id": i.id,
@@ -45,11 +45,11 @@ def create_gas_invoice(
     db: Session = Depends(get_db)
 ):
     """
-    Dodaje fakturę gazu ręcznie do bazy danych.
-    Akceptuje JSON body z danymi faktury.
-    Jeśli podane są tylko wartości brutto, automatycznie oblicza wartości netto i VAT (zakładając VAT 23%).
+    Adds gas invoice manually to database.
+    Accepts JSON body with invoice data.
+    If only gross values are provided, automatically calculates net values and VAT (assuming 23% VAT).
     """
-    # Wyciągnij dane z dict
+    # Extract data from dict
     data = invoice_data.get('data')
     period_start = invoice_data.get('period_start')
     period_stop = invoice_data.get('period_stop')
@@ -59,65 +59,65 @@ def create_gas_invoice(
     total_gross_sum = invoice_data.get('total_gross_sum')
     vat_rate = invoice_data.get('vat_rate', 0.23)
     
-    # Wartości brutto (z formularza)
+    # Gross values (from form)
     fuel_value_gross = invoice_data.get('fuel_value_gross', 0.0)
     subscription_value_gross = invoice_data.get('subscription_value_gross', 0.0)
     distribution_fixed_value_gross = invoice_data.get('distribution_fixed_value_gross', 0.0)
     distribution_variable_value_gross = invoice_data.get('distribution_variable_value_gross', 0.0)
     
-    # Walidacja wymaganych pól
+    # Validate required fields
     if not all([data, period_start, period_stop, previous_reading is not None, current_reading is not None, 
                 invoice_number, total_gross_sum is not None]):
-        raise HTTPException(status_code=400, detail="Brakuje wymaganych pól")
+        raise HTTPException(status_code=400, detail="Missing required fields")
     
     try:
         period_start_date = datetime.strptime(period_start, "%Y-%m-%d").date()
         period_stop_date = datetime.strptime(period_stop, "%Y-%m-%d").date()
     except (ValueError, TypeError):
         try:
-            # Spróbuj też format z formularza HTML (YYYY-MM-DD)
+            # Try HTML form format (YYYY-MM-DD)
             if isinstance(period_start, str) and len(period_start) == 10:
                 period_start_date = datetime.strptime(period_start, "%Y-%m-%d").date()
                 period_stop_date = datetime.strptime(period_stop, "%Y-%m-%d").date()
             else:
-                raise HTTPException(status_code=400, detail="Nieprawidłowy format daty. Użyj YYYY-MM-DD")
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
         except:
-            raise HTTPException(status_code=400, detail="Nieprawidłowy format daty. Użyj YYYY-MM-DD")
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     
-    # Oblicz wartości netto i VAT z wartości brutto (jeśli nie podane)
+    # Calculate net values and VAT from gross values (if not provided)
     def calculate_net_from_gross(gross_value, vat):
-        """Oblicza wartość netto z brutto i VAT."""
+        """Calculates net value from gross and VAT."""
         if gross_value == 0:
             return 0.0, 0.0
         net_value = round(gross_value / (1 + vat), 2)
         vat_amount = round(gross_value - net_value, 2)
         return net_value, vat_amount
     
-    # Oblicz brakujące wartości dla paliwa
+    # Calculate missing values for fuel
     fuel_value_net = invoice_data.get('fuel_value_net')
     fuel_vat_amount = invoice_data.get('fuel_vat_amount')
     if fuel_value_net is None or fuel_vat_amount is None:
         fuel_value_net, fuel_vat_amount = calculate_net_from_gross(fuel_value_gross, vat_rate)
     
-    # Oblicz brakujące wartości dla abonamentu
+    # Calculate missing values for subscription
     subscription_value_net = invoice_data.get('subscription_value_net')
     subscription_vat_amount = invoice_data.get('subscription_vat_amount')
     if subscription_value_net is None or subscription_vat_amount is None:
         subscription_value_net, subscription_vat_amount = calculate_net_from_gross(subscription_value_gross, vat_rate)
     
-    # Oblicz brakujące wartości dla dystrybucji stałej
+    # Calculate missing values for fixed distribution
     distribution_fixed_price_net = invoice_data.get('distribution_fixed_price_net', 0.0)
     distribution_fixed_vat_amount = invoice_data.get('distribution_fixed_vat_amount')
     if distribution_fixed_vat_amount is None:
         _, distribution_fixed_vat_amount = calculate_net_from_gross(distribution_fixed_value_gross, vat_rate)
     
-    # Oblicz brakujące wartości dla dystrybucji zmiennej
+    # Calculate missing values for variable distribution
     distribution_variable_price_net = invoice_data.get('distribution_variable_price_net', 0.0)
     distribution_variable_vat_amount = invoice_data.get('distribution_variable_vat_amount')
     if distribution_variable_vat_amount is None:
         _, distribution_variable_vat_amount = calculate_net_from_gross(distribution_variable_value_gross, vat_rate)
     
-    # Pobierz lub ustaw domyślne wartości dla pozostałych pól
+    # Get or set default values for remaining fields
     fuel_usage_m3 = invoice_data.get('fuel_usage_m3')
     if fuel_usage_m3 is None:
         fuel_usage_m3 = round(float(current_reading) - float(previous_reading), 2)
@@ -128,7 +128,7 @@ def create_gas_invoice(
     
     subscription_quantity = invoice_data.get('subscription_quantity')
     if subscription_quantity is None:
-        # Domyślnie 2 miesiące dla faktury dwumiesięcznej
+        # Default 2 months for bi-monthly invoice
         subscription_quantity = 2
     subscription_quantity = int(subscription_quantity)
     
@@ -140,23 +140,23 @@ def create_gas_invoice(
     
     distribution_fixed_quantity = invoice_data.get('distribution_fixed_quantity')
     if distribution_fixed_quantity is None:
-        # Domyślnie 2 miesiące dla faktury dwumiesięcznej
+        # Default 2 months for bi-monthly invoice
         distribution_fixed_quantity = 2
     distribution_fixed_quantity = int(distribution_fixed_quantity)
     
     if distribution_fixed_price_net == 0 and distribution_fixed_quantity > 0:
-        # Oblicz cenę netto z wartości brutto
+        # Calculate net price from gross value
         distribution_fixed_net_value, _ = calculate_net_from_gross(distribution_fixed_value_gross, vat_rate)
         distribution_fixed_price_net = round(distribution_fixed_net_value / distribution_fixed_quantity, 2) if distribution_fixed_quantity > 0 else 0.0
     
     distribution_variable_quantity = invoice_data.get('distribution_variable_quantity')
     if distribution_variable_quantity is None:
-        # Domyślnie 2 miesiące dla faktury dwumiesięcznej
+        # Default 2 months for bi-monthly invoice
         distribution_variable_quantity = 2
     distribution_variable_quantity = int(distribution_variable_quantity)
     
     if distribution_variable_price_net == 0 and distribution_variable_quantity > 0:
-        # Oblicz cenę netto z wartości brutto
+        # Calculate net price from gross value
         distribution_variable_net_value, _ = calculate_net_from_gross(distribution_variable_value_gross, vat_rate)
         distribution_variable_price_net = round(distribution_variable_net_value / distribution_variable_quantity, 2) if distribution_variable_quantity > 0 else 0.0
     
@@ -197,7 +197,7 @@ def create_gas_invoice(
     db.refresh(new_invoice)
     
     return {
-        "message": "Faktura gazu dodana",
+        "message": "Gas invoice added",
         "id": new_invoice.id,
         "invoice_number": new_invoice.invoice_number,
         "data": new_invoice.data
@@ -210,12 +210,12 @@ async def parse_gas_invoice(
     db: Session = Depends(get_db)
 ):
     """
-    Parsuje fakturę PDF i zwraca dane do weryfikacji.
-    NIE zapisuje do bazy danych!
+    Parses invoice PDF and returns data for verification.
+    Does NOT save to database!
     """
     from app.services.gas.invoice_reader import load_invoice_from_pdf
     
-    # Zapisuj plik tymczasowo
+    # Save file temporarily
     upload_folder = Path("invoices_raw/gas")
     upload_folder.mkdir(parents=True, exist_ok=True)
     
@@ -225,13 +225,13 @@ async def parse_gas_invoice(
         content = await file.read()
         f.write(content)
     
-    # Parsuj fakturę
+    # Parse invoice
     invoice_data = load_invoice_from_pdf(db, str(file_path))
     
     if not invoice_data:
-        raise HTTPException(status_code=400, detail="Nie udało się sparsować faktury. Sprawdź format pliku.")
+        raise HTTPException(status_code=400, detail="Failed to parse invoice. Check file format.")
     
-    # Konwertuj daty na stringi dla JSON (dashboard oczekuje formatu YYYY-MM-DD)
+    # Convert dates to strings for JSON (dashboard expects YYYY-MM-DD format)
     if 'period_start' in invoice_data and invoice_data['period_start']:
         if isinstance(invoice_data['period_start'], datetime):
             invoice_data['period_start'] = invoice_data['period_start'].strftime('%Y-%m-%d')
@@ -250,7 +250,7 @@ async def parse_gas_invoice(
         elif hasattr(invoice_data['payment_due_date'], 'isoformat'):
             invoice_data['payment_due_date'] = invoice_data['payment_due_date'].isoformat()
     
-    # Zwróć sparsowane dane (bez message i file_path - dashboard oczekuje bezpośrednio danych)
+    # Return parsed data (without message and file_path - dashboard expects data directly)
     return invoice_data
 
 
@@ -260,20 +260,20 @@ def verify_and_save_gas_invoice(
     db: Session = Depends(get_db)
 ):
     """
-    Zapisuje fakturę gazu po weryfikacji przez użytkownika.
-    Wywoływane z dashboardu po zatwierdzeniu.
+    Saves gas invoice after user verification.
+    Called from dashboard after confirmation.
     """
     from app.services.gas.invoice_reader import save_invoice_after_verification
     
     try:
-        # Zapisz fakturę
+        # Save invoice
         invoice = save_invoice_after_verification(db, invoice_data)
         
         if not invoice:
-            raise HTTPException(status_code=400, detail="Błąd zapisu faktury")
+            raise HTTPException(status_code=400, detail="Error saving invoice")
         
         return {
-            "message": "Faktura gazu zapisana",
+            "message": "Gas invoice saved",
             "id": invoice.id,
             "invoice_number": invoice.invoice_number,
             "data": invoice.data
@@ -284,34 +284,34 @@ def verify_and_save_gas_invoice(
         import traceback
         error_details = traceback.format_exc()
         print(f"[ERROR] Błąd zapisu faktury gazu: {error_details}")
-        raise HTTPException(status_code=500, detail=f"Błąd zapisu faktury: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error saving invoice: {str(e)}")
 
 
-# ========== ENDPOINTY RACHUNKÓW GAZU ==========
+# ========== GAS BILL ENDPOINTS ==========
 
 @router.get("/bills/", response_model=List[dict])
 def get_gas_bills(db: Session = Depends(get_db)):
-    """Pobiera listę wszystkich rachunków gazu."""
+    """Gets list of all gas bills."""
     bills = db.query(GasBill).order_by(desc(GasBill.data)).all()
     return [{
         "id": b.id,
         "data": b.data,
         "local": b.local,
         "cost_share": b.cost_share,
-        # Użyj wartości z bazy danych (zaktualizowane przez generator PDF)
+        # Use values from database (updated by PDF generator)
         "fuel_cost_gross": b.fuel_cost_gross,
         "subscription_cost_gross": b.subscription_cost_gross,
         "distribution_fixed_cost_gross": b.distribution_fixed_cost_gross,
         "distribution_variable_cost_gross": b.distribution_variable_cost_gross,
         "total_net_sum": b.total_net_sum,
-        "total_gross_sum": b.total_gross_sum,  # Ostateczna kwota brutto do zapłaty (z uwzględnieniem odsetek dla gora)
+        "total_gross_sum": b.total_gross_sum,  # Final gross amount to pay (including interest for gora)
         "pdf_path": b.pdf_path
     } for b in bills]
 
 
 @router.get("/bills/period/{period}", response_model=List[dict])
 def get_gas_bills_for_period(period: str, db: Session = Depends(get_db)):
-    """Pobiera rachunki gazu dla danego okresu."""
+    """Gets gas bills for given period."""
     bills = db.query(GasBill).filter(GasBill.data == period).all()
     return [{
         "id": b.id,
@@ -324,34 +324,34 @@ def get_gas_bills_for_period(period: str, db: Session = Depends(get_db)):
 @router.post("/bills/generate/{period}")
 def generate_gas_bills(period: str, db: Session = Depends(get_db)):
     """
-    Generuje rachunki gazu dla danego okresu.
-    Wymaga obecności faktury dla tego okresu.
+    Generates gas bills for given period.
+    Requires invoice for this period.
     """
     try:
-        # Sprawdź czy rachunki już istnieją
+        # Check if bills already exist
         existing = db.query(GasBill).filter(GasBill.data == period).first()
         if existing:
-            return {"message": f"Rachunki dla okresu {period} już istnieją. Użyj /api/gas/bills/regenerate/{period}"}
+            return {"message": f"Bills for period {period} already exist. Use /api/gas/bills/regenerate/{period}"}
         
-        # Wygeneruj rachunki
+        # Generate bills
         bills = gas_manager.generate_bills_for_period(db, period)
         
-        # Odśwież sesję, aby mieć aktualne obiekty z bazy danych
+        # Refresh session to have current objects from database
         db.flush()
         
-        # Wygeneruj pliki PDF
+        # Generate PDF files
         try:
             pdf_files = generate_all_bills_for_period(db, period)
         except Exception as pdf_error:
-            # Loguj błąd, ale nie przerywaj - rachunki są już wygenerowane
+            # Log error but don't interrupt - bills are already generated
             import traceback
             error_details = traceback.format_exc()
-            print(f"[ERROR] Błąd podczas generowania PDF dla okresu {period}: {pdf_error}")
+            print(f"[ERROR] Error generating PDF for period {period}: {pdf_error}")
             print(error_details)
             pdf_files = []
         
         return {
-            "message": "Rachunki gazu wygenerowane",
+            "message": "Gas bills generated",
             "period": period,
             "bills_count": len(bills),
             "pdfs_generated": len(pdf_files),
@@ -364,13 +364,13 @@ def generate_gas_bills(period: str, db: Session = Depends(get_db)):
 @router.post("/bills/generate-pdf/{period}")
 def generate_gas_bills_pdf(period: str, db: Session = Depends(get_db)):
     """
-    Generuje pliki PDF dla istniejących rachunków gazu danego okresu.
-    Przydatne gdy rachunki już istnieją, ale nie mają wygenerowanych PDF.
+    Generates PDF files for existing gas bills of given period.
+    Useful when bills already exist but don't have generated PDFs.
     """
     try:
         pdf_files = generate_all_bills_for_period(db, period)
         return {
-            "message": "Pliki PDF wygenerowane",
+            "message": "PDF files generated",
             "period": period,
             "pdfs_generated": len(pdf_files)
         }
@@ -379,41 +379,41 @@ def generate_gas_bills_pdf(period: str, db: Session = Depends(get_db)):
         error_details = traceback.format_exc()
         print(f"[ERROR] Błąd podczas generowania PDF dla okresu {period}: {e}")
         print(error_details)
-        raise HTTPException(status_code=500, detail=f"Błąd generowania PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating PDF: {str(e)}")
 
 
 @router.post("/bills/regenerate/{period}")
 def regenerate_gas_bills(period: str, db: Session = Depends(get_db)):
-    """Ponownie generuje rachunki gazu dla danego okresu."""
-    # Usuń stare rachunki
+    """Regenerates gas bills for given period."""
+    # Delete old bills
     bills = db.query(GasBill).filter(GasBill.data == period).all()
     for bill in bills:
-        # Usuń plik PDF jeśli istnieje
+        # Delete PDF file if exists
         if bill.pdf_path and Path(bill.pdf_path).exists():
             Path(bill.pdf_path).unlink()
         db.delete(bill)
     db.commit()
     
     try:
-        # Wygeneruj nowe rachunki
+        # Generate new bills
         bills = gas_manager.generate_bills_for_period(db, period)
         
-        # Odśwież sesję, aby mieć aktualne obiekty z bazy danych
+        # Refresh session to have current objects from database
         db.flush()
         
-        # Wygeneruj pliki PDF
+        # Generate PDF files
         try:
             pdf_files = generate_all_bills_for_period(db, period)
         except Exception as pdf_error:
-            # Loguj błąd, ale nie przerywaj - rachunki są już wygenerowane
+            # Log error but don't interrupt - bills are already generated
             import traceback
             error_details = traceback.format_exc()
-            print(f"[ERROR] Błąd podczas generowania PDF dla okresu {period}: {pdf_error}")
+            print(f"[ERROR] Error generating PDF for period {period}: {pdf_error}")
             print(error_details)
             pdf_files = []
         
         return {
-            "message": "Rachunki gazu ponownie wygenerowane",
+            "message": "Gas bills regenerated",
             "period": period,
             "bills_count": len(bills),
             "pdfs_generated": len(pdf_files),
@@ -425,32 +425,32 @@ def regenerate_gas_bills(period: str, db: Session = Depends(get_db)):
 
 @router.get("/bills/download/{bill_id}")
 def download_gas_bill(bill_id: int, db: Session = Depends(get_db)):
-    """Pobiera plik PDF rachunku gazu."""
+    """Downloads gas bill PDF file."""
     from app.services.gas.bill_generator import generate_bill_pdf
     
     bill = db.query(GasBill).filter(GasBill.id == bill_id).first()
     
     if not bill:
-        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+        raise HTTPException(status_code=404, detail="Bill not found")
     
     if not bill.pdf_path or not Path(bill.pdf_path).exists():
-        # Wygeneruj plik jeśli nie istnieje
+        # Generate file if it doesn't exist
         try:
             bill.pdf_path = generate_bill_pdf(db, bill)
             db.commit()
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Nie można wygenerować pliku PDF: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Cannot generate PDF file: {str(e)}")
     
     return FileResponse(bill.pdf_path, media_type="application/pdf")
 
 
 @router.get("/bills/{bill_id}")
 def get_gas_bill(bill_id: int, db: Session = Depends(get_db)):
-    """Pobiera pojedynczy rachunek gazu po ID."""
+    """Gets single gas bill by ID."""
     bill = db.query(GasBill).filter(GasBill.id == bill_id).first()
     
     if not bill:
-        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+        raise HTTPException(status_code=404, detail="Bill not found")
     
     return {
         "id": bill.id,
@@ -473,13 +473,13 @@ def update_gas_bill(
     bill_data: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db)
 ):
-    """Aktualizuje rachunek gazu po ID."""
+    """Updates gas bill by ID."""
     bill = db.query(GasBill).filter(GasBill.id == bill_id).first()
     
     if not bill:
-        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+        raise HTTPException(status_code=404, detail="Bill not found")
     
-    # Aktualizuj pola
+    # Update fields
     for key, value in bill_data.items():
         if hasattr(bill, key):
             if isinstance(value, float):
@@ -490,7 +490,7 @@ def update_gas_bill(
     db.refresh(bill)
     
     return {
-        "message": "Rachunek gazu zaktualizowany",
+        "message": "Gas bill updated",
         "id": bill.id,
         "data": bill.data,
         "local": bill.local
@@ -499,13 +499,13 @@ def update_gas_bill(
 
 @router.delete("/bills/{bill_id}")
 def delete_gas_bill(bill_id: int, db: Session = Depends(get_db)):
-    """Usuwa rachunek gazu po ID."""
+    """Deletes gas bill by ID."""
     bill = db.query(GasBill).filter(GasBill.id == bill_id).first()
     
     if not bill:
-        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+        raise HTTPException(status_code=404, detail="Bill not found")
     
-    # Usuń plik PDF jeśli istnieje
+    # Delete PDF file if exists
     if bill.pdf_path and Path(bill.pdf_path).exists():
         Path(bill.pdf_path).unlink()
     
@@ -513,22 +513,22 @@ def delete_gas_bill(bill_id: int, db: Session = Depends(get_db)):
     db.commit()
     
     return {
-        "message": "Rachunek gazu usunięty",
+        "message": "Gas bill deleted",
         "id": bill_id,
         "period": bill.data,
         "local": bill.local
     }
 
 
-# ========== ENDPOINTY STATYSTYK ==========
+# ========== STATISTICS ENDPOINTS ==========
 
 @router.get("/invoices/{invoice_id}")
 def get_gas_invoice(invoice_id: int, db: Session = Depends(get_db)):
-    """Pobiera pojedynczą fakturę gazu po ID."""
+    """Gets single gas invoice by ID."""
     invoice = db.query(GasInvoice).filter(GasInvoice.id == invoice_id).first()
     
     if not invoice:
-        raise HTTPException(status_code=404, detail="Faktura nie znaleziona")
+        raise HTTPException(status_code=404, detail="Invoice not found")
     
     result = {
         "id": invoice.id,
@@ -581,34 +581,34 @@ def update_gas_invoice(
     invoice_data: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db)
 ):
-    """Aktualizuje fakturę gazu po ID."""
+    """Updates gas invoice by ID."""
     from datetime import datetime
     
     invoice = db.query(GasInvoice).filter(GasInvoice.id == invoice_id).first()
     
     if not invoice:
-        raise HTTPException(status_code=404, detail="Faktura nie znaleziona")
+        raise HTTPException(status_code=404, detail="Invoice not found")
     
-    # Konwertuj daty jeśli są podane
+    # Convert dates if provided
     if 'period_start' in invoice_data:
         try:
             invoice_data['period_start'] = datetime.strptime(invoice_data['period_start'], "%Y-%m-%d").date()
         except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="Nieprawidłowy format daty period_start")
+            raise HTTPException(status_code=400, detail="Invalid date format for period_start")
     
     if 'period_stop' in invoice_data:
         try:
             invoice_data['period_stop'] = datetime.strptime(invoice_data['period_stop'], "%Y-%m-%d").date()
         except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="Nieprawidłowy format daty period_stop")
+            raise HTTPException(status_code=400, detail="Invalid date format for period_stop")
     
     if 'payment_due_date' in invoice_data:
         try:
             invoice_data['payment_due_date'] = datetime.strptime(invoice_data['payment_due_date'], "%Y-%m-%d").date()
         except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="Nieprawidłowy format daty payment_due_date")
+            raise HTTPException(status_code=400, detail="Invalid date format for payment_due_date")
     
-    # Aktualizuj pola
+    # Update fields
     for key, value in invoice_data.items():
         if hasattr(invoice, key):
             if isinstance(value, float):
@@ -619,7 +619,7 @@ def update_gas_invoice(
     db.refresh(invoice)
     
     return {
-        "message": "Faktura gazu zaktualizowana",
+        "message": "Gas invoice updated",
         "id": invoice.id,
         "invoice_number": invoice.invoice_number,
         "data": invoice.data
@@ -628,15 +628,15 @@ def update_gas_invoice(
 
 @router.delete("/invoices/{invoice_id}")
 def delete_gas_invoice(invoice_id: int, db: Session = Depends(get_db)):
-    """Usuwa fakturę gazu po ID. Usuwa również wszystkie rachunki dla okresu tej faktury."""
+    """Deletes gas invoice by ID. Also deletes all bills for this invoice's period."""
     invoice = db.query(GasInvoice).filter(GasInvoice.id == invoice_id).first()
     
     if not invoice:
-        raise HTTPException(status_code=404, detail="Faktura nie znaleziona")
+        raise HTTPException(status_code=404, detail="Invoice not found")
     
     period = invoice.data
     
-    # Sprawdź czy są jeszcze inne faktury dla tego okresu
+    # Check if there are other invoices for this period
     other_invoices = db.query(GasInvoice).filter(
         GasInvoice.data == period,
         GasInvoice.id != invoice_id
@@ -644,10 +644,10 @@ def delete_gas_invoice(invoice_id: int, db: Session = Depends(get_db)):
     
     deleted_bills_count = 0
     if other_invoices == 0:
-        # Jeśli to ostatnia faktura dla tego okresu, usuń wszystkie rachunki
+        # If this is the last invoice for this period, delete all bills
         bills = db.query(GasBill).filter(GasBill.data == period).all()
         for bill in bills:
-            # Usuń plik PDF jeśli istnieje
+            # Delete PDF file if exists
             if bill.pdf_path and Path(bill.pdf_path).exists():
                 Path(bill.pdf_path).unlink()
             db.delete(bill)
@@ -657,7 +657,7 @@ def delete_gas_invoice(invoice_id: int, db: Session = Depends(get_db)):
     db.commit()
     
     return {
-        "message": "Faktura gazu usunięta",
+        "message": "Gas invoice deleted",
         "id": invoice_id,
         "invoice_number": invoice.invoice_number,
         "period": period,
@@ -667,7 +667,7 @@ def delete_gas_invoice(invoice_id: int, db: Session = Depends(get_db)):
 
 @router.get("/stats")
 def get_gas_stats(db: Session = Depends(get_db)):
-    """Zwraca statystyki dla dashboardu gazu."""
+    """Returns statistics for gas dashboard."""
     stats = {
         "invoices_count": db.query(GasInvoice).count(),
         "bills_count": db.query(GasBill).count(),
@@ -676,19 +676,19 @@ def get_gas_stats(db: Session = Depends(get_db)):
         "available_periods": []
     }
     
-    # Najnowszy okres z faktur
+    # Latest period from invoices
     latest_invoice = db.query(GasInvoice).order_by(desc(GasInvoice.data)).first()
     if latest_invoice:
         stats["latest_period"] = latest_invoice.data
     
-    # Suma brutto wszystkich rachunków
+    # Total gross sum of all bills
     total_sum = db.query(func.sum(GasBill.total_gross_sum)).scalar()
     if total_sum:
         stats["total_gross_sum"] = float(total_sum)
     
-    # Okresy z rachunkami
+    # Periods with bills
     periods = db.query(GasBill.data).distinct().order_by(desc(GasBill.data)).all()
-    stats["available_periods"] = [p[0] for p in periods[:10]]  # Ostatnie 10
+    stats["available_periods"] = [p[0] for p in periods[:10]]  # Last 10
     
     return stats
 

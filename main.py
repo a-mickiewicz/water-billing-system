@@ -5,7 +5,7 @@ Zawiera endpointy do zarządzania danymi i generowania rachunków.
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
@@ -57,6 +57,12 @@ app.include_router(electricity_router)  # /api/electricity/*
 
 # ========== ENDPOINTY POMOCNICZE ==========
 
+@app.get("/favicon.ico")
+def favicon():
+    """Endpoint dla favicon.ico - zwraca 204 No Content, aby uniknąć błędów 404."""
+    return Response(status_code=204)
+
+
 @app.get("/", response_class=HTMLResponse)
 def root():
     """Strona główna - dashboard."""
@@ -100,24 +106,53 @@ def dashboard_alt():
 @app.post("/load_sample_data")
 def load_sample_data(db: Session = Depends(get_db)):
     """Ładuje przykładowe dane do bazy."""
-    # Sprawdź czy dane już istnieją
-    if db.query(Local).first():
-        return {"message": "Dane już istnieją w bazie"}
-    
     # Dodaj lokale
     # UWAGA: Przykładowe dane - nie są to rzeczywiste osoby
     locals_data = [
-        Local(water_meter_name="water_meter_5", tenant="Jan Kowalski", local="gora"),
-        Local(water_meter_name="water_meter_5b", tenant="Mikiołaj", local="dol"),
-        Local(water_meter_name="water_meter_5a", tenant="Bartosz", local="gabinet"),
+        {"water_meter_name": "water_meter_5", "tenant": "Jan Kowalski", "local": "gora"},
+        {"water_meter_name": "water_meter_5b", "tenant": "Mikiołaj", "local": "dol"},
+        {"water_meter_name": "water_meter_5a", "tenant": "Bartosz", "local": "gabinet"},
     ]
     
-    for local in locals_data:
-        db.add(local)
+    added = 0
+    skipped = 0
+    errors = []
     
-    db.commit()
+    for local_data in locals_data:
+        try:
+            # Sprawdź czy lokal z tym samym water_meter_name już istnieje
+            existing = db.query(Local).filter(
+                Local.water_meter_name == local_data["water_meter_name"]
+            ).first()
+            
+            if existing:
+                skipped += 1
+                continue
+            
+            # Utwórz nowy lokal
+            new_local = Local(**local_data)
+            db.add(new_local)
+            db.commit()
+            added += 1
+            
+        except Exception as e:
+            db.rollback()
+            error_msg = f"Błąd dla lokalu {local_data.get('water_meter_name')}: {str(e)}"
+            errors.append(error_msg)
     
-    return {"message": "Przykładowe dane załadowane (tylko lokale)"}
+    if errors:
+        return {
+            "message": f"Przykładowe dane załadowane częściowo",
+            "added": added,
+            "skipped": skipped,
+            "errors": errors
+        }
+    
+    return {
+        "message": "Przykładowe dane załadowane (tylko lokale)",
+        "added": added,
+        "skipped": skipped
+    }
 
 
 if __name__ == "__main__":

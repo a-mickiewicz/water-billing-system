@@ -27,6 +27,21 @@ Water & Gas Billing System to kompleksowe rozwiązanie do automatycznego rozlicz
 - 🧮 **Średnie Ważone Kosztów** - Automatyczne przeliczanie przy zmianie stawek
 - ⚡ **Modularna Architektura** - Oddzielne serwisy dla każdego medium, łatwe rozszerzanie
 
+## 🎥 Demo Aplikacji
+
+> **Dla rekruterów:** Zobacz działającą aplikację w akcji!
+
+<!-- Jeśli masz już nagrany film, odkomentuj poniższą linię i upewnij się, że plik istnieje w docs/demo.mp4 -->
+<!-- [![Demo Video](docs/demo.mp4)](docs/demo.mp4) -->
+
+**Film demonstracyjny pokazuje:**
+- 🎨 Interfejs dashboardu z zakładkami
+- 📊 Statystyki i podsumowania
+- 📝 Dodawanie danych (lokale, odczyty, faktury)
+- 💰 Generowanie rachunków
+- 📄 Pobieranie rachunków PDF
+- 🔍 Dokumentację API w Swagger UI
+
 ## 🚀 Quick Start
 
 ### Wymagania

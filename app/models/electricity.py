@@ -1,7 +1,7 @@
 """
-Modele SQLAlchemy dla prądu.
-Definiuje tabele: electricity_readings, electricity_bills.
-UWAGA: ElectricityInvoice został przeniesiony do app/models/electricity_invoice.py
+SQLAlchemy models for electricity billing.
+Defines tables: electricity_readings, electricity_bills.
+NOTE: ElectricityInvoice has been moved to app/models/electricity_invoice.py
 """
 
 from sqlalchemy import Column, String, Float, Boolean, Integer, Date, ForeignKey, CheckConstraint
@@ -11,55 +11,55 @@ from app.core.database import Base
 
 class ElectricityReading(Base):
     """
-    Odczyty liczników prądu.
+    Electricity meter readings.
     
-    Obsługuje:
-    - Licznik główny DOM: dwutaryfowy (I, II) lub jednotaryfowy
-    - Podlicznik DÓŁ: dwutaryfowy (I, II) lub jednotaryfowy (zawiera GABINET)
-    - Podlicznik GABINET: zawsze jednotaryfowy (podlicznik DÓŁ - zagnieżdżony)
-    - GÓRA: obliczane (DOM - DÓŁ)
+    Supports:
+    - Main meter DOM: dual-tariff (I, II) or single-tariff
+    - Submeter DÓŁ: dual-tariff (I, II) or single-tariff (contains GABINET)
+    - Submeter GABINET: always single-tariff (nested under DÓŁ)
+    - GÓRA: calculated (DOM - DÓŁ)
     
-    Struktura hierarchiczna:
+    Hierarchical structure:
     DOM → DÓŁ → GABINET
     """
     __tablename__ = "electricity_readings"
     
-    # ID i organizacja
+    # ID and organization
     id = Column(Integer, primary_key=True, autoincrement=True)
-    data = Column(String(7), unique=True, nullable=False)  # Format: 'YYYY-MM' (np. '2025-01')
-    data_odczytu_licznika = Column(Date, nullable=True)  # Data faktycznego odczytu licznika
+    data = Column(String(7), unique=True, nullable=False)  # Format: 'YYYY-MM' (e.g., '2025-01')
+    data_odczytu_licznika = Column(Date, nullable=True)  # Actual meter reading date
     
     # ============================================
-    # LICZNIK GŁÓWNY DOM
+    # MAIN METER DOM
     # ============================================
     licznik_dom_jednotaryfowy = Column(Boolean, nullable=False, default=False)
     
-    # Wariant A: Licznik jednotaryfowy
-    odczyt_dom = Column(Float, nullable=True)  # NULL jeśli dwutaryfowy
+    # Variant A: Single-tariff meter
+    odczyt_dom = Column(Float, nullable=True)  # NULL if dual-tariff
     
-    # Wariant B: Licznik dwutaryfowy
-    odczyt_dom_I = Column(Float, nullable=True)   # NULL jeśli jednotaryfowy
-    odczyt_dom_II = Column(Float, nullable=True)  # NULL jeśli jednotaryfowy
+    # Variant B: Dual-tariff meter
+    odczyt_dom_I = Column(Float, nullable=True)   # NULL if single-tariff
+    odczyt_dom_II = Column(Float, nullable=True)  # NULL if single-tariff
     
     # ============================================
-    # PODLICZNIK DÓŁ
+    # SUBMETER DÓŁ
     # ============================================
     licznik_dol_jednotaryfowy = Column(Boolean, nullable=False, default=False)
     
-    # Wariant A: Licznik jednotaryfowy
-    odczyt_dol = Column(Float, nullable=True)  # NULL jeśli dwutaryfowy
+    # Variant A: Single-tariff meter
+    odczyt_dol = Column(Float, nullable=True)  # NULL if dual-tariff
     
-    # Wariant B: Licznik dwutaryfowy
-    odczyt_dol_I = Column(Float, nullable=True)   # NULL jeśli jednotaryfowy
-    odczyt_dol_II = Column(Float, nullable=True)  # NULL jeśli jednotaryfowy
+    # Variant B: Dual-tariff meter
+    odczyt_dol_I = Column(Float, nullable=True)   # NULL if single-tariff
+    odczyt_dol_II = Column(Float, nullable=True)  # NULL if single-tariff
     
     # ============================================
-    # PODLICZNIK GABINET
+    # SUBMETER GABINET
     # ============================================
-    # Zawsze jednotaryfowy
+    # Always single-tariff
     odczyt_gabinet = Column(Float, nullable=False)
     
-    # Relacje
+    # Relationships
     bills = relationship("ElectricityBill", back_populates="reading", cascade="all, delete-orphan")
     
     # Constraints
@@ -79,12 +79,12 @@ class ElectricityReading(Base):
 
 class ElectricityBill(Base):
     """
-    Wygenerowane rachunki prądu dla lokali.
+    Generated electricity bills for units.
     
-    Rozdzielenie kosztów na podstawie zużycia:
-    - "gora": obliczane (DOM - DÓŁ)
-    - "dol": z podlicznika (zawiera GABINET)
-    - "gabinet": z podlicznika (podlicznik DÓŁ)
+    Cost distribution based on consumption:
+    - "gora": calculated (DOM - DÓŁ)
+    - "dol": from submeter (contains GABINET)
+    - "gabinet": from submeter (DÓŁ submeter)
     """
     __tablename__ = "electricity_bills"
     
@@ -92,7 +92,7 @@ class ElectricityBill(Base):
     data = Column(String(7), nullable=False)  # 'YYYY-MM'
     local = Column(String(50), nullable=False)  # 'gora', 'gabinet', 'dol'
     
-    # Relacje
+    # Relationships
     reading_id = Column(Integer, ForeignKey('electricity_readings.id'))
     invoice_id = Column(Integer, ForeignKey('electricity_invoices.id'))
     local_id = Column(Integer, ForeignKey('locals.id'))
@@ -101,19 +101,19 @@ class ElectricityBill(Base):
     invoice = relationship("ElectricityInvoice", back_populates="bills")
     local_obj = relationship("Local", back_populates="electricity_bills")
     
-    # Zużycie (kWh)
-    usage_kwh = Column(Float, nullable=False)  # Zużycie dla lokalu (łącznie)
-    usage_kwh_dzienna = Column(Float, nullable=True)  # Zużycie dzienne (taryfa I) - NULL dla całodobowej
-    usage_kwh_nocna = Column(Float, nullable=True)  # Zużycie nocne (taryfa II) - NULL dla całodobowej
+    # Consumption (kWh)
+    usage_kwh = Column(Float, nullable=False)  # Unit consumption (total)
+    usage_kwh_dzienna = Column(Float, nullable=True)  # Day consumption (tariff I) - NULL for single-tariff
+    usage_kwh_nocna = Column(Float, nullable=True)  # Night consumption (tariff II) - NULL for single-tariff
     
-    # Koszty rozdzielone proporcjonalnie z faktury (brutto)
+    # Costs distributed proportionally from invoice (gross)
     energy_cost_gross = Column(Float, nullable=False)
     distribution_cost_gross = Column(Float, nullable=False)
     
-    # Sumy
-    total_net_sum = Column(Float, nullable=False)  # Suma netto (proporcjonalna)
-    total_gross_sum = Column(Float, nullable=False)  # Suma brutto (proporcjonalna)
+    # Totals
+    total_net_sum = Column(Float, nullable=False)  # Net sum (proportional)
+    total_gross_sum = Column(Float, nullable=False)  # Gross sum (proportional)
     
-    # Plik PDF
-    pdf_path = Column(String(200))  # Ścieżka do wygenerowanego pliku PDF
+    # PDF file
+    pdf_path = Column(String(200))  # Path to generated PDF file
 
