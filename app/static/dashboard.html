@@ -848,10 +848,9 @@
                         <label>Licznik 5a (gabinet)</label>
                         <input type="number" step="0.01" name="water_meter_5a" required>
                     </div>
-                    <div class="form-group" style="background: #f0f0f0; padding: 10px; border-radius: 4px;">
-                        <label>Licznik 5b (dol) - obliczany</label>
-                        <input type="text" id="calculated_dol" readonly style="background: #e0e0e0;">
-                        <small style="display: block; margin-top: 5px; color: #666;">Wartość obliczana automatycznie: główny - gora - gabinet</small>
+                    <div class="form-group">
+                        <label>LICZNIK 5B (DOL) - AUTOM.</label>
+                        <input type="text" id="calculated_dol" readonly style="background: transparent; border: 1px solid #ffcccc; cursor: not-allowed;">
                     </div>
                 </form>
                 <script>
@@ -1893,29 +1892,25 @@
                     return;
                 }
 
-                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Licznik główny</th><th>Licznik 5 (gora)</th><th>Licznik 5a (gabinet)</th><th>Licznik 5b (dol)<br><small>obliczany</small></th><th>Akcje</th></tr></thead><tbody>';
+                let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Licznik główny</th><th>Licznik 5 (gora)</th><th>Licznik 5a (gabinet)</th><th>Akcje</th></tr></thead><tbody>';
                 readings.forEach(r => {
-                    // Calculate dol (5b) as: main - gora - gabinet
-                    const dol_calculated = (r.water_meter_main - r.water_meter_5 - (r.water_meter_5a || 0)).toFixed(2);
                     html += `<tr class="clickable" onclick="toggleReadingDetails('${r.data}')" data-reading-period="${r.data}">
                         <td>${r.data}</td>
                         <td>${r.water_meter_main}</td>
                         <td>${r.water_meter_5}</td>
                         <td>${r.water_meter_5a || 0}</td>
-                        <td>${dol_calculated}</td>
                         <td class="actions" onclick="event.stopPropagation()">
                             <button class="btn btn-edit btn-small" onclick="editReading('${r.data}')" title="Edytuj odczyt">✏️</button>
                             <button class="btn btn-danger btn-small" onclick="deleteReading('${r.data}')" title="Usuń odczyt i rachunki dla tego okresu">🗑️</button>
                         </td>
                     </tr>
                     <tr class="details-row" id="reading-details-${r.data}" data-reading-period="${r.data}">
-                        <td colspan="6" class="details-cell">
+                        <td colspan="5" class="details-cell">
                             <div class="details-grid">
                                 <div class="details-item"><label>Okres:</label><span class="value">${r.data}</span></div>
                                 <div class="details-item"><label>Licznik główny (DOM):</label><span class="value">${r.water_meter_main}</span></div>
                                 <div class="details-item"><label>Licznik 5 (gora):</label><span class="value">${r.water_meter_5}</span></div>
                                 <div class="details-item"><label>Licznik 5a (gabinet):</label><span class="value">${r.water_meter_5a || 0}</span></div>
-                                <div class="details-item"><label>Licznik 5b (dol):</label><span class="value ${dol_calculated < 0 ? 'error-value' : ''}">${dol_calculated} <small>(obliczany: główny - gora - gabinet)</small></span>${dol_calculated < 0 ? '<span class="warning-text" style="color: #dc2626; font-size: 0.85em; margin-left: 8px;">⚠️ Ujemna wartość: suma podliczników (${(r.water_meter_5 + (r.water_meter_5a || 0)).toFixed(2)}) > licznik główny (${r.water_meter_main.toFixed(2)})</span>' : ''}</div>
                             </div>
                         </td>
                     </tr>`;
@@ -2165,7 +2160,14 @@
                 }
 
                 let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Lokal</th><th>Zużycie (m³)</th><th>Suma brutto</th><th>Akcje</th></tr></thead><tbody>';
-                bills.forEach(b => {
+                let previousPeriod = null;
+                bills.forEach((b, index) => {
+                    // Dodaj separator jeśli okres się zmienił (i to nie jest pierwszy rachunek)
+                    if (previousPeriod !== null && previousPeriod !== b.data) {
+                        html += `<tr><td colspan="5" style="padding: 4px 0; border-bottom: 1px solid var(--border-color);"></td></tr>`;
+                    }
+                    previousPeriod = b.data;
+                    
                     html += `<tr class="clickable" onclick="toggleBillDetails(${b.id})" data-bill-id="${b.id}">
                         <td>${b.data}</td>
                         <td>${b.local}</td>
@@ -3531,7 +3533,14 @@
                 }
 
                 let html = '<table class="data-table"><thead><tr><th>Okres</th><th>Lokal</th><th>Udział</th><th>Lokal brutto</th><th>Akcje</th></tr></thead><tbody>';
+                let previousPeriod = null;
                 bills.forEach(b => {
+                    // Dodaj separator jeśli okres się zmienił (i to nie jest pierwszy rachunek)
+                    if (previousPeriod !== null && previousPeriod !== b.data) {
+                        html += `<tr><td colspan="5" style="padding: 4px 0; border-bottom: 1px solid var(--border-color);"></td></tr>`;
+                    }
+                    previousPeriod = b.data;
+                    
                     html += `<tr class="clickable" onclick="toggleGasBillDetails(${b.id})" data-gas-bill-id="${b.id}">
                         <td>${b.data}</td>
                         <td>${b.local}</td>
@@ -5628,7 +5637,16 @@
                 }
                 
                 let html = '<table class="data-table"><thead><tr><th>Okres Rozliczeniowy</th><th>Nr faktury</th><th>Lokal</th><th>Koszt za 1kWh</th><th>Zużycie (kWh)</th><th>Do zapłaty</th><th>Akcje</th></tr></thead><tbody>';
+                let previousPeriod = null;
                 bills.forEach(b => {
+                    const currentPeriod = b.okres_rozliczeniowy || b.data;
+                    
+                    // Dodaj separator jeśli okres się zmienił (i to nie jest pierwszy rachunek)
+                    if (previousPeriod !== null && previousPeriod !== currentPeriod) {
+                        html += `<tr><td colspan="7" style="padding: 4px 0; border-bottom: 1px solid var(--border-color);"></td></tr>`;
+                    }
+                    previousPeriod = currentPeriod;
+                    
                     // Przygotuj nazwę lokalu (DOM to cały dom)
                     let localName = b.local || '-';
                     if (localName === 'dom') {
@@ -5649,7 +5667,7 @@
                     }
                     
                     html += `<tr>
-                        <td>${b.okres_rozliczeniowy || b.data}</td>
+                        <td>${currentPeriod}</td>
                         <td>${b.numer_faktury || '-'}</td>
                         <td>${localName}</td>
                         <td>${koszt_kwh}</td>

@@ -78,11 +78,6 @@ def parse_invoice_data(text: str) -> Optional[Dict]:
     """
     data = {}
     
-    # Weryfikacja: czy to faktura PGNiG
-    has_pgng = 'PGNiG' in text.upper()
-    if not has_pgng:
-        print("[WARNING] Nie znaleziono nazwy PGNiG w fakturze")
-    
     # 1. Okres YYYY-MM z daty "z dnia" przy numerze faktury
     # Format: "Faktura VAT nr P/43562821/0003/25 z dnia 02.07.2025"
     invoice_date_match = re.search(r'Faktura\s+VAT\s+nr\s+[A-Z0-9/]+\s+z\s+dnia\s+(\d{1,2})\.(\d{1,2})\.(\d{4})', text, re.IGNORECASE)
@@ -117,11 +112,14 @@ def parse_invoice_data(text: str) -> Optional[Dict]:
     
     # 4. Opłata abonamentowa - cena i wartość netto
     # Format: "Opłata abonamentowa ... 2,0000 mc 6,40000 23 12,80"
-    subscription_values_match = re.search(r'Opłata\s+abonamentowa[^\n]*?\s+\d+[.,]\d+\s+mc\s+(\d+[.,]\d+)\s+\d+\s+(\d+[.,]\d+)', text, re.IGNORECASE)
+    subscription_values_match = re.search(r'Opłata\s+abonamentowa[^\n]*?\s+\d+[.,]\d+\s+mc\s+(\d+[.,]\d+)\s+(\d+)\s+(\d+[.,]\d+)', text, re.IGNORECASE)
     if subscription_values_match:
         data['subscription_price_net'] = float(subscription_values_match.group(1).replace(',', '.'))
-        data['subscription_value_net'] = float(subscription_values_match.group(2).replace(',', '.'))
-        # Nie obliczamy brutto - brutto jest tylko w podsumowaniu
+        vat_rate_subscr = float(subscription_values_match.group(2)) / 100  # VAT rate z linii
+        data['subscription_value_net'] = float(subscription_values_match.group(3).replace(',', '.'))
+        # Oblicz wartość brutto z netto + VAT
+        data['subscription_value_gross'] = round(data['subscription_value_net'] * (1 + vat_rate_subscr), 2)
+        data['subscription_vat_amount'] = round(data['subscription_value_gross'] - data['subscription_value_net'], 2)
     
     # 5. Odczyty liczników
     # Format: "Paliwo gazowe G1 W-3.6 25.04.202530.06.2025 11571 R 11656 R 85 m³"
@@ -133,43 +131,55 @@ def parse_invoice_data(text: str) -> Optional[Dict]:
     # 6. Paliwo gazowe - Zużycie
     # Format: "Paliwo gazowe G1 W-3.6 31.12.202425.02.2025 10213 R 11018 R 805 m³ 11,450 9217 kWh 0,23965 23 2 208,85"
     # Wartości mogą mieć spacje jako separator tysięcy
-    fuel_full_match = re.search(r'Paliwo\s+gazowe[^\n]*?\s+(\d+)\s+m³\s+(\d+[.,]\d+)\s+(\d+)\s+kWh\s+(\d+[.,]\d+)\s+\d+\s+([\d\s,]+)', text, re.IGNORECASE)
+    fuel_full_match = re.search(r'Paliwo\s+gazowe[^\n]*?\s+(\d+)\s+m³\s+(\d+[.,]\d+)\s+(\d+)\s+kWh\s+(\d+[.,]\d+)\s+(\d+)\s+([\d\s,]+)', text, re.IGNORECASE)
     if fuel_full_match:
         data['fuel_usage_m3'] = float(fuel_full_match.group(1))
         data['fuel_conversion_factor'] = float(fuel_full_match.group(2).replace(',', '.'))  # Wsp. konw.
         data['fuel_usage_kwh'] = float(fuel_full_match.group(3))
         data['fuel_price_net'] = float(fuel_full_match.group(4).replace(',', '.'))
+        vat_rate_fuel = float(fuel_full_match.group(5)) / 100  # VAT rate z linii
         # Usuń spacje z wartości netto (separator tysięcy)
-        fuel_value_net_str = fuel_full_match.group(5).replace(' ', '').replace(',', '.')
-        data['fuel_value_net'] = float(fuel_value_net_str)  # Tylko netto
-        # Nie obliczamy brutto - brutto jest tylko w podsumowaniu
+        fuel_value_net_str = fuel_full_match.group(6).replace(' ', '').replace(',', '.')
+        data['fuel_value_net'] = float(fuel_value_net_str)
+        # Oblicz wartość brutto z netto + VAT
+        data['fuel_value_gross'] = round(data['fuel_value_net'] * (1 + vat_rate_fuel), 2)
+        data['fuel_vat_amount'] = round(data['fuel_value_gross'] - data['fuel_value_net'], 2)
     
     # 7. Dystrybucja stała
     # Format: "Dystrybucyjna stała W-3.6_PO 01.05.202530.06.2025 2,0000 mc 50,83000 23 101,66"
-    dist_fixed_match = re.search(r'Dystrybucyjna\s+stała[^\n]*?\s+(\d+[.,]\d+)\s+mc\s+(\d+[.,]\d+)\s+\d+\s+(\d+[.,]\d+)', text, re.IGNORECASE)
+    dist_fixed_match = re.search(r'Dystrybucyjna\s+stała[^\n]*?\s+(\d+[.,]\d+)\s+mc\s+(\d+[.,]\d+)\s+(\d+)\s+(\d+[.,]\d+)', text, re.IGNORECASE)
     if dist_fixed_match:
         data['distribution_fixed_quantity'] = int(float(dist_fixed_match.group(1).replace(',', '.')))
         data['distribution_fixed_price_net'] = float(dist_fixed_match.group(2).replace(',', '.'))
-        data['distribution_fixed_value_net'] = float(dist_fixed_match.group(3).replace(',', '.'))  # Tylko netto
-        # Nie obliczamy brutto - brutto jest tylko w podsumowaniu
+        vat_rate_fixed = float(dist_fixed_match.group(3)) / 100  # VAT rate z linii
+        data['distribution_fixed_value_net'] = float(dist_fixed_match.group(4).replace(',', '.'))
+        # Oblicz wartość brutto z netto + VAT
+        data['distribution_fixed_value_gross'] = round(data['distribution_fixed_value_net'] * (1 + vat_rate_fixed), 2)
+        data['distribution_fixed_vat_amount'] = round(data['distribution_fixed_value_gross'] - data['distribution_fixed_value_net'], 2)
     
     # 8. Dystrybucja zmienna (może być kilka)
     # Format: "Dystrybucyjna zmienna G1 W-3.6_PO 31.12.202431.12.2024 10213 R - 14 m³ 11,450 160 kWh 0,04411 23 7,06"
     # Format alternatywny: "Dystrybucyjna zmienna G1 W-3.6_PO 01.01.202525.02.2025 - 11018 R 791 m³ 11,450 9057 kWh 0,05502 23 498,32"
+    # Format: "... [zużycie] m³ [wsp. konw.] [kWh] kWh [cena netto] [VAT%] [wartość netto]"
     # Odczyty mogą być w formacie "X R Y R" lub "X R -" lub "- Y R"
-    # Szukamy wzorca: "Dystrybucyjna zmienna ... [odczyt1] R [-|odczyt2] R [zużycie] m³ [wsp. konw.] [kWh] kWh"
-    dist_var_matches = re.finditer(r'Dystrybucyjna\s+zmienna[^\n]*?\s+(?:\d+\s+R\s+-\s+|-\s+\d+\s+R\s+|\d+\s+R\s+\d+\s+R\s+)(\d+)\s+m³\s+(\d+[.,]\d+)\s+(\d+)\s+kWh\s+(\d+[.,]\d+)\s+\d+\s+([\d\s,]+)', text, re.IGNORECASE)
+    dist_var_matches = re.finditer(r'Dystrybucyjna\s+zmienna[^\n]*?\s+(?:\d+\s+R\s+-\s+|-\s+\d+\s+R\s+|\d+\s+R\s+\d+\s+R\s+)(\d+)\s+m³\s+(\d+[.,]\d+)\s+(\d+)\s+kWh\s+(\d+[.,]\d+)\s+(\d+)\s+([\d\s,]+)', text, re.IGNORECASE)
     dist_var_list = list(dist_var_matches)
     
     if dist_var_list:
         # Pierwsza dystrybucja zmienna
+        # Format: "... 791 m³ 11,450 9057 kWh 0,05502 23 498,32"
+        # Grupy: (1) m3, (2) wsp. konw., (3) kWh, (4) cena netto, (5) VAT%, (6) wartość netto
         match = dist_var_list[0]
         data['distribution_variable_usage_m3'] = float(match.group(1))
         data['distribution_variable_conversion_factor'] = float(match.group(2).replace(',', '.'))
         data['distribution_variable_usage_kwh'] = float(match.group(3))  # Ilość kWh
         data['distribution_variable_price_net'] = float(match.group(4).replace(',', '.'))
-        value_net_str = match.group(5).replace(' ', '').replace(',', '.')
+        vat_rate_var = float(match.group(5)) / 100  # VAT rate z linii
+        value_net_str = match.group(6).replace(' ', '').replace(',', '.')
         data['distribution_variable_value_net'] = float(value_net_str)
+        # Oblicz wartość brutto z netto + VAT
+        data['distribution_variable_value_gross'] = round(data['distribution_variable_value_net'] * (1 + vat_rate_var), 2)
+        data['distribution_variable_vat_amount'] = round(data['distribution_variable_value_gross'] - data['distribution_variable_value_net'], 2)
         
         # Druga dystrybucja zmienna (jeśli istnieje)
         if len(dist_var_list) > 1:
@@ -178,8 +188,11 @@ def parse_invoice_data(text: str) -> Optional[Dict]:
             data['distribution_variable_2_conversion_factor'] = float(match2.group(2).replace(',', '.'))
             data['distribution_variable_2_usage_kwh'] = float(match2.group(3))  # Ilość kWh dla dystrybucji zmiennej 2
             data['distribution_variable_2_price_net'] = float(match2.group(4).replace(',', '.'))
-            value_net_str_2 = match2.group(5).replace(' ', '').replace(',', '.')
+            vat_rate_var2 = float(match2.group(5)) / 100  # VAT rate z linii
+            value_net_str_2 = match2.group(6).replace(' ', '').replace(',', '.')
             data['distribution_variable_2_value_net'] = float(value_net_str_2)
+            # Oblicz wartość brutto z netto + VAT
+            data['distribution_variable_2_value_gross'] = round(data['distribution_variable_2_value_net'] * (1 + vat_rate_var2), 2)
     
     # 9. Wartość netto ogółem
     # Format: "A. Razem sprzedaż okresie rozliczeniowym od 31.12.2024 do 25.02.2025 2 828,69"
@@ -360,13 +373,29 @@ def save_invoice_after_verification(db: Session, invoice_data: dict) -> Optional
         vat_amount = round(gross_value - net_value, 2)
         return net_value, vat_amount
     
-    # Nie obliczamy wartości brutto dla poszczególnych pozycji
-    # Brutto jest tylko w podsumowaniu (total_gross_sum)
-    # Ustaw wartości brutto dla poszczególnych pozycji na 0 (wymagane przez model)
-    invoice_data['fuel_value_gross'] = invoice_data.get('fuel_value_gross', 0.0)
-    invoice_data['subscription_value_gross'] = invoice_data.get('subscription_value_gross', 0.0)
-    invoice_data['distribution_fixed_value_gross'] = invoice_data.get('distribution_fixed_value_gross', 0.0)
-    invoice_data['distribution_variable_value_gross'] = invoice_data.get('distribution_variable_value_gross', 0.0)
+    # Użyj wartości brutto z parsera (jeśli są obliczone), w przeciwnym razie oblicz z netto + VAT
+    # Jeśli wartości brutto nie są w invoice_data, oblicz je z netto + VAT
+    vat_rate = invoice_data.get('vat_rate', 0.23)
+    
+    if 'fuel_value_gross' not in invoice_data or invoice_data.get('fuel_value_gross', 0.0) == 0.0:
+        fuel_net = invoice_data.get('fuel_value_net', 0.0)
+        invoice_data['fuel_value_gross'] = round(fuel_net * (1 + vat_rate), 2) if fuel_net > 0 else 0.0
+        invoice_data['fuel_vat_amount'] = round(invoice_data['fuel_value_gross'] - fuel_net, 2) if fuel_net > 0 else 0.0
+    
+    if 'subscription_value_gross' not in invoice_data or invoice_data.get('subscription_value_gross', 0.0) == 0.0:
+        subscr_net = invoice_data.get('subscription_value_net', 0.0)
+        invoice_data['subscription_value_gross'] = round(subscr_net * (1 + vat_rate), 2) if subscr_net > 0 else 0.0
+        invoice_data['subscription_vat_amount'] = round(invoice_data['subscription_value_gross'] - subscr_net, 2) if subscr_net > 0 else 0.0
+    
+    if 'distribution_fixed_value_gross' not in invoice_data or invoice_data.get('distribution_fixed_value_gross', 0.0) == 0.0:
+        dist_fixed_net = invoice_data.get('distribution_fixed_value_net', 0.0)
+        invoice_data['distribution_fixed_value_gross'] = round(dist_fixed_net * (1 + vat_rate), 2) if dist_fixed_net > 0 else 0.0
+        invoice_data['distribution_fixed_vat_amount'] = round(invoice_data['distribution_fixed_value_gross'] - dist_fixed_net, 2) if dist_fixed_net > 0 else 0.0
+    
+    if 'distribution_variable_value_gross' not in invoice_data or invoice_data.get('distribution_variable_value_gross', 0.0) == 0.0:
+        dist_var_net = invoice_data.get('distribution_variable_value_net', 0.0)
+        invoice_data['distribution_variable_value_gross'] = round(dist_var_net * (1 + vat_rate), 2) if dist_var_net > 0 else 0.0
+        invoice_data['distribution_variable_vat_amount'] = round(invoice_data['distribution_variable_value_gross'] - dist_var_net, 2) if dist_var_net > 0 else 0.0
     
     # Ustaw VAT amount na 0 dla poszczególnych pozycji (jeśli nie podano)
     # VAT jest tylko w podsumowaniu (vat_amount)
