@@ -682,10 +682,20 @@ def generate_bills(
     
     try:
         bills = manager.generate_bills_for_period(db, data)
-        return {
+        
+        # Sprawdź czy okres jest w pełni rozliczony i wykonaj backup jeśli tak
+        from app.core.billing_period import handle_period_settlement
+        settlement_result = handle_period_settlement(db, data)
+        
+        response = {
             "message": f"Wygenerowano {len(bills)} rachunków dla okresu {data}",
             "bills_count": len(bills)
         }
+        
+        if settlement_result.get("is_fully_settled"):
+            response["settlement"] = settlement_result
+        
+        return response
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

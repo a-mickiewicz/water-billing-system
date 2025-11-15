@@ -17,6 +17,31 @@ from app.config import settings
 from app.api.routes.gas import router as gas_router
 from app.api.routes.electricity import router as electricity_router
 from app.api.routes.water import router as water_router
+from app.api.routes.auth import router as auth_router
+from app.api.routes.backup import router as backup_router
+
+
+def init_admin_user(db: Session):
+    """Inicjalizuje konto administratora jeśli nie istnieje."""
+    import os
+    from app.models.user import User
+    from app.core.auth import get_password_hash
+    
+    # W produkcji użyj zmiennych środowiskowych ADMIN_USERNAME i ADMIN_PASSWORD
+    admin_username = os.getenv("ADMIN_USERNAME", "admin")
+    admin_password = os.getenv("ADMIN_PASSWORD", "admin")
+    
+    admin = db.query(User).filter(User.username == admin_username).first()
+    if not admin:
+        admin = User(
+            username=admin_username,
+            password_hash=get_password_hash(admin_password),
+            is_admin=True
+        )
+        db.add(admin)
+        db.commit()
+        print(f"[OK] Konto administratora utworzone (login: {admin_username}, hasło: {admin_password})")
+        print("[WARN] W produkcji ustaw zmienne środowiskowe ADMIN_USERNAME i ADMIN_PASSWORD!")
 
 
 @asynccontextmanager
@@ -24,6 +49,15 @@ async def lifespan(app: FastAPI):
     """Zarządzanie cyklem życia aplikacji - inicjalizacja i zamknięcie."""
     # Startup - inicjalizacja bazy danych
     init_db()
+    
+    # Utwórz konto admina
+    from app.core.database import SessionLocal
+    db = SessionLocal()
+    try:
+        init_admin_user(db)
+    finally:
+        db.close()
+    
     yield
     # Shutdown - tutaj można dodać czyszczenie zasobów jeśli potrzeba
 
@@ -53,6 +87,8 @@ app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
 app.include_router(water_router)  # /api/water/*
 app.include_router(gas_router)  # /api/gas/*
 app.include_router(electricity_router)  # /api/electricity/*
+app.include_router(auth_router)  # /api/auth/*
+app.include_router(backup_router)  # /api/backup/*
 
 
 # ========== ENDPOINTY POMOCNICZE ==========
@@ -65,10 +101,10 @@ def favicon():
 
 @app.get("/", response_class=HTMLResponse)
 def root():
-    """Strona główna - dashboard."""
-    dashboard_path = static_dir / "dashboard.html"
-    if dashboard_path.exists():
-        return dashboard_path.read_text(encoding="utf-8")
+    """Strona główna - przekierowanie do logowania."""
+    login_path = static_dir / "login.html"
+    if login_path.exists():
+        return login_path.read_text(encoding="utf-8")
     return """
     <!DOCTYPE html>
     <html>
@@ -83,6 +119,15 @@ def root():
     </body>
     </html>
     """
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page():
+    """Strona logowania."""
+    login_path = static_dir / "login.html"
+    if login_path.exists():
+        return login_path.read_text(encoding="utf-8")
+    return "<h1>Strona logowania nie znaleziona</h1>"
 
 
 @app.get("/dashboard", response_class=HTMLResponse)

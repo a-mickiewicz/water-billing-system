@@ -1,0 +1,36 @@
+# Water provider credentials (encrypted data files only)
+water_credentials.encrypted
+
+# Encryption keys
+.encryption_key
+*.encryption_key
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backups
+backups/
+**/backups/
+
+# Sensitive data
+credentials.json
+*credentials*.json
+config/
+
+# Invoice files with sensitive data
+invoices_raw/**/*.pdf
+invoices_raw/**/analysis/
+invoices_raw/**/*.txt
+invoices_raw/**/parsed/
+
+# Documentation with sensitive data
+docs/BILL_CALCULATION_LOGIC.md
+docs/VIDEO_RECORDING_GUIDE.md
+

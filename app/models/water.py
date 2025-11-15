@@ -31,7 +31,7 @@ class Reading(Base):
     water_meter_main = Column(Float, nullable=False)  # Main meter (DOM)
     water_meter_5 = Column(Integer, nullable=False)   # Unit "gora" - physical meter
     water_meter_5a = Column(Integer, nullable=False)  # Unit "gabinet" - physical meter
-    # water_meter_5b calculated as: water_meter_main - (water_meter_5 + water_meter_5a) → Unit "dol" (Mikołaj) - no physical meter
+    water_meter_5b = Column(Integer, nullable=False)  # Unit "dol" (Mikołaj) - calculated as: water_meter_main - (water_meter_5 + water_meter_5a)
     
     bills = relationship("Bill", back_populates="reading")
 

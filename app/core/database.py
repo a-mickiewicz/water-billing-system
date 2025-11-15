@@ -52,6 +52,8 @@ def init_db():
         ElectricityInvoiceOplataDystrybucyjna,
         ElectricityInvoiceRozliczenieOkres
     )
+    from app.models.user import User
+    from app.models.password_reset import PasswordResetCode
     
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
