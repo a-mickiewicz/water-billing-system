@@ -311,14 +311,74 @@ http://localhost:8000/dashboard
 ### Statystyki
 - `GET /api/stats` - Statystyki dla dashboardu (woda)
 
+### 🔐 Backup i Szyfrowanie
+- `POST /api/backup/create` - Utwórz ręczny backup bazy danych
+- `POST /api/backup/send-email` - Wyślij najnowszy backup na email użytkownika (zaszyfrowany)
+- `GET /api/backup/latest` - Pobierz informacje o najnowszym backupie
+- `POST /api/backup/decrypt` - Odszyfruj zaszyfrowany plik backup (wymaga przesłania pliku `.encrypted`)
+
 ## 🔒 Bezpieczeństwo
 
 - ✅ Wszystkie wrażliwe dane (credentials, baza danych) są w `.gitignore`
 - ✅ Brak hardcoded secrets w kodzie
 - ✅ CORS skonfigurowany (można dostosować dla produkcji)
 - ✅ Walidacja danych przez FastAPI/Pydantic
+- ✅ **Szyfrowanie backupów** - Pliki backup wysyłane na email są automatycznie szyfrowane
 
 **Raport bezpieczeństwa:** [security_check_report.md](security_check_report.md)
+
+### 🔐 Szyfrowanie Backupów
+
+System automatycznie szyfruje pliki backup przed wysłaniem na email. Tylko aplikacja może odszyfrować te pliki.
+
+#### Konfiguracja Klucza Szyfrowania
+
+1. **Automatyczna generacja (domyślnie):**
+   - Przy pierwszym użyciu system automatycznie generuje klucz szyfrowania
+   - Klucz jest zapisywany w pliku `.encryption_key` (w katalogu głównym projektu)
+   - ⚠️ **WAŻNE:** Plik `.encryption_key` jest w `.gitignore` - nie commituj go do repozytorium!
+
+2. **Ręczna konfiguracja (zalecane dla produkcji):**
+   ```bash
+   # Ustaw zmienną środowiskową z kluczem Fernet (44 znaki, base64)
+   export ENCRYPTION_KEY="twoj-klucz-fernet-44-znaki-base64-encoded"
+   
+   # Lub użyj hasła (system automatycznie wygeneruje klucz z hasła)
+   export ENCRYPTION_KEY="twoje-bezpieczne-haslo"
+   ```
+
+#### Jak to działa
+
+1. **Wysyłanie backupu na email:**
+   - Plik backup jest automatycznie szyfrowany przed wysłaniem
+   - W emailu otrzymasz plik z rozszerzeniem `.encrypted`
+   - Wiadomość email zawiera informację o szyfrowaniu
+
+2. **Odszyfrowywanie backupu:**
+   - Pobierz zaszyfrowany plik z emaila
+   - Użyj endpointu API `/api/backup/decrypt` do odszyfrowania
+   - Plik zostanie odszyfrowany i zwrócony jako odpowiedź
+
+#### Przykład użycia API
+
+```bash
+# Wysyłanie backupu na email (wymaga autoryzacji)
+curl -X POST "http://localhost:8000/api/backup/send-email" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Odszyfrowywanie pliku backup
+curl -X POST "http://localhost:8000/api/backup/decrypt" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "file=@backup_file.encrypted" \
+  -o decrypted_backup.db
+```
+
+#### Bezpieczeństwo
+
+- ✅ Klucz szyfrowania jest przechowywany lokalnie (nie w repozytorium)
+- ✅ Pliki backup wysyłane na email są zaszyfrowane (Fernet encryption)
+- ✅ Tylko aplikacja z tym samym kluczem może odszyfrować pliki
+- ✅ Bez klucza szyfrowania niemożliwe jest odczytanie backupu
 
 ## 🎓 Co Można Zobaczyć w Projekcie
 

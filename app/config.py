@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     google_sheets_credentials_path: str = ""
     google_sheets_spreadsheet_id: str = ""
     
+    # SMTP (opcjonalne - dla wysyłania emaili)
+    smtp_server: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logowanie - Billing System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #4a5568;
+            --primary-light: #718096;
+            --bg-gradient-start: #e2e8f0;
+            --bg-gradient-end: #cbd5e0;
+            --card-bg: #ffffff;
+            --text-primary: #2d3748;
+            --text-secondary: #718096;
+            --border-color: #e2e8f0;
+            --button-bg: #4299e1;
+            --button-hover: #3182ce;
+            --error-color: #e53e3e;
+        }
+
+        body.dark-mode {
+            --primary-color: #e2e8f0;
+            --primary-light: #cbd5e0;
+            --bg-gradient-start: #2d3748;
+            --bg-gradient-end: #1a202c;
+            --card-bg: #2d3748;
+            --text-primary: #f7fafc;
+            --text-secondary: #cbd5e0;
+            --border-color: #4a5568;
+            --button-bg: #63b3ed;
+            --button-hover: #4299e1;
+            --error-color: #fc8181;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: var(--text-primary);
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        .login-container {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+            transition: background 0.3s ease;
+        }
+
+        .login-container h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 2em;
+        }
+
+        .login-container p {
+            color: var(--text-secondary);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1em;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--button-bg);
+        }
+
+        .error-message {
+            color: var(--error-color);
+            margin-top: 10px;
+            font-size: 0.9em;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .btn-primary {
+            background: var(--button-bg);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--button-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--primary-color);
+            border: 2px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--primary-color);
+            background: var(--hover-bg);
+        }
+
+        .language-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 0.9em;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .language-toggle:hover {
+            border-color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="language-toggle" id="languageToggle">EN</div>
+    
+    <div class="login-container">
+        <h1 data-i18n="login.title">Logowanie</h1>
+        <p data-i18n="login.subtitle">Zaloguj się do systemu rozliczania rachunków</p>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username" data-i18n="login.username">Email (lub admin dla administratora)</label>
+                <input type="text" id="username" name="username" required autocomplete="username" placeholder="twoj@email.com lub admin">
+            </div>
+            
+            <div class="form-group">
+                <label for="password" data-i18n="login.password">Hasło</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+            
+            <div class="error-message" id="errorMessage"></div>
+            
+            <div class="button-group">
+                <button type="submit" class="btn-primary" data-i18n="login.submit">Zaloguj się</button>
+                <button type="button" class="btn-secondary" id="registerBtn" data-i18n="login.register">Zarejestruj się</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Tłumaczenia
+        const translations = {
+            pl: {
+                'login.title': 'Logowanie',
+                'login.subtitle': 'Zaloguj się do systemu rozliczania rachunków',
+                'login.username': 'Email (lub admin dla administratora)',
+                'login.password': 'Hasło',
+                'login.submit': 'Zaloguj się',
+                'login.register': 'Zarejestruj się',
+                'error.invalid': 'Nieprawidłowa nazwa użytkownika lub hasło',
+                'error.network': 'Błąd połączenia z serwerem'
+            },
+            en: {
+                'login.title': 'Login',
+                'login.subtitle': 'Sign in to the billing system',
+                'login.username': 'Email (or admin for administrator)',
+                'login.password': 'Password',
+                'login.submit': 'Sign In',
+                'login.register': 'Register',
+                'error.invalid': 'Invalid username or password',
+                'error.network': 'Connection error'
+            }
+        };
+
+        let currentLanguage = localStorage.getItem('language') || 'pl';
+
+        // Funkcja tłumaczenia
+        function translate(key) {
+            return translations[currentLanguage][key] || key;
+        }
+
+        // Aktualizuj teksty
+        function updateTexts() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                el.textContent = translate(key);
+            });
+            document.getElementById('languageToggle').textContent = currentLanguage === 'pl' ? 'EN' : 'PL';
+        }
+
+        // Przełączanie języka
+        document.getElementById('languageToggle').addEventListener('click', () => {
+            currentLanguage = currentLanguage === 'pl' ? 'en' : 'pl';
+            localStorage.setItem('language', currentLanguage);
+            updateTexts();
+        });
+
+        // Formularz logowania
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const errorMsg = document.getElementById('errorMessage');
+            errorMsg.classList.remove('show');
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Zapisz token
+                    localStorage.setItem('token', data.access_token);
+                    localStorage.setItem('username', data.username);
+                    localStorage.setItem('is_admin', data.is_admin);
+                    
+                    // Przekieruj do dashboard
+                    window.location.href = '/dashboard';
+                } else {
+                    errorMsg.textContent = translate('error.invalid');
+                    errorMsg.classList.add('show');
+                }
+            } catch (error) {
+                errorMsg.textContent = translate('error.network');
+                errorMsg.classList.add('show');
+            }
+        });
+
+        // Przycisk rejestracji
+        document.getElementById('registerBtn').addEventListener('click', () => {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                const errorMsg = document.getElementById('errorMessage');
+                errorMsg.textContent = currentLanguage === 'pl' 
+                    ? 'Wprowadź nazwę użytkownika i hasło' 
+                    : 'Enter username and password';
+                errorMsg.classList.add('show');
+                return;
+            }
+            
+            registerUser(username, password);
+        });
+
+        async function registerUser(username, password) {
+            const errorMsg = document.getElementById('errorMessage');
+            errorMsg.classList.remove('show');
+            
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email: username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Zapisz token
+                    localStorage.setItem('token', data.access_token);
+                    localStorage.setItem('username', data.username);
+                    localStorage.setItem('is_admin', data.is_admin);
+                    
+                    // Przekieruj do dashboard
+                    window.location.href = '/dashboard';
+                } else {
+                    errorMsg.textContent = data.detail || translate('error.network');
+                    errorMsg.classList.add('show');
+                }
+            } catch (error) {
+                errorMsg.textContent = translate('error.network');
+                errorMsg.classList.add('show');
+            }
+        }
+
+        // Inicjalizacja
+        updateTexts();
+    </script>
+</body>
+</html>
+

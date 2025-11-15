@@ -30,6 +30,14 @@ ENV/
 *.sqlite
 *.sqlite3
 
+# User databases (contain sensitive user data)
+user_databases/
+**/user_databases/
+
+# Backups
+backups/
+**/backups/
+
 # IDEs
 .vscode/
 .idea/
@@ -54,6 +62,18 @@ config/
 .env
 .env.local
 .env.*.local
+
+# Encryption keys
+.encryption_key
+*.encryption_key
+
+# Water provider credentials (encrypted)
+water_credentials.encrypted
+*water_credentials*
+
+# Password reset codes (sensitive data)
+password_reset_code.txt
+*password_reset_code*
 
 # Keep folder structure but ignore PDFs
 !invoices_raw/.gitkeep

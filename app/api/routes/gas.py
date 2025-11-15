@@ -350,13 +350,22 @@ def generate_gas_bills(period: str, db: Session = Depends(get_db)):
             print(error_details)
             pdf_files = []
         
-        return {
+        # Sprawdź czy okres jest w pełni rozliczony i wykonaj backup jeśli tak
+        from app.core.billing_period import handle_period_settlement
+        settlement_result = handle_period_settlement(db, period)
+        
+        response = {
             "message": "Gas bills generated",
             "period": period,
             "bills_count": len(bills),
             "pdfs_generated": len(pdf_files),
             "warning": f"Wygenerowano {len(bills)} rachunków, ale {len(pdf_files)} plików PDF" if len(pdf_files) != len(bills) else None
         }
+        
+        if settlement_result.get("is_fully_settled"):
+            response["settlement"] = settlement_result
+        
+        return response
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

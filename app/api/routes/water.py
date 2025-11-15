@@ -29,6 +29,12 @@ from app.integrations.google_sheets import (
     import_locals_from_sheets,
     import_invoices_from_sheets
 )
+from app.core.water_credentials import (
+    save_credentials,
+    get_credentials,
+    credentials_exist,
+    delete_credentials
+)
 
 router = APIRouter(prefix="/api/water", tags=["water"])
 
@@ -216,7 +222,7 @@ def get_readings(db: Session = Depends(get_db)):
         "water_meter_main": r.water_meter_main,
         "water_meter_5": r.water_meter_5,
         "water_meter_5a": r.water_meter_5a,
-        "water_meter_5b": r.water_meter_main - (r.water_meter_5 + r.water_meter_5a)  # Calculated: dol
+        "water_meter_5b": r.water_meter_5b  # Stored in database
     } for r in readings]
 
 
@@ -233,7 +239,7 @@ def get_reading(period: str, db: Session = Depends(get_db)):
         "water_meter_main": reading.water_meter_main,
         "water_meter_5": reading.water_meter_5,
         "water_meter_5a": reading.water_meter_5a,
-        "water_meter_5b": reading.water_meter_main - (reading.water_meter_5 + reading.water_meter_5a)  # Calculated: dol
+        "water_meter_5b": reading.water_meter_5b  # Stored in database
     }
 
 
@@ -246,17 +252,20 @@ def update_reading(
     db: Session = Depends(get_db)
 ):
     """Updates reading by period.
-    Note: water_meter_5b (dol) is calculated as main - 5 - 5a, so it's not updated directly.
+    Note: water_meter_5b (dol) is calculated as main - 5 - 5a.
     """
     reading = db.query(Reading).filter(Reading.data == period).first()
     
     if not reading:
         raise HTTPException(status_code=404, detail="Reading not found")
     
+    # Calculate water_meter_5b (dol) as: main - 5 - 5a
+    water_meter_5b = int(round(float(water_meter_main), 2) - water_meter_5 - water_meter_5a)
+    
     reading.water_meter_main = round(float(water_meter_main), 2)
     reading.water_meter_5 = int(water_meter_5)
     reading.water_meter_5a = int(water_meter_5a)
-    # water_meter_5b is calculated, not stored
+    reading.water_meter_5b = water_meter_5b
     
     db.commit()
     db.refresh(reading)
@@ -276,18 +285,22 @@ def create_reading(
     db: Session = Depends(get_db)
 ):
     """Creates a new meter reading.
-    Note: water_meter_5b (dol) is calculated as main - 5 - 5a, so it's not provided directly.
+    Note: water_meter_5b (dol) is calculated as main - 5 - 5a.
     """
     existing = db.query(Reading).filter(Reading.data == data).first()
     if existing:
         raise HTTPException(status_code=400, detail=f"Reading for period {data} already exists")
+    
+    # Calculate water_meter_5b (dol) as: main - 5 - 5a
+    water_meter_5b = int(round(float(water_meter_main), 2) - water_meter_5 - water_meter_5a)
     
     # Round water_meter_main to 2 decimal places
     new_reading = Reading(
         data=data,
         water_meter_main=round(float(water_meter_main), 2),
         water_meter_5=water_meter_5,
-        water_meter_5a=water_meter_5a
+        water_meter_5a=water_meter_5a,
+        water_meter_5b=water_meter_5b
     )
     db.add(new_reading)
     db.commit()
@@ -689,12 +702,21 @@ def generate_bills(period: str, db: Session = Depends(get_db)):
         # Generate PDF files
         pdf_files = bill_generator.generate_all_bills_for_period(db, period)
         
-        return {
+        # Sprawdź czy okres jest w pełni rozliczony i wykonaj backup jeśli tak
+        from app.core.billing_period import handle_period_settlement
+        settlement_result = handle_period_settlement(db, period)
+        
+        response = {
             "message": "Bills generated",
             "period": period,
             "bills_count": len(bills),
             "pdf_files": pdf_files
         }
+        
+        if settlement_result.get("is_fully_settled"):
+            response["settlement"] = settlement_result
+        
+        return response
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1075,4 +1097,43 @@ def get_stats(db: Session = Depends(get_db)):
     stats["available_periods"] = sorted(reading_periods & invoice_periods, reverse=True)
     
     return stats
+
+
+# ========== AQUANET CREDENTIALS ENDPOINTS ==========
+
+@router.post("/credentials/")
+def save_aquanet_credentials(
+    username: str = Body(...),
+    password: str = Body(...),
+    db: Session = Depends(get_db)
+):
+    """Zapisuje dane logowania do AQUANET w zaszyfrowanym pliku."""
+    success = save_credentials(username, password)
+    if not success:
+        raise HTTPException(status_code=500, detail="Błąd zapisywania danych logowania")
+    return {"message": "Dane logowania zapisane pomyślnie"}
+
+
+@router.get("/credentials/")
+def get_aquanet_credentials(db: Session = Depends(get_db)):
+    """Pobiera dane logowania do AQUANET (tylko do użycia w automatycznym logowaniu)."""
+    credentials = get_credentials()
+    if not credentials:
+        raise HTTPException(status_code=404, detail="Brak zapisanych danych logowania")
+    return credentials
+
+
+@router.get("/credentials/exists/")
+def check_credentials_exist(db: Session = Depends(get_db)):
+    """Sprawdza czy dane logowania są zapisane."""
+    return {"exists": credentials_exist()}
+
+
+@router.delete("/credentials/")
+def delete_aquanet_credentials(db: Session = Depends(get_db)):
+    """Usuwa zapisane dane logowania do AQUANET."""
+    success = delete_credentials()
+    if not success:
+        raise HTTPException(status_code=500, detail="Błąd usuwania danych logowania")
+    return {"message": "Dane logowania usunięte pomyślnie"}
 

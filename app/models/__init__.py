@@ -13,6 +13,8 @@ from app.models.electricity_invoice import (
     ElectricityInvoiceOplataDystrybucyjna,
     ElectricityInvoiceRozliczenieOkres
 )
+from app.models.user import User
+from app.models.password_reset import PasswordResetCode
 
 __all__ = [
     "Local",
@@ -28,6 +30,8 @@ __all__ = [
     "ElectricityInvoiceOdczyt",
     "ElectricityInvoiceSprzedazEnergii",
     "ElectricityInvoiceOplataDystrybucyjna",
-    "ElectricityInvoiceRozliczenieOkres"
+    "ElectricityInvoiceRozliczenieOkres",
+    "User",
+    "PasswordResetCode"
 ]
 
