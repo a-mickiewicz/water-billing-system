@@ -577,6 +577,12 @@
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
+        
+        /* Styl dla przycisku RACHUNKI ŁĄCZONE */
+        button.btn-primary[onclick="openCombinedBills()"]:hover {
+            background: var(--primary-color);
+            color: white;
+        }
 
         .btn-success {
             background: #10b981;
@@ -660,6 +666,35 @@
         .details-cell {
             padding: 20px;
             background: var(--hover-bg);
+        }
+        
+        /* Usuń szare tło dla szczegółów rachunków łączonych */
+        #combined-bills-section .details-cell {
+            background: transparent;
+        }
+        
+        /* Styl dla rozwiniętych wierszy w RACHUNKI ŁĄCZONE - podświetlenie */
+        #combined-bills-section .data-table tr.clickable.expanded {
+            background: rgba(74, 85, 104, 0.1) !important;
+            border-left: 4px solid var(--primary-color);
+            box-shadow: 0 2px 8px rgba(74, 85, 104, 0.2);
+        }
+        
+        body.dark-mode #combined-bills-section .data-table tr.clickable.expanded {
+            background: rgba(226, 232, 240, 0.1) !important;
+            border-left: 4px solid var(--primary-color);
+            box-shadow: 0 2px 8px rgba(226, 232, 240, 0.2);
+        }
+        
+        /* Bezbarwne ikony w rozwiniętych wierszach */
+        #combined-bills-section .data-table tr.clickable.expanded .btn {
+            opacity: 0.5;
+            filter: grayscale(100%);
+        }
+        
+        #combined-bills-section .data-table tr.clickable.expanded .btn:hover {
+            opacity: 0.7;
+            filter: grayscale(80%);
         }
 
         .details-grid {
@@ -901,8 +936,8 @@
             <button class="control-button" onclick="openPreferences()" title="Preferencje / Preferences">
                 <span>⚙</span>
             </button>
-            <button class="control-button" onclick="logout()" title="Wyloguj się / Logout" style="color: #e74c3c;">
-                <span>🚪</span>
+            <button class="control-button" onclick="logout()" title="Wyloguj się / Logout">
+                <span>↪</span>
             </button>
         </div>
         
@@ -921,7 +956,12 @@
 
         <!-- Główna strona z wyborem medium -->
         <div id="main-page" class="section">
-            <h2 data-i18n="main.select_medium">Wybierz medium do zarządzania</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 data-i18n="main.select_medium" style="margin: 0;">Wybierz medium do zarządzania</h2>
+                <button class="btn btn-primary" onclick="openCombinedBills()" style="text-transform: uppercase; padding: 10px 20px; background: transparent; border: 2px solid var(--primary-color); color: var(--primary-color);" data-i18n="button.combined_bills">
+                    RACHUNKI ŁĄCZONE
+                </button>
+            </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 30px;">
                 <!-- Karta Wody -->
                 <div class="medium-card" onclick="openMedium('water')" style="cursor: pointer; background: linear-gradient(135deg, #6b8fc7 0%, #5a7fb8 100%); color: white; padding: 40px; border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.15); transition: transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
@@ -1061,6 +1101,10 @@
                     <div class="form-group">
                         <label data-i18n="label.local">Lokal</label>
                         <input type="text" name="local" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" placeholder="email@example.com">
                     </div>
                 </form>
                 <button class="btn btn-success" onclick="addLocal()" style="text-transform: uppercase;" data-i18n="button.add_local">DODAJ LOKAL</button>
@@ -1972,6 +2016,20 @@
                 </div>
             </div>  <!-- koniec medium-electricity -->
         </div>
+
+        <!-- Sekcja rachunków łączonych -->
+        <div id="combined-bills-section" class="section" style="display: none;">
+            <!-- Przycisk powrotu -->
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-secondary" onclick="backToMain()" style="display: flex; align-items: center; gap: 10px; text-transform: uppercase;">
+                    <span>←</span> <span data-i18n="button.back">POWRÓT DO GŁÓWNEJ STRONY</span>
+                </button>
+            </div>
+
+            <h2 data-i18n="section.combined_bills">RACHUNKI ŁĄCZONE (WODA, GAZ, PRĄD)</h2>
+            
+            <div id="combined-bills-list" class="loading">Ładowanie...</div>
+        </div>
     </div>
 
     <script>
@@ -2063,13 +2121,15 @@
                     return;
                 }
 
-                let html = `<table class="data-table"><thead><tr><th data-i18n="table.meter">Licznik</th><th data-i18n="table.tenant">Najemca</th><th data-i18n="table.local">Lokal</th><th data-i18n="table.actions">Akcje</th></tr></thead><tbody>`;
+                let html = `<table class="data-table"><thead><tr><th data-i18n="table.meter">Licznik</th><th data-i18n="table.tenant">Najemca</th><th data-i18n="table.local">Lokal</th><th>Email</th><th data-i18n="table.actions">Akcje</th></tr></thead><tbody>`;
                 locals.forEach(l => {
                     html += `<tr>
                         <td>${l.water_meter_name}</td>
                         <td>${l.tenant}</td>
                         <td>${l.local}</td>
+                        <td>${l.email || '<span style="color: #999;">-</span>'}</td>
                         <td class="actions">
+                            <button class="btn btn-edit btn-small" data-local-id="${l.id}" data-local-email="${(l.email || '').replace(/"/g, '&quot;')}" onclick="editLocalEmailFromButton(this)" title="Edytuj email">✏️</button>
                             <button class="btn btn-danger btn-small" onclick="deleteLocal(${l.id})" title="Usuń lokal">🗑️</button>
                         </td>
                     </tr>`;
@@ -2110,6 +2170,45 @@
             } catch (error) {
                 showAlert('Błąd połączenia: ' + error.message, 'error');
             }
+        }
+        
+        function editLocalEmailFromButton(button) {
+            const localId = button.getAttribute('data-local-id');
+            const currentEmail = button.getAttribute('data-local-email') || '';
+            editLocalEmail(localId, currentEmail);
+        }
+        
+        function editLocalEmail(localId, currentEmail) {
+            const newEmail = prompt('Wprowadź nowy email:', currentEmail || '');
+            if (newEmail === null) {
+                return; // Użytkownik anulował
+            }
+            
+            // Walidacja emaila (podstawowa)
+            if (newEmail && !newEmail.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+                showAlert('Nieprawidłowy format emaila', 'error');
+                return;
+            }
+            
+            // Wyślij żądanie PUT
+            const params = new URLSearchParams();
+            params.append('email', newEmail || '');
+            
+            fetch(`${API_BASE}/api/water/locals/${localId}?${params}`, {
+                method: 'PUT'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.message) {
+                    showAlert('Email zaktualizowany pomyślnie!');
+                    loadLocals();
+                } else {
+                    showAlert('Błąd aktualizacji emaila', 'error');
+                }
+            })
+            .catch(error => {
+                showAlert('Błąd połączenia: ' + error.message, 'error');
+            });
         }
 
         // Odczyty
@@ -2787,7 +2886,8 @@
         }
 
         async function deleteLocal(localId) {
-            if (!confirm('Czy na pewno chcesz usunąć ten lokal? Zostaną również usunięte wszystkie powiązane rachunki.')) {
+            const confirmation = prompt('Czy na pewno chcesz usunąć ten lokal? Zostaną również usunięte wszystkie powiązane rachunki.\n\nWpisz "tak" aby potwierdzić:');
+            if (!confirmation || confirmation.toLowerCase() !== 'tak') {
                 return;
             }
 
@@ -3644,6 +3744,8 @@
         function backToMain() {
             // Ukryj sekcje medium
             document.getElementById('medium-sections').style.display = 'none';
+            // Ukryj sekcję rachunków łączonych
+            document.getElementById('combined-bills-section').style.display = 'none';
             // Pokaż główną stronę
             document.getElementById('main-page').style.display = 'block';
             // Odśwież statystyki
@@ -6207,24 +6309,32 @@
                 const calendarEl = document.getElementById('electricity-periods-calendar');
                 const buttonsEl = document.getElementById('electricity-periods-buttons');
                 
+                const periodsWithoutBills = data.available_periods_without_bills || [];
+                const periodsWithBills = data.available_periods_with_bills || [];
+                
                 if (availableElectricityPeriods.length > 0) {
                     const diagnostics = data.diagnostics || {};
                     const missingCount = data.periods_without_readings?.length || 0;
                     
                     const availableText = translate('info.available_periods');
                     const selectText = translate('info.available_periods_select');
-                    let statusText = `<span style="text-transform: uppercase; font-size: 0.85em; font-weight: normal; color: #666;">${availableText}: <strong>${availableElectricityPeriods.length}</strong> - ${selectText}:</span>`;
+                    let statusText = `<span style="text-transform: uppercase; font-size: 0.85em; font-weight: normal; color: #666;">${availableText}: <strong>${periodsWithoutBills.length}</strong> do wygenerowania - ${selectText}:</span>`;
+                    if (periodsWithBills.length > 0) {
+                        statusText += ` <span style="color: #999; font-size: 0.85em;">(${periodsWithBills.length} już wygenerowane)</span>`;
+                    }
                     if (missingCount > 0) {
                         const warningText = translate('info.warning_missing_readings').replace('{count}', missingCount);
                         statusText += `<br><span style="color: #dc3545; font-size: 0.85em; text-transform: uppercase; font-weight: normal;">${warningText}</span>`;
                     }
                     statusEl.innerHTML = statusText;
                     
-                    // Utwórz przyciski TYLKO dla dostępnych okresów
+                    // Utwórz przyciski - tylko dla okresów bez rachunków jako aktywne
                     buttonsEl.innerHTML = '';
-                    availableElectricityPeriods.forEach(period => {
+                    
+                    // Najpierw dodaj okresy bez rachunków (aktywne, zielone)
+                    periodsWithoutBills.forEach(period => {
                         const btn = document.createElement('button');
-                        btn.className = 'btn';
+                        btn.className = 'btn btn-success';
                         btn.textContent = period;
                         btn.onclick = () => {
                             // Ustaw wartość w ukrytym input
@@ -6235,6 +6345,23 @@
                                 b.classList.remove('btn-selected');
                             });
                             btn.classList.add('btn-selected');
+                        };
+                        buttonsEl.appendChild(btn);
+                    });
+                    
+                    // Dodaj okresy z rachunkami (szary kontur i tekst, nieaktywne)
+                    periodsWithBills.forEach(period => {
+                        const btn = document.createElement('button');
+                        btn.className = 'btn';
+                        btn.style.cursor = 'not-allowed';
+                        btn.style.backgroundColor = 'transparent';
+                        btn.style.border = '2px solid #999';
+                        btn.style.color = '#999';
+                        btn.textContent = period + ' ✓';
+                        btn.title = 'Rachunki już wygenerowane';
+                        btn.onclick = () => {
+                            // Nie pozwól na wybór już wygenerowanych okresów
+                            showAlert('Rachunki dla tego okresu zostały już wygenerowane', 'info');
                         };
                         buttonsEl.appendChild(btn);
                     });
@@ -6282,6 +6409,8 @@
                     showAlert(`Wygenerowano ${result.bills_count || 0} rachunków prądu dla okresu ${period}`);
                     loadElectricityBills();
                     loadElectricityStats();
+                    // Odśwież listę dostępnych okresów, aby wyszarzyć wygenerowany okres
+                    loadAvailableElectricityPeriods();
                 } else {
                     showAlert(result.detail || 'Błąd generowania rachunków', 'error');
                 }
@@ -6708,7 +6837,16 @@
                 'details.subscription_cost_gross': 'Abonament (brutto):',
                 'details.distribution_fixed_cost_gross': 'Dystrybucja stała (brutto):',
                 'details.distribution_variable_cost_gross': 'Dystrybucja zmienna (brutto):',
-                'details.local_gross': 'Lokal brutto:'
+                'details.local_gross': 'Lokal brutto:',
+                'section.combined_bills': 'RACHUNKI ŁĄCZONE (WODA, GAZ, PRĄD)',
+                'button.combined_bills': 'RACHUNKI ŁĄCZONE',
+                'status.generated': 'WYGENEROWANE',
+                'status.available': 'DOSTĘPNY DO GENEROWANIA',
+                'status.unavailable': 'NIEDOSTĘPNY',
+                'status.no_data': 'BRAK DANYCH',
+                'table.period': 'OKRES',
+                'table.status': 'STATUS',
+                'table.actions': 'AKCJE'
             },
             en: {
                 'header.title': 'Billing System',
@@ -6922,7 +7060,16 @@
                 'details.subscription_cost_gross': 'Subscription (gross):',
                 'details.distribution_fixed_cost_gross': 'Fixed distribution (gross):',
                 'details.distribution_variable_cost_gross': 'Variable distribution (gross):',
-                'details.local_gross': 'Local gross:'
+                'details.local_gross': 'Local gross:',
+                'section.combined_bills': 'COMBINED BILLS (WATER, GAS, ELECTRICITY)',
+                'button.combined_bills': 'COMBINED BILLS',
+                'status.generated': 'GENERATED',
+                'status.available': 'AVAILABLE FOR GENERATION',
+                'status.unavailable': 'UNAVAILABLE',
+                'status.no_data': 'NO DATA',
+                'table.period': 'PERIOD',
+                'table.status': 'STATUS',
+                'table.actions': 'ACTIONS'
             }
         };
 
@@ -7016,6 +7163,30 @@
             });
         }
 
+        function togglePasswordSection() {
+            const section = document.getElementById('change-password-section');
+            const icon = document.getElementById('password-toggle-icon');
+            if (section.style.display === 'none' || !section.style.display) {
+                section.style.display = 'block';
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                section.style.display = 'none';
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+        
+        function toggleForgotPasswordSection() {
+            const section = document.getElementById('forgot-password-section');
+            const icon = document.getElementById('forgot-password-toggle-icon');
+            if (section.style.display === 'none' || !section.style.display) {
+                section.style.display = 'block';
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                section.style.display = 'none';
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+        
         function updatePreferencesSidebar() {
             // Aktualizuj teksty w sidebar (jeśli potrzeba)
             const title = document.querySelector('#settingsSidebar h2');
@@ -7354,6 +7525,503 @@
             initAuthAndPreferences();
         }
 
+        // ========== RACHUNKI ŁĄCZONE ==========
+        
+        function openCombinedBills() {
+            // Ukryj główną stronę
+            document.getElementById('main-page').style.display = 'none';
+            // Ukryj sekcje medium
+            document.getElementById('medium-sections').style.display = 'none';
+            // Pokaż sekcję rachunków łączonych
+            document.getElementById('combined-bills-section').style.display = 'block';
+            // Załaduj dostępne okresy
+            loadAvailableCombinedPeriods();
+        }
+        
+        let availableCombinedPeriods = [];
+        
+        async function loadAvailableCombinedPeriods() {
+            try {
+                const res = await fetch(`${API_BASE}/api/combined/available-periods`);
+                const data = await res.json();
+                availableCombinedPeriods = data.available_periods || [];
+                
+                // Załaduj listę wszystkich okresów z rachunkami
+                loadCombinedBills();
+            } catch (error) {
+                console.error('Błąd ładowania dostępnych okresów:', error);
+                // Nawet przy błędzie spróbuj załadować listę rachunków
+                loadCombinedBills();
+            }
+        }
+        
+        async function loadCombinedBills() {
+            try {
+                // Pobierz dostępne okresy i wygenerowane rachunki
+                const [periodsRes, billsRes] = await Promise.all([
+                    fetch(`${API_BASE}/api/combined/available-periods`),
+                    fetch(`${API_BASE}/api/combined/bills`)
+                ]);
+                
+                const periodsData = await periodsRes.json();
+                const bills = await billsRes.json();
+                const listEl = document.getElementById('combined-bills-list');
+                
+                // Utwórz mapę wygenerowanych rachunków według okresu
+                const billsByPeriod = {};
+                bills.forEach(bill => {
+                    const periodKey = `${bill.period_start}_${bill.period_end}`;
+                    if (!billsByPeriod[periodKey]) {
+                        billsByPeriod[periodKey] = [];
+                    }
+                    billsByPeriod[periodKey].push(bill);
+                });
+                
+                // Pobierz wszystkie możliwe okresy (z diagnostyki lub z dostępnych)
+                const allPossiblePeriods = periodsData.diagnostics?.possible_consecutive_pairs || [];
+                const availablePeriods = periodsData.available_periods || [];
+                const periodsWithBills = periodsData.available_periods_with_bills || [];
+                const periodsWithoutBills = periodsData.available_periods_without_bills || [];
+                
+                // Utwórz zbiór wszystkich okresów (dostępne + wygenerowane)
+                const allPeriodsSet = new Set();
+                availablePeriods.forEach(p => allPeriodsSet.add(`${p[0]}_${p[1]}`));
+                Object.keys(billsByPeriod).forEach(p => allPeriodsSet.add(p));
+                
+                // Jeśli nie ma żadnych okresów, pokaż komunikat
+                if (allPeriodsSet.size === 0 && bills.length === 0) {
+                    listEl.innerHTML = '<p style="text-transform: uppercase; color: #666;">Brak dostępnych okresów do wygenerowania rachunków łączonych.</p>';
+                    return;
+                }
+                
+                // Utwórz listę wszystkich okresów do wyświetlenia
+                const periodHeader = translate('table.period');
+                const statusHeader = translate('table.status');
+                const actionsHeader = translate('table.actions');
+                let html = `<table class="data-table"><thead><tr><th style="text-transform: uppercase;">${periodHeader}</th><th style="text-transform: uppercase;">${statusHeader}</th><th style="text-transform: uppercase;">${actionsHeader}</th></tr></thead><tbody>`;
+                
+                // Sortuj wszystkie okresy (najnowsze pierwsze)
+                const allPeriods = Array.from(allPeriodsSet).sort().reverse();
+                
+                allPeriods.forEach(periodKey => {
+                    const [start, end] = periodKey.split('_');
+                    const periodTuple = [start, end];
+                    const hasBills = billsByPeriod[periodKey] && billsByPeriod[periodKey].length > 0;
+                    const isAvailable = availablePeriods.some(p => p[0] === start && p[1] === end);
+                    const isInWithoutBills = periodsWithoutBills.some(p => p[0] === start && p[1] === end);
+                    const isInWithBills = periodsWithBills.some(p => p[0] === start && p[1] === end);
+                    
+                    let statusText = '';
+                    let actionsHtml = '';
+                    
+                    if (hasBills) {
+                        // Okres ma wygenerowane rachunki
+                        const periodBills = billsByPeriod[periodKey];
+                        const allHavePDF = periodBills.every(b => b.pdf_path);
+                        
+                        const generatedText = translate('status.generated');
+                        statusText = `<span style="color: white; font-weight: normal; text-transform: uppercase;">${generatedText}</span>`;
+                        
+                        // Przyciski zawsze w tych samych kolumnach
+                        actionsHtml = `
+                            <div style="display: flex; gap: 5px; align-items: center;">
+                                <div style="width: 40px; display: flex; justify-content: center;">
+                                    <button class="btn btn-success btn-small" onclick="generateCombinedBillsForPeriod('${start}', '${end}')" title="Regeneruj rachunki">🔄</button>
+                                </div>
+                                <div style="width: 40px; display: flex; justify-content: center;">
+                                    ${allHavePDF ? '' : `<button class="btn btn-primary btn-small" onclick="generateCombinedBillsPDFForPeriod('${start}', '${end}')" title="Generuj PDF">📄</button>`}
+                                </div>
+                                <div style="width: 40px; display: flex; justify-content: center;">
+                                    <button class="btn btn-info btn-small" onclick="sendAllCombinedBillsEmails('${start}', '${end}')" title="Wyślij wszystkie rachunki na email">📧</button>
+                                </div>
+                            </div>
+                        `;
+                    } else if (isInWithoutBills || isAvailable) {
+                        // Okres jest dostępny do generowania
+                        statusText = `<span style="color: white; font-weight: normal; text-transform: uppercase;">${translate('status.available')}</span>`;
+                        // Przyciski zawsze w tych samych kolumnach
+                        actionsHtml = `
+                            <div style="display: flex; gap: 5px; align-items: center;">
+                                <div style="width: 40px; display: flex; justify-content: center;">
+                                    <button class="btn btn-success btn-small" onclick="generateCombinedBillsForPeriod('${start}', '${end}')" title="Generuj rachunki">➕</button>
+                                </div>
+                                <div style="width: 40px; display: flex; justify-content: center;">
+                                    <!-- Puste miejsce dla przycisku Generuj PDF -->
+                                </div>
+                                <div style="width: 40px; display: flex; justify-content: center;">
+                                    <!-- Puste miejsce dla przycisku Szczegóły -->
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // Okres nie jest dostępny
+                        const unavailableText = translate('status.unavailable');
+                        statusText = `<span style="color: white; font-weight: normal; text-transform: uppercase;">${unavailableText}</span>`;
+                        // Przyciski zawsze w tych samych kolumnach (puste)
+                        actionsHtml = `
+                            <div style="display: flex; gap: 5px; align-items: center;">
+                                <div style="width: 40px; display: flex; justify-content: center;">
+                                    <!-- Puste miejsce -->
+                                </div>
+                                <div style="width: 40px; display: flex; justify-content: center;">
+                                    <!-- Puste miejsce -->
+                                </div>
+                                <div style="width: 40px; display: flex; justify-content: center;">
+                                    <!-- Puste miejsce -->
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    html += `<tr class="clickable" onclick="toggleCombinedBillsDetails('${start}', '${end}')" data-period-start="${start}" data-period-end="${end}" style="cursor: pointer;">
+                        <td style="text-transform: uppercase;"><strong>${start} DO ${end}</strong></td>
+                        <td>${statusText}</td>
+                        <td class="actions" onclick="event.stopPropagation()">${actionsHtml}</td>
+                    </tr>
+                    <tr class="details-row" id="combined-bills-details-${start}-${end}" data-period-start="${start}" data-period-end="${end}" style="display: none;">
+                        <td colspan="3" class="details-cell">
+                            <div id="combined-bills-details-content-${start}-${end}" style="padding: 20px;">
+                                <p style="text-align: center; color: #999;">Ładowanie szczegółów...</p>
+                            </div>
+                        </td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table>';
+                listEl.innerHTML = html;
+            } catch (error) {
+                console.error('Błąd ładowania rachunków łączonych:', error);
+                document.getElementById('combined-bills-list').innerHTML = '<p class="error">Błąd ładowania rachunków</p>';
+            }
+        }
+        
+        async function generateCombinedBillsForPeriod(periodStart, periodEnd) {
+            try {
+                const res = await fetch(`${API_BASE}/api/combined/generate-bills?period_start=${periodStart}&period_end=${periodEnd}`, {
+                    method: 'POST'
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert(`Wygenerowano ${result.bills_count || 0} rachunków łączonych dla okresu ${periodStart} - ${periodEnd}`);
+                    loadCombinedBills();
+                } else {
+                    showAlert(result.detail || 'Błąd generowania rachunków', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+        
+        async function generateCombinedBillsPDFForPeriod(periodStart, periodEnd) {
+            try {
+                const res = await fetch(`${API_BASE}/api/combined/generate-pdf?period_start=${periodStart}&period_end=${periodEnd}`, {
+                    method: 'POST'
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert(`Wygenerowano ${result.pdf_files?.length || 0} plików PDF dla okresu ${periodStart} - ${periodEnd}`);
+                    loadCombinedBills();
+                } else {
+                    showAlert(result.detail || 'Błąd generowania PDF', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+        
+        function toggleCombinedBillsDetails(periodStart, periodEnd) {
+            const detailsRow = document.getElementById(`combined-bills-details-${periodStart}-${periodEnd}`);
+            const detailsContent = document.getElementById(`combined-bills-details-content-${periodStart}-${periodEnd}`);
+            const periodRow = document.querySelector(`tr[data-period-start="${periodStart}"][data-period-end="${periodEnd}"]`);
+            
+            if (!detailsRow) return;
+            
+            if (detailsRow.style.display === 'none' || detailsRow.style.display === '') {
+                // Zwiń wszystkie inne rozwinięte wiersze
+                document.querySelectorAll('#combined-bills-section .data-table tr.clickable.expanded').forEach(row => {
+                    row.classList.remove('expanded');
+                });
+                document.querySelectorAll('#combined-bills-section .details-row').forEach(row => {
+                    row.style.display = 'none';
+                });
+                
+                // Rozwiń szczegóły
+                detailsRow.style.display = 'table-row';
+                if (periodRow) {
+                    periodRow.classList.add('expanded');
+                }
+                
+                // Jeśli szczegóły nie są jeszcze załadowane, pobierz je
+                if (detailsContent.innerHTML.includes('Ładowanie szczegółów')) {
+                    loadCombinedBillsDetails(periodStart, periodEnd);
+                }
+            } else {
+                // Zwiń szczegóły
+                detailsRow.style.display = 'none';
+                if (periodRow) {
+                    periodRow.classList.remove('expanded');
+                }
+            }
+        }
+        
+        function loadCombinedBillsDetails(periodStart, periodEnd) {
+            const detailsContent = document.getElementById(`combined-bills-details-content-${periodStart}-${periodEnd}`);
+            if (!detailsContent) return;
+            
+            fetch(`${API_BASE}/api/combined/bills?period_start=${periodStart}&period_end=${periodEnd}`)
+                .then(res => res.json())
+                .then(bills => {
+                    if (bills.length === 0) {
+                        detailsContent.innerHTML = '<p style="text-align: center; color: #999;">Brak rachunków dla tego okresu</p>';
+                        return;
+                    }
+                    
+                    let detailsHtml = '<table class="data-table"><thead><tr><th style="text-transform: uppercase;">LOKAL</th><th style="text-transform: uppercase;">SUMA NETTO</th><th style="text-transform: uppercase;">SUMA BRUTTO</th><th style="text-transform: uppercase;">EMAIL</th><th style="text-transform: uppercase;">WYSŁANO</th><th style="text-transform: uppercase;">AKCJE</th></tr></thead><tbody>';
+                    
+                    bills.forEach(bill => {
+                        const localName = bill.local === 'gora' ? 'Góra' : bill.local === 'dol' ? 'Dół' : 'Gabinet';
+                        const emailSentDate = bill.email_sent_date ? new Date(bill.email_sent_date).toLocaleDateString('pl-PL') : '-';
+                        // Email jest pobierany z bazy danych lokali przez endpoint API
+                        const currentEmail = (bill.local_email || '').trim();
+                        const hasEmail = currentEmail !== '';
+                        
+                        detailsHtml += `<tr>
+                            <td style="text-transform: uppercase;"><strong>${localName}</strong></td>
+                            <td>${(bill.total_net_sum || 0).toFixed(2)} zł</td>
+                            <td>${(bill.total_gross_sum || 0).toFixed(2)} zł</td>
+                            <td>${hasEmail ? currentEmail : '<span style="color: #999;">-</span>'}</td>
+                            <td>${emailSentDate !== '-' ? emailSentDate : '<span style="color: #999;">-</span>'}</td>
+                            <td class="actions">
+                                <div style="display: flex; gap: 5px; align-items: center;">
+                                    <div style="width: 40px; display: flex; justify-content: center;">
+                                        ${bill.pdf_path ? `<button class="btn btn-success btn-small" onclick="openCombinedBillPDF(${bill.id}, '${bill.pdf_path}')" title="Podgląd PDF">👁️</button>` : '<span style="color: #999;">-</span>'}
+                                    </div>
+                                    <div style="width: 40px; display: flex; justify-content: center;">
+                                        <button class="btn btn-primary btn-small" onclick="sendSingleCombinedBillEmail(${bill.id})" title="Wyślij na email" ${!hasEmail ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>📧</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>`;
+                    });
+                    
+                    detailsHtml += '</tbody></table>';
+                    detailsContent.innerHTML = detailsHtml;
+                })
+                .catch(error => {
+                    detailsContent.innerHTML = '<p style="text-align: center; color: #dc3545;">Błąd ładowania szczegółów</p>';
+                    console.error('Błąd ładowania szczegółów:', error);
+                });
+        }
+        
+        async function sendAllCombinedBillsEmails(periodStart, periodEnd) {
+            if (!confirm(`Czy na pewno chcesz wysłać wszystkie rachunki z okresu ${periodStart} - ${periodEnd} na emaile?`)) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/combined/send-emails?period_start=${periodStart}&period_end=${periodEnd}`, {
+                    method: 'POST'
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert(`Wysłano ${result.sent_count} z ${result.total_count} rachunków. ${result.errors_count > 0 ? `Błędy: ${result.errors_count}` : ''}`);
+                    loadCombinedBills();
+                } else {
+                    showAlert(result.detail || 'Błąd wysyłania emaili', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+        
+        async function sendSingleCombinedBillEmail(billId) {
+            try {
+                const res = await fetch(`${API_BASE}/api/combined/bills/${billId}/send-email`, {
+                    method: 'POST'
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert(`Rachunek wysłany na email: ${result.email}`);
+                    // Odśwież szczegóły
+                    const bill = await fetch(`${API_BASE}/api/combined/bills?id=${billId}`).then(r => r.json());
+                    if (bill.length > 0) {
+                        const periodStart = bill[0].period_start;
+                        const periodEnd = bill[0].period_end;
+                        loadCombinedBillsDetails(periodStart, periodEnd);
+                    }
+                } else {
+                    showAlert(result.detail || 'Błąd wysyłania emaila', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+        
+        function editLocalEmailFromCombinedBill(billId, currentEmail) {
+            const newEmail = prompt('Wprowadź nowy email:', currentEmail || '');
+            if (newEmail === null) {
+                return; // Użytkownik anulował
+            }
+            
+            // Walidacja emaila (podstawowa)
+            if (newEmail && !newEmail.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+                showAlert('Nieprawidłowy format emaila', 'error');
+                return;
+            }
+            
+            // Pobierz local_id z rachunku
+            fetch(`${API_BASE}/api/combined/bills?id=${billId}`)
+                .then(res => res.json())
+                .then(bills => {
+                    if (bills.length === 0) {
+                        showAlert('Nie znaleziono rachunku', 'error');
+                        return;
+                    }
+                    
+                    const localId = bills[0].local_id;
+                    if (!localId) {
+                        showAlert('Nie znaleziono ID lokalu', 'error');
+                        return;
+                    }
+                    
+                    // Wyślij żądanie PUT
+                    const params = new URLSearchParams();
+                    params.append('email', newEmail || '');
+                    
+                    fetch(`${API_BASE}/api/water/locals/${localId}?${params}`, {
+                        method: 'PUT'
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.message) {
+                            showAlert('Email zaktualizowany pomyślnie!');
+                            // Odśwież szczegóły
+                            const periodStart = bills[0].period_start;
+                            const periodEnd = bills[0].period_end;
+                            loadCombinedBillsDetails(periodStart, periodEnd);
+                        } else {
+                            showAlert('Błąd aktualizacji emaila', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        showAlert('Błąd połączenia: ' + error.message, 'error');
+                    });
+                })
+                .catch(error => {
+                    showAlert('Błąd pobierania danych rachunku', 'error');
+                });
+        }
+        
+        function updateLocalEmailFromCombinedBill(billId, newEmail) {
+            // Automatyczna aktualizacja przy zmianie w polu input
+            if (!newEmail || newEmail.trim() === '') {
+                return; // Nie aktualizuj jeśli pole jest puste
+            }
+            
+            // Walidacja emaila
+            if (!newEmail.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+                return; // Nie aktualizuj jeśli format jest nieprawidłowy
+            }
+            
+            // Pobierz local_id z rachunku
+            fetch(`${API_BASE}/api/combined/bills?id=${billId}`)
+                .then(res => res.json())
+                .then(bills => {
+                    if (bills.length === 0) {
+                        return;
+                    }
+                    
+                    const localId = bills[0].local_id;
+                    if (!localId) {
+                        return;
+                    }
+                    
+                    // Wyślij żądanie PUT
+                    const params = new URLSearchParams();
+                    params.append('email', newEmail || '');
+                    
+                    fetch(`${API_BASE}/api/water/locals/${localId}?${params}`, {
+                        method: 'PUT'
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.message) {
+                            // Odśwież szczegóły
+                            const periodStart = bills[0].period_start;
+                            const periodEnd = bills[0].period_end;
+                            loadCombinedBillsDetails(periodStart, periodEnd);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Błąd aktualizacji emaila:', error);
+                    });
+                })
+                .catch(error => {
+                    console.error('Błąd pobierania danych rachunku:', error);
+                });
+        }
+        
+        function openCombinedBillPDF(billId, pdfPath) {
+            if (pdfPath) {
+                window.open(`${API_BASE}/api/combined/bills/download/${billId}`, '_blank');
+            } else {
+                showAlert('PDF nie został jeszcze wygenerowany. Kliknij "GENERUJ PDF" dla tego okresu.', 'warning');
+            }
+        }
+        
+        async function generateCombinedBills() {
+            const periodStart = document.getElementById('combined-bill-period-start').value;
+            const periodEnd = document.getElementById('combined-bill-period-end').value;
+            
+            if (!periodStart || !periodEnd) {
+                showAlert('Wybierz okres z dostępnych poniżej', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/combined/generate-bills?period_start=${periodStart}&period_end=${periodEnd}`, {
+                    method: 'POST'
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert(`Wygenerowano ${result.bills_count || 0} rachunków łączonych dla okresu ${periodStart} - ${periodEnd}`);
+                    loadAvailableCombinedPeriods();
+                    loadCombinedBills();
+                } else {
+                    showAlert(result.detail || 'Błąd generowania rachunków', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+        
+        async function generateCombinedBillsPDF() {
+            const periodStart = document.getElementById('combined-bill-period-start').value;
+            const periodEnd = document.getElementById('combined-bill-period-end').value;
+            
+            if (!periodStart || !periodEnd) {
+                showAlert('Wybierz okres z dostępnych poniżej', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/combined/generate-pdf?period_start=${periodStart}&period_end=${periodEnd}`, {
+                    method: 'POST'
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert(`Wygenerowano ${result.pdf_files?.length || 0} plików PDF dla okresu ${periodStart} - ${periodEnd}`);
+                    loadCombinedBills();
+                } else {
+                    showAlert(result.detail || 'Błąd generowania PDF', 'error');
+                }
+            } catch (error) {
+                showAlert('Błąd połączenia', 'error');
+            }
+        }
+        
+        // ========== KONIEC RACHUNKÓW ŁĄCZONYCH ==========
+
         function initAuthAndPreferences() {
             // Sprawdź autentykację
             if (!checkAuth()) {
@@ -7402,8 +8070,10 @@
         <div class="settings-content" id="settingsAccount">
             <button class="settings-back-button" onclick="showSettingsMenu()" data-i18n="preferences.back">Powrót</button>
             <div class="settings-content-header">
-                <h3 data-i18n="preferences.menu.account">Konto użytkownika</h3>
+                <h3 style="text-transform: uppercase; letter-spacing: 1px;">USER ACCOUNT</h3>
             </div>
+            
+            <!-- Email (zawsze widoczny) -->
             <div class="form-group">
                 <label for="user-email" data-i18n="preferences.user.email">Email</label>
                 <input type="email" id="user-email" name="user-email" autocomplete="email" placeholder="twoj@email.com">
@@ -7415,59 +8085,69 @@
             
             <hr style="margin: 30px 0; border: none; border-top: 1px solid var(--border-color);">
             
-            <!-- Zmiana hasła -->
+            <!-- CHANGE PASSWORD - zwijane -->
             <div style="margin-top: 20px;">
-                <h4 style="margin-bottom: 15px;" data-i18n="preferences.password.change_title">Zmiana hasła</h4>
-                <div class="form-group">
-                    <label for="old-password" data-i18n="preferences.password.old">Stare hasło</label>
-                    <input type="password" id="old-password" name="old-password" autocomplete="current-password" placeholder="Wprowadź stare hasło">
+                <div class="collapsible-header" onclick="togglePasswordSection()" style="cursor: pointer; padding: 15px; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-color)'" onmouseout="this.style.borderColor='var(--border-color)'">
+                    <h4 style="margin: 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">CHANGE PASSWORD</h4>
+                    <span id="password-toggle-icon" style="font-size: 1.2em; transition: transform 0.3s;">▼</span>
                 </div>
-                <div class="form-group">
-                    <label for="new-password" data-i18n="preferences.password.new">Nowe hasło</label>
-                    <input type="password" id="new-password" name="new-password" autocomplete="new-password" placeholder="Wprowadź nowe hasło">
-                    <small style="color: var(--text-secondary); font-size: 0.85em;" data-i18n="preferences.password.new.desc">Hasło musi mieć co najmniej 6 znaków</small>
-                </div>
-                <div class="form-group">
-                    <label for="confirm-password" data-i18n="preferences.password.confirm">Potwierdź nowe hasło</label>
-                    <input type="password" id="confirm-password" name="confirm-password" autocomplete="new-password" placeholder="Potwierdź nowe hasło">
-                </div>
-                <div class="modal-actions">
-                    <button class="btn-modal btn-modal-primary" onclick="changePassword()" data-i18n="preferences.password.change_button">Zmień hasło</button>
+                <div id="change-password-section" style="display: none; margin-top: 15px; padding: 20px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px;">
+                    <div class="form-group">
+                        <label for="old-password" data-i18n="preferences.password.old">Stare hasło</label>
+                        <input type="password" id="old-password" name="old-password" autocomplete="current-password" placeholder="Wprowadź stare hasło">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-password" data-i18n="preferences.password.new">Nowe hasło</label>
+                        <input type="password" id="new-password" name="new-password" autocomplete="new-password" placeholder="Wprowadź nowe hasło">
+                        <small style="color: var(--text-secondary); font-size: 0.85em;" data-i18n="preferences.password.new.desc">Hasło musi mieć co najmniej 6 znaków</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm-password" data-i18n="preferences.password.confirm">Potwierdź nowe hasło</label>
+                        <input type="password" id="confirm-password" name="confirm-password" autocomplete="new-password" placeholder="Potwierdź nowe hasło">
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-modal btn-modal-primary" onclick="changePassword()" data-i18n="preferences.password.change_button">Zmień hasło</button>
+                    </div>
                 </div>
             </div>
             
             <hr style="margin: 30px 0; border: none; border-top: 1px solid var(--border-color);">
             
-            <!-- Reset hasła -->
+            <!-- FORGOT PASSWORD - zwijane -->
             <div style="margin-top: 20px;">
-                <h4 style="margin-bottom: 15px;" data-i18n="preferences.password.reset_title">Nie pamiętam hasła</h4>
-                <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 15px;" data-i18n="preferences.password.reset_desc">Jeśli nie pamiętasz hasła, możemy wysłać kod resetujący na Twój email.</p>
-                <div class="form-group">
-                    <label for="reset-email" data-i18n="preferences.password.reset_email">Email</label>
-                    <input type="email" id="reset-email" name="reset-email" autocomplete="email" placeholder="twoj@email.com">
+                <div class="collapsible-header" onclick="toggleForgotPasswordSection()" style="cursor: pointer; padding: 15px; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary-color)'" onmouseout="this.style.borderColor='var(--border-color)'">
+                    <h4 style="margin: 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">FORGOT PASSWORD</h4>
+                    <span id="forgot-password-toggle-icon" style="font-size: 1.2em; transition: transform 0.3s;">▼</span>
                 </div>
-                <div class="modal-actions">
-                    <button class="btn-modal btn-modal-secondary" onclick="requestPasswordReset()" data-i18n="preferences.password.reset_button">Wyślij kod resetujący</button>
-                </div>
-                
-                <!-- Formularz resetu hasła z kodem (ukryty domyślnie) -->
-                <div id="reset-password-form" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                <div id="forgot-password-section" style="display: none; margin-top: 15px; padding: 20px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px;">
+                    <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 15px;" data-i18n="preferences.password.reset_desc">Jeśli nie pamiętasz hasła, możemy wysłać kod resetujący na Twój email.</p>
                     <div class="form-group">
-                        <label for="reset-code" data-i18n="preferences.password.reset_code">Kod resetujący</label>
-                        <input type="text" id="reset-code" name="reset-code" placeholder="Wprowadź 6-cyfrowy kod" maxlength="6" pattern="[0-9]{6}">
-                        <small style="color: var(--text-secondary); font-size: 0.85em;" data-i18n="preferences.password.reset_code.desc">Sprawdź swoją skrzynkę email</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="reset-new-password" data-i18n="preferences.password.new">Nowe hasło</label>
-                        <input type="password" id="reset-new-password" name="reset-new-password" autocomplete="new-password" placeholder="Wprowadź nowe hasło">
-                    </div>
-                    <div class="form-group">
-                        <label for="reset-confirm-password" data-i18n="preferences.password.confirm">Potwierdź nowe hasło</label>
-                        <input type="password" id="reset-confirm-password" name="reset-confirm-password" autocomplete="new-password" placeholder="Potwierdź nowe hasło">
+                        <label for="reset-email" data-i18n="preferences.password.reset_email">Email</label>
+                        <input type="email" id="reset-email" name="reset-email" autocomplete="email" placeholder="twoj@email.com">
                     </div>
                     <div class="modal-actions">
-                        <button class="btn-modal btn-modal-primary" onclick="resetPassword()" data-i18n="preferences.password.reset_submit">Zresetuj hasło</button>
-                        <button class="btn-modal btn-modal-secondary" onclick="document.getElementById('reset-password-form').style.display='none'" style="margin-left: 10px;" data-i18n="button.cancel">Anuluj</button>
+                        <button class="btn-modal btn-modal-secondary" onclick="requestPasswordReset()" data-i18n="preferences.password.reset_button">Wyślij kod resetujący</button>
+                    </div>
+                    
+                    <!-- Formularz resetu hasła z kodem (ukryty domyślnie) -->
+                    <div id="reset-password-form" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                        <div class="form-group">
+                            <label for="reset-code" data-i18n="preferences.password.reset_code">Kod resetujący</label>
+                            <input type="text" id="reset-code" name="reset-code" placeholder="Wprowadź 6-cyfrowy kod" maxlength="6" pattern="[0-9]{6}">
+                            <small style="color: var(--text-secondary); font-size: 0.85em;" data-i18n="preferences.password.reset_code.desc">Sprawdź swoją skrzynkę email</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="reset-new-password" data-i18n="preferences.password.new">Nowe hasło</label>
+                            <input type="password" id="reset-new-password" name="reset-new-password" autocomplete="new-password" placeholder="Wprowadź nowe hasło">
+                        </div>
+                        <div class="form-group">
+                            <label for="reset-confirm-password" data-i18n="preferences.password.confirm">Potwierdź nowe hasło</label>
+                            <input type="password" id="reset-confirm-password" name="reset-confirm-password" autocomplete="new-password" placeholder="Potwierdź nowe hasło">
+                        </div>
+                        <div class="modal-actions">
+                            <button class="btn-modal btn-modal-primary" onclick="resetPassword()" data-i18n="preferences.password.reset_submit">Zresetuj hasło</button>
+                            <button class="btn-modal btn-modal-secondary" onclick="document.getElementById('reset-password-form').style.display='none'" style="margin-left: 10px;" data-i18n="button.cancel">Anuluj</button>
+                        </div>
                     </div>
                 </div>
             </div>

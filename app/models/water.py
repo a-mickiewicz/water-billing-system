@@ -17,10 +17,12 @@ class Local(Base):
     gas_meter_name = Column(String(50), unique=True, nullable=True)    # Gas meter (NEW)
     tenant = Column(String(100))  # Tenant name
     local = Column(String(50))    # Unit name ('gora', 'gabinet', 'dol')
+    email = Column(String(200), nullable=True)  # Email address for sending bills
     
     bills = relationship("Bill", back_populates="local_obj")
     gas_bills = relationship("GasBill", back_populates="local_obj", cascade="all, delete-orphan")
     electricity_bills = relationship("ElectricityBill", back_populates="local_obj", cascade="all, delete-orphan")
+    combined_bills = relationship("CombinedBill", back_populates="local_obj", cascade="all, delete-orphan")
 
 
 class Reading(Base):

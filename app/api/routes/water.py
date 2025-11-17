@@ -50,12 +50,13 @@ def get_locals(db: Session = Depends(get_db)):
         "water_meter_name": l.water_meter_name,
         "gas_meter_name": l.gas_meter_name,
         "tenant": l.tenant,
-        "local": l.local
+        "local": l.local,
+        "email": l.email
     } for l in locals_list]
 
 
 @router.post("/locals/")
-def create_local(water_meter_name: str, tenant: str, local: str, gas_meter_name: Optional[str] = None, db: Session = Depends(get_db)):
+def create_local(water_meter_name: str, tenant: str, local: str, gas_meter_name: Optional[str] = None, email: Optional[str] = None, db: Session = Depends(get_db)):
     """Creates a new unit."""
     # Check if unit with the same water_meter_name already exists
     if water_meter_name:
@@ -80,7 +81,8 @@ def create_local(water_meter_name: str, tenant: str, local: str, gas_meter_name:
             water_meter_name=water_meter_name,
             gas_meter_name=gas_meter_name,
             tenant=tenant,
-            local=local
+            local=local,
+            email=email
         )
         db.add(new_local)
         db.commit()
@@ -121,6 +123,7 @@ def update_local(
     gas_meter_name: Optional[str] = None,
     tenant: Optional[str] = None,
     local: Optional[str] = None,
+    email: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """Updates an existing unit."""
@@ -160,6 +163,8 @@ def update_local(
         existing_local.tenant = tenant
     if local is not None:
         existing_local.local = local
+    if email is not None:
+        existing_local.email = email
     
     try:
         db.commit()
@@ -170,7 +175,8 @@ def update_local(
             "water_meter_name": existing_local.water_meter_name,
             "gas_meter_name": existing_local.gas_meter_name,
             "tenant": existing_local.tenant,
-            "local": existing_local.local
+            "local": existing_local.local,
+            "email": existing_local.email
         }
     except Exception as e:
         db.rollback()

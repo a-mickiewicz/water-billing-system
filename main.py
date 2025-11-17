@@ -19,6 +19,7 @@ from app.api.routes.electricity import router as electricity_router
 from app.api.routes.water import router as water_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.backup import router as backup_router
+from app.api.routes.combined import router as combined_router
 
 
 def init_admin_user(db: Session):
@@ -89,6 +90,7 @@ app.include_router(gas_router)  # /api/gas/*
 app.include_router(electricity_router)  # /api/electricity/*
 app.include_router(auth_router)  # /api/auth/*
 app.include_router(backup_router)  # /api/backup/*
+app.include_router(combined_router)  # /api/combined/*
 
 
 # ========== ENDPOINTY POMOCNICZE ==========

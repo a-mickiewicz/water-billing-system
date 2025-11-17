@@ -595,7 +595,7 @@ def verify_and_save_invoice(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/bills")
+@router.get("/bills/")
 def get_bills(
     skip: int = 0,
     limit: int = 100,
@@ -918,8 +918,18 @@ def get_available_periods(db: Session = Depends(get_db)):
     # Periods from invoices but without readings (for diagnostics)
     periods_without_readings = sorted(all_invoice_periods - reading_periods, reverse=True)
     
+    # Get periods that already have bills generated
+    bills = db.query(ElectricityBill.data).distinct().all()
+    periods_with_bills = {bill.data for bill in bills}
+    
+    # Separate available periods into those with and without bills
+    available_without_bills = [p for p in available if p not in periods_with_bills]
+    available_with_bills = [p for p in available if p in periods_with_bills]
+    
     return {
         "available_periods": available,
+        "available_periods_without_bills": sorted(available_without_bills, reverse=True),
+        "available_periods_with_bills": sorted(available_with_bills, reverse=True),
         "all_reading_periods": sorted(reading_periods, reverse=True),
         "all_invoice_periods": sorted(all_invoice_periods, reverse=True),
         "periods_without_readings": periods_without_readings,
@@ -927,6 +937,8 @@ def get_available_periods(db: Session = Depends(get_db)):
             "total_invoices": len(invoices),
             "total_readings": len(readings),
             "available_count": len(available),
+            "available_without_bills_count": len(available_without_bills),
+            "available_with_bills_count": len(available_with_bills),
             "missing_readings_count": len(periods_without_readings)
         }
     }

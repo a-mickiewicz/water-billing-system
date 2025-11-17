@@ -15,6 +15,7 @@ from app.models.electricity_invoice import (
 )
 from app.models.user import User
 from app.models.password_reset import PasswordResetCode
+from app.models.combined import CombinedBill
 
 __all__ = [
     "Local",
@@ -32,6 +33,7 @@ __all__ = [
     "ElectricityInvoiceOplataDystrybucyjna",
     "ElectricityInvoiceRozliczenieOkres",
     "User",
-    "PasswordResetCode"
+    "PasswordResetCode",
+    "CombinedBill"
 ]
 

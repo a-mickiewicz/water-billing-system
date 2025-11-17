@@ -54,6 +54,7 @@ def init_db():
     )
     from app.models.user import User
     from app.models.password_reset import PasswordResetCode
+    from app.models.combined import CombinedBill
     
     try:
         Base.metadata.create_all(bind=engine, checkfirst=True)
