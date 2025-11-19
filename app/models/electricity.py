@@ -59,6 +59,11 @@ class ElectricityReading(Base):
     # Always single-tariff
     odczyt_gabinet = Column(Float, nullable=False)
     
+    # ============================================
+    # FLAG
+    # ============================================
+    is_flagged = Column(Boolean, nullable=False, default=False)  # Flaga do oznaczenia podejrzanych/niewłaściwych odczytów
+    
     # Relationships
     bills = relationship("ElectricityBill", back_populates="reading", cascade="all, delete-orphan")
     

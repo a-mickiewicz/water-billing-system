@@ -9,7 +9,7 @@ Definiuje tabele zgodnie ze schematem z propozycja_tabel_prąd.md:
 - electricity_invoice_rozliczenie_okresy (rozliczenie po okresach)
 """
 
-from sqlalchemy import Column, String, Float, Integer, Date, ForeignKey, UniqueConstraint, Index, Numeric
+from sqlalchemy import Column, String, Float, Integer, Date, ForeignKey, UniqueConstraint, Index, Numeric, Boolean
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -50,6 +50,9 @@ class ElectricityInvoice(Base):
     grupa_taryfowa = Column(String(10), nullable=False)  # Grupa taryfowa (np. "G12", "G11")
     typ_taryfy = Column(String(20), nullable=False)  # "DWUTARYFOWA" lub "CAŁODOBOWA"
     energia_lacznie_zuzyta_w_roku_kwh = Column(Integer, nullable=False)
+    
+    # Flaga
+    is_flagged = Column(Boolean, nullable=False, default=False)  # Flaga do oznaczenia podejrzanych/niewłaściwych faktur
     
     # Relacje
     bills = relationship("ElectricityBill", back_populates="invoice", cascade="all, delete-orphan")

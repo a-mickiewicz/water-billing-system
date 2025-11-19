@@ -3,6 +3,7 @@ API endpoints for electricity billing.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from typing import List, Optional, Dict, Any
@@ -124,7 +125,8 @@ def get_readings(
             "dol_reading": dol_reading,
             "dol_reading_t1": dol_reading_t1,
             "dol_reading_t2": dol_reading_t2,
-            "gabinet_reading": gabinet_reading
+            "gabinet_reading": gabinet_reading,
+            "is_flagged": bool(r.is_flagged) if hasattr(r, 'is_flagged') else False
         })
     
     return result
@@ -175,7 +177,8 @@ def get_reading(
         "dol_reading": float(reading.odczyt_dol) if reading.odczyt_dol is not None else None,
         "dol_reading_t1": float(reading.odczyt_dol_I) if reading.odczyt_dol_I is not None else None,
         "dol_reading_t2": float(reading.odczyt_dol_II) if reading.odczyt_dol_II is not None else None,
-        "gabinet_reading": float(reading.odczyt_gabinet) if reading.odczyt_gabinet is not None else 0.0
+        "gabinet_reading": float(reading.odczyt_gabinet) if reading.odczyt_gabinet is not None else 0.0,
+        "is_flagged": bool(reading.is_flagged) if hasattr(reading, 'is_flagged') else False
     }
 
 
@@ -265,7 +268,8 @@ def update_reading(
         "dol_reading": float(reading.odczyt_dol) if reading.odczyt_dol is not None else None,
         "dol_reading_t1": float(reading.odczyt_dol_I) if reading.odczyt_dol_I is not None else None,
         "dol_reading_t2": float(reading.odczyt_dol_II) if reading.odczyt_dol_II is not None else None,
-        "gabinet_reading": float(reading.odczyt_gabinet) if reading.odczyt_gabinet is not None else 0.0
+        "gabinet_reading": float(reading.odczyt_gabinet) if reading.odczyt_gabinet is not None else 0.0,
+        "is_flagged": bool(reading.is_flagged) if hasattr(reading, 'is_flagged') else False
     }
 
 
@@ -300,6 +304,39 @@ def delete_reading(
     return {
         "message": f"Odczyt dla okresu {data} został usunięty",
         "deleted_bills_count": deleted_bills_count
+    }
+
+
+@router.put("/readings/{data}/flag")
+def toggle_reading_flag(
+    data: str,
+    flag_data: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    """Przełącza flagę dla odczytu prądu."""
+    reading = db.query(ElectricityReading).filter(
+        ElectricityReading.data == data
+    ).first()
+    
+    if not reading:
+        raise HTTPException(status_code=404, detail=f"Brak odczytu dla okresu {data}")
+    
+    # Pobierz wartość flagi z request body (domyślnie True jeśli nie podano)
+    is_flagged = flag_data.get('is_flagged', True)
+    
+    # Zaktualizuj flagę
+    if hasattr(reading, 'is_flagged'):
+        reading.is_flagged = bool(is_flagged)
+    else:
+        raise HTTPException(status_code=500, detail="Kolumna is_flagged nie istnieje w modelu")
+    
+    db.commit()
+    db.refresh(reading)
+    
+    return {
+        "message": f"Flaga odczytu dla okresu {data} została zaktualizowana",
+        "data": reading.data,
+        "is_flagged": bool(reading.is_flagged)
     }
 
 
@@ -700,6 +737,45 @@ def generate_bills(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/bills/regenerate/{period}")
+def regenerate_bills(period: str, db: Session = Depends(get_db)):
+    """Regeneruje rachunki prądu dla danego okresu."""
+    manager = ElectricityBillingManager()
+    
+    # Usuń stare rachunki dla tego okresu
+    bills = db.query(ElectricityBill).filter(ElectricityBill.data == period).all()
+    for bill in bills:
+        # Usuń plik PDF jeśli istnieje
+        if bill.pdf_path and Path(bill.pdf_path).exists():
+            try:
+                Path(bill.pdf_path).unlink()
+            except Exception:
+                pass  # Ignoruj błędy usuwania plików
+        db.delete(bill)
+    db.commit()
+    
+    try:
+        # Wygeneruj nowe rachunki
+        bills = manager.generate_bills_for_period(db, period)
+        
+        # Sprawdź czy okres jest w pełni rozliczony i wykonaj backup jeśli tak
+        from app.core.billing_period import handle_period_settlement
+        settlement_result = handle_period_settlement(db, period)
+        
+        response = {
+            "message": "Rachunki prądu zregenerowane",
+            "period": period,
+            "bills_count": len(bills)
+        }
+        
+        if settlement_result.get("is_fully_settled"):
+            response["settlement"] = settlement_result
+        
+        return response
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("/bills/{bill_id}")
 def get_bill(bill_id: int, db: Session = Depends(get_db)):
     """Pobiera rachunek po ID."""
@@ -769,6 +845,55 @@ def update_bill(
         "data": bill.data,
         "local": bill.local
     }
+
+
+@router.post("/bills/generate-pdf/{bill_id}")
+def generate_bill_pdf_endpoint(bill_id: int, db: Session = Depends(get_db)):
+    """Generuje plik PDF dla konkretnego rachunku prądu."""
+    from app.services.electricity.bill_generator import generate_bill_pdf
+    
+    bill = db.query(ElectricityBill).filter(ElectricityBill.id == bill_id).first()
+    
+    if not bill:
+        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+    
+    try:
+        pdf_path = generate_bill_pdf(db, bill)
+        bill.pdf_path = pdf_path
+        db.commit()
+        
+        return {
+            "message": "Plik PDF został wygenerowany",
+            "bill_id": bill_id,
+            "pdf_path": pdf_path
+        }
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"[ERROR] Błąd podczas generowania PDF dla rachunku {bill_id}: {e}")
+        print(error_details)
+        raise HTTPException(status_code=500, detail=f"Nie można wygenerować pliku PDF: {str(e)}")
+
+
+@router.get("/bills/download/{bill_id}")
+def download_bill(bill_id: int, db: Session = Depends(get_db)):
+    """Pobiera plik PDF rachunku prądu. Generuje PDF jeśli nie istnieje."""
+    bill = db.query(ElectricityBill).filter(ElectricityBill.id == bill_id).first()
+    
+    if not bill:
+        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+    
+    # Jeśli plik PDF nie istnieje, wygeneruj go
+    if not bill.pdf_path or not Path(bill.pdf_path).exists():
+        try:
+            from app.services.electricity.bill_generator import generate_bill_pdf
+            pdf_path = generate_bill_pdf(db, bill)
+            bill.pdf_path = pdf_path
+            db.commit()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Nie można wygenerować pliku PDF: {str(e)}")
+    
+    return FileResponse(bill.pdf_path, media_type="application/pdf")
 
 
 @router.delete("/bills/{bill_id}")
@@ -1013,6 +1138,7 @@ def get_invoices_detailed(
             "koszt_1kwh_nocna": koszt_nocna,
             "koszt_1kwh_calodobowa": koszt_calodobowa,
             "koszty_kwh_szczegolowe": koszty_kwh,
+            "is_flagged": bool(inv.is_flagged) if hasattr(inv, 'is_flagged') else False,
         })
     
     return result
@@ -1075,6 +1201,7 @@ def get_invoice_detailed(
             "grupa_taryfowa": invoice.grupa_taryfowa,
             "typ_taryfy": invoice.typ_taryfy,
             "energia_lacznie_zuzyta_w_roku_kwh": invoice.energia_lacznie_zuzyta_w_roku_kwh,
+            "is_flagged": bool(invoice.is_flagged) if hasattr(invoice, 'is_flagged') else False,
         },
         "blankiety": [
             {
@@ -2087,6 +2214,38 @@ def update_invoice_detailed(
         "invoice_id": invoice.id,
         "invoice_number": invoice.numer_faktury,
         "rok": invoice.rok
+    }
+
+
+@router.put("/invoices-detailed/{invoice_id}/flag")
+def toggle_invoice_flag(
+    invoice_id: int,
+    flag_data: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    """Przełącza flagę dla faktury prądu."""
+    invoice = db.query(ElectricityInvoice).filter(ElectricityInvoice.id == invoice_id).first()
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail=f"Faktura o ID {invoice_id} nie istnieje")
+    
+    # Pobierz wartość flagi z request body (domyślnie True jeśli nie podano)
+    is_flagged = flag_data.get('is_flagged', True)
+    
+    # Zaktualizuj flagę
+    if hasattr(invoice, 'is_flagged'):
+        invoice.is_flagged = bool(is_flagged)
+    else:
+        raise HTTPException(status_code=500, detail="Kolumna is_flagged nie istnieje w modelu")
+    
+    db.commit()
+    db.refresh(invoice)
+    
+    return {
+        "message": f"Flaga faktury {invoice.numer_faktury} została zaktualizowana",
+        "invoice_id": invoice.id,
+        "invoice_number": invoice.numer_faktury,
+        "is_flagged": bool(invoice.is_flagged)
     }
 
 

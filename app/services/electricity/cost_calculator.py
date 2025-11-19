@@ -60,12 +60,40 @@ def calculate_kwh_cost(invoice_id: int, db: Session) -> Dict[str, Any]:
         }
     }
     
-    # Przetwórz sprzedaż energii (energia czynna) - zaokrąglone do 4 miejsc
+    # Przetwórz sprzedaż energii (energia czynna)
+    # Oblicz średnią ważoną ceny NETTO dla każdej strefy na podstawie należności brutto i ilości kWh
+    # To pozwala uniknąć błędów gdy w bazie są błędne wartości ceny_za_kwh
+    strefa_suma_naleznosci_netto = {}
+    strefa_suma_ilosci = {}
+    
     for s in sprzedaz:
+        # Pomiń upusty (ujemne należności)
+        if float(s.naleznosc) < 0:
+            continue
+            
         strefa = s.strefa or "CAŁODOBOWA"
         if strefa not in koszty:
             continue
-        koszty[strefa]["energia_czynna"] = round(float(s.cena_za_kwh), 4)
+        
+        # Należność w bazie jest brutto, więc obliczamy netto
+        naleznosc_brutto = float(s.naleznosc)
+        vat_rate = float(s.vat_procent) / 100.0
+        naleznosc_netto = naleznosc_brutto / (1 + vat_rate)
+        ilosc_kwh = float(s.ilosc_kwh)
+        
+        if strefa not in strefa_suma_naleznosci_netto:
+            strefa_suma_naleznosci_netto[strefa] = 0.0
+            strefa_suma_ilosci[strefa] = 0.0
+        
+        strefa_suma_naleznosci_netto[strefa] += naleznosc_netto
+        strefa_suma_ilosci[strefa] += ilosc_kwh
+    
+    # Oblicz średnią ważoną ceny NETTO dla każdej strefy
+    for strefa in koszty:
+        if strefa in strefa_suma_ilosci and strefa_suma_ilosci[strefa] > 0:
+            # Średnia ważona cena netto = suma należności netto / suma ilości kWh
+            srednia_cena_netto = strefa_suma_naleznosci_netto[strefa] / strefa_suma_ilosci[strefa]
+            koszty[strefa]["energia_czynna"] = round(srednia_cena_netto, 4)
     
     # Przetwórz opłaty dystrybucyjne - zaokrąglone do 4 miejsc
     for op in oplaty:
