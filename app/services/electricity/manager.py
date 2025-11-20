@@ -162,8 +162,10 @@ class ElectricityBillingManager:
             local_usage_nocna = usage_data['dol'].get('zuzycie_dol_II')
         elif local_name == 'gabinet':
             local_usage = usage_data['gabinet']['zuzycie_gabinet']
-            local_usage_dzienna = None  # GABINET jest zawsze jednotaryfowy
-            local_usage_nocna = None
+            # GABINET używa aproksymacji 70%/30% (dzienna/nocna) dla faktur DWUTARYFOWYCH
+            # nawet jeśli ma taryfę całodobową, bo faktury są DWUTARYFOWE
+            local_usage_dzienna = usage_data['gabinet'].get('zuzycie_gabinet_dzienna')
+            local_usage_nocna = usage_data['gabinet'].get('zuzycie_gabinet_nocna')
         else:
             local_usage = 0.0
             local_usage_dzienna = None
@@ -190,8 +192,11 @@ class ElectricityBillingManager:
             if tenant_period_dates:
                 tenant_period_start, tenant_period_end = tenant_period_dates
                 
-                # Użyj usage_kwh_calodobowa dla gabinetu
-                usage_kwh_calodobowa = local_usage if local_name == 'gabinet' else None
+                # GABINET zawsze używa aproksymacji 70%/30% (dzienna/nocna)
+                # nawet jeśli ma taryfę całodobową, bo faktury są DWUTARYFOWE
+                # Więc nie używamy usage_kwh_calodobowa dla GABINET
+                # local_usage_dzienna i local_usage_nocna są już obliczone w calculate_all_usage
+                usage_kwh_calodobowa = None
                 
                 # Oblicz koszty z uwzględnieniem overlapping periods
                 result = self.calculate_bill_for_period_with_overlapping(

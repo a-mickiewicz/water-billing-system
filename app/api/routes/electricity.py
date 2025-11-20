@@ -927,6 +927,266 @@ def delete_bill(bill_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.get("/bills/{bill_id}/verify")
+def verify_bill(bill_id: int, db: Session = Depends(get_db)):
+    """Pobiera dane do sprawdzenia rachunku."""
+    bill = db.query(ElectricityBill).filter(ElectricityBill.id == bill_id).first()
+    
+    if not bill:
+        raise HTTPException(status_code=404, detail="Rachunek nie znaleziony")
+    
+    # Pobierz fakturę
+    invoice = None
+    if bill.invoice_id:
+        invoice = db.query(ElectricityInvoice).filter(
+            ElectricityInvoice.id == bill.invoice_id
+        ).first()
+    
+    # Pobierz odczyty - użyj tej samej logiki co przy generowaniu rachunku
+    current_reading = db.query(ElectricityReading).filter(
+        ElectricityReading.data == bill.data
+    ).first()
+    
+    previous_reading = None
+    if current_reading:
+        previous_reading = get_previous_reading(db, current_reading.data)
+    
+    # Oblicz zużycie - użyj tej samej logiki co przy generowaniu rachunku
+    usage_data = None
+    if current_reading:
+        usage_data = calculate_all_usage(current_reading, previous_reading)
+    
+    # Pobierz koszty 1 kWh - użyj tej samej logiki co przy generowaniu rachunku
+    kwh_costs = None
+    if invoice:
+        kwh_costs = calculate_kwh_cost(invoice.id, db)
+    
+    # Oblicz średnią cenę za 1 kWh - użyj tej samej logiki co w calculate_bill_costs
+    # Najlepiej użyć calculate_bill_costs do obliczenia kosztu energii, a następnie podzielić przez zużycie
+    avg_price_per_kwh = None
+    manager = ElectricityBillingManager()
+    
+    if invoice and usage_data:
+        # Użyj calculate_bill_costs do obliczenia kosztu energii (netto)
+        # To zapewni, że użyjemy dokładnie tej samej logiki co przy generowaniu rachunku
+        try:
+            costs = manager.calculate_bill_costs(invoice, usage_data, bill.local, db, bill.data)
+            energy_cost_net_from_costs = None
+            
+            # Oblicz koszt energii netto z costs
+            # W calculate_bill_costs koszt energii brutto jest w energy_cost_gross
+            # Musimy obliczyć netto (zakładając VAT 23%)
+            if costs.get('energy_cost_gross'):
+                energy_cost_gross = costs['energy_cost_gross']
+                vat_rate = 0.23
+                energy_cost_net_from_costs = round(energy_cost_gross / (1 + vat_rate), 4)
+            
+            # Oblicz średnią cenę za 1 kWh: koszt energii netto / zużycie
+            if energy_cost_net_from_costs is not None and bill.usage_kwh and bill.usage_kwh > 0:
+                avg_price_per_kwh = round(energy_cost_net_from_costs / bill.usage_kwh, 4)
+        except Exception as e:
+            # Fallback - użyj uproszczonej logiki
+            if kwh_costs:
+                local_name = bill.local
+                if local_name == 'gabinet':
+                    # GABINET używa aproksymacji 70%/30%
+                    if "DZIENNA" in kwh_costs and "NOCNA" in kwh_costs:
+                        cena_dzienna = kwh_costs["DZIENNA"].get("suma", 0)
+                        cena_nocna = kwh_costs["NOCNA"].get("suma", 0)
+                        avg_price_per_kwh = round(cena_dzienna * 0.7 + cena_nocna * 0.3, 4)
+                elif local_name in ['gora', 'dol']:
+                    usage_dzienna = bill.usage_kwh_dzienna or 0
+                    usage_nocna = bill.usage_kwh_nocna or 0
+                    usage_total = bill.usage_kwh or 0
+                    
+                    if usage_total > 0 and "DZIENNA" in kwh_costs and "NOCNA" in kwh_costs:
+                        cena_dzienna = kwh_costs["DZIENNA"].get("suma", 0)
+                        cena_nocna = kwh_costs["NOCNA"].get("suma", 0)
+                        if usage_dzienna + usage_nocna > 0:
+                            proportion_dzienna = usage_dzienna / (usage_dzienna + usage_nocna)
+                            proportion_nocna = usage_nocna / (usage_dzienna + usage_nocna)
+                            avg_price_per_kwh = round(cena_dzienna * proportion_dzienna + cena_nocna * proportion_nocna, 4)
+                elif invoice.typ_taryfy == "DWUTARYFOWA":
+                    if "DZIENNA" in kwh_costs and "NOCNA" in kwh_costs:
+                        koszt_dzienna = kwh_costs["DZIENNA"].get("suma", 0)
+                        koszt_nocna = kwh_costs["NOCNA"].get("suma", 0)
+                        avg_price_per_kwh = round(koszt_dzienna * 0.7 + koszt_nocna * 0.3, 4)
+    
+    # Pobierz opłaty stałe
+    fixed_fees_total = None
+    fixed_fees_per_local = None
+    if invoice:
+        fixed_fees_per_local = manager.calculate_fixed_fees_per_local(invoice, db)
+        # Opłaty stałe łącznie (przed podziałem na 3)
+        oplaty = db.query(ElectricityInvoiceOplataDystrybucyjna).filter(
+            ElectricityInvoiceOplataDystrybucyjna.invoice_id == invoice.id
+        ).all()
+        
+        target_fee_names = [
+            'Opłata stała sieciowa - układ 3-fazowy',
+            'Opłata przejściowa > 1200 kWh',
+            'Opłata mocowa ( > 2800 kWh)',
+            'Opłata abonamentowa'
+        ]
+        
+        fixed_fees_total = 0.0
+        for oplata in oplaty:
+            if oplata.typ_oplaty in target_fee_names:
+                naleznosc = float(oplata.naleznosc) if oplata.naleznosc else 0.0
+                fixed_fees_total += naleznosc
+        
+        fixed_fees_total = round(fixed_fees_total, 4)
+    
+    # Przygotuj dane odczytów dla konkretnego lokalu
+    # Użyj dokładnie tej samej logiki co w calculate_all_usage
+    current_reading_data = None
+    previous_reading_data = None
+    local_name = bill.local
+    
+    if current_reading and previous_reading:
+        if local_name == 'gabinet':
+            # GABINET - zawsze jednotaryfowy, używa odczyt_gabinet
+            current_reading_data = {
+                "type": "jednotaryfowy",
+                "value": current_reading.odczyt_gabinet
+            }
+            previous_reading_data = {
+                "type": "jednotaryfowy",
+                "value": previous_reading.odczyt_gabinet
+            }
+        elif local_name == 'dol':
+            # DOL (Mikołaj) = DÓŁ - GABINET
+            # Używa odczytów DÓŁ (dwutaryfowy lub jednotaryfowy)
+            if current_reading.licznik_dol_jednotaryfowy:
+                current_reading_data = {
+                    "type": "jednotaryfowy",
+                    "value": current_reading.odczyt_dol
+                }
+                previous_reading_data = {
+                    "type": "jednotaryfowy",
+                    "value": previous_reading.odczyt_dol
+                }
+            else:
+                current_reading_data = {
+                    "type": "dwutaryfowy",
+                    "t1": current_reading.odczyt_dol_I,
+                    "t2": current_reading.odczyt_dol_II
+                }
+                previous_reading_data = {
+                    "type": "dwutaryfowy",
+                    "t1": previous_reading.odczyt_dol_I,
+                    "t2": previous_reading.odczyt_dol_II
+                }
+        elif local_name == 'gora':
+            # GÓRA = DOM - DÓŁ
+            # Używa odczytów DOM (dwutaryfowy lub jednotaryfowy)
+            if current_reading.licznik_dom_jednotaryfowy:
+                current_reading_data = {
+                    "type": "jednotaryfowy",
+                    "value": current_reading.odczyt_dom
+                }
+                previous_reading_data = {
+                    "type": "jednotaryfowy",
+                    "value": previous_reading.odczyt_dom
+                }
+            else:
+                current_reading_data = {
+                    "type": "dwutaryfowy",
+                    "t1": current_reading.odczyt_dom_I,
+                    "t2": current_reading.odczyt_dom_II
+                }
+                previous_reading_data = {
+                    "type": "dwutaryfowy",
+                    "t1": previous_reading.odczyt_dom_I,
+                    "t2": previous_reading.odczyt_dom_II
+                }
+        else:
+            # DOM - używa odczytów DOM
+            if current_reading.licznik_dom_jednotaryfowy:
+                current_reading_data = {
+                    "type": "jednotaryfowy",
+                    "value": current_reading.odczyt_dom
+                }
+                previous_reading_data = {
+                    "type": "jednotaryfowy",
+                    "value": previous_reading.odczyt_dom
+                }
+            else:
+                current_reading_data = {
+                    "type": "dwutaryfowy",
+                    "t1": current_reading.odczyt_dom_I,
+                    "t2": current_reading.odczyt_dom_II
+                }
+                previous_reading_data = {
+                    "type": "dwutaryfowy",
+                    "t1": previous_reading.odczyt_dom_I,
+                    "t2": previous_reading.odczyt_dom_II
+                }
+    
+    # Przygotuj ceny za 1 kWh
+    price_t1 = None
+    price_t2 = None
+    price_calodobowa = None
+    
+    if kwh_costs:
+        if "DZIENNA" in kwh_costs:
+            price_t1 = kwh_costs["DZIENNA"].get("suma", 0)
+        if "NOCNA" in kwh_costs:
+            price_t2 = kwh_costs["NOCNA"].get("suma", 0)
+        if "CAŁODOBOWA" in kwh_costs:
+            price_calodobowa = kwh_costs["CAŁODOBOWA"].get("suma", 0)
+    
+    # Oblicz koszt energii (netto)
+    energy_cost_net = None
+    if avg_price_per_kwh and bill.usage_kwh:
+        energy_cost_net = round(bill.usage_kwh * avg_price_per_kwh, 4)
+    
+    # Suma netto (energia + opłaty stałe)
+    total_net = None
+    if energy_cost_net is not None and fixed_fees_per_local is not None:
+        total_net = round(energy_cost_net + fixed_fees_per_local, 4)
+    
+    # Suma brutto
+    total_gross = None
+    if total_net is not None:
+        total_gross = round(total_net * 1.23, 4)  # VAT 23%
+    
+    # Nazwa lokalu
+    local_obj = db.query(Local).filter(Local.local == bill.local).first()
+    # Użyj nazwy najemcy jeśli istnieje, w przeciwnym razie użyj nazwy lokalu
+    if local_obj and local_obj.tenant:
+        local_name = f"{local_obj.tenant} ({bill.local})"
+    else:
+        local_name = bill.local
+    
+    return {
+        "local": local_name,
+        "period": bill.data,
+        "current_reading": current_reading_data,
+        "previous_reading": previous_reading_data,
+        "usage": {
+            "total": bill.usage_kwh,
+            "dzienna": bill.usage_kwh_dzienna,
+            "nocna": bill.usage_kwh_nocna
+        },
+        "price_per_kwh": {
+            "t1": price_t1,
+            "t2": price_t2,
+            "calodobowa": price_calodobowa,
+            "average": avg_price_per_kwh
+        },
+        "fixed_fees": {
+            "total": fixed_fees_total,
+            "per_local": fixed_fees_per_local
+        },
+        "calculations": {
+            "energy_cost_net": energy_cost_net,
+            "total_net": total_net,
+            "total_gross": total_gross
+        }
+    }
+
+
 @router.delete("/bills")
 def delete_all_bills(db: Session = Depends(get_db)):
     """Usuwa wszystkie rachunki prądu."""

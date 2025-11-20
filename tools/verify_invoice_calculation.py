@@ -164,8 +164,9 @@ def verify_invoice_calculation(invoice_number: str, periods: list[str]):
                     local_usage_nocna = usage_data['dol'].get('zuzycie_dol_II')
                 else:  # gabinet
                     local_usage = usage_data['gabinet']['zuzycie_gabinet']
-                    local_usage_dzienna = None
-                    local_usage_nocna = None
+                    # GABINET używa aproksymacji 70%/30% (dzienna/nocna) dla faktur DWUTARYFOWYCH
+                    local_usage_dzienna = usage_data['gabinet'].get('zuzycie_gabinet_dzienna')
+                    local_usage_nocna = usage_data['gabinet'].get('zuzycie_gabinet_nocna')
                 
                 print(f"Zużycie łącznie: {local_usage:.4f} kWh")
                 if local_usage_dzienna is not None:
@@ -177,7 +178,16 @@ def verify_invoice_calculation(invoice_number: str, periods: list[str]):
                 if distribution_periods and len(distribution_periods) > 1:
                     print("\n[POPRAWIONA LOGIKA] Uzywam overlapping periods")
                     
-                    usage_kwh_calodobowa = local_usage if local_name == 'gabinet' else None
+                    # GABINET zawsze używa aproksymacji 70%/30% (dzienna/nocna)
+                    # nawet jeśli ma taryfę całodobową, bo faktury są DWUTARYFOWE
+                    # Więc nie używamy usage_kwh_calodobowa dla GABINET
+                    if local_name == 'gabinet':
+                        # Pobierz aproksymację 70%/30% z usage_data
+                        local_usage_dzienna = usage_data['gabinet'].get('zuzycie_gabinet_dzienna')
+                        local_usage_nocna = usage_data['gabinet'].get('zuzycie_gabinet_nocna')
+                        usage_kwh_calodobowa = None
+                    else:
+                        usage_kwh_calodobowa = None
                     
                     result = manager.calculate_bill_for_period_with_overlapping(
                         tenant_period_start,
